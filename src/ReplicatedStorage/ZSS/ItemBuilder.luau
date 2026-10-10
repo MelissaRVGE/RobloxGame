@@ -1468,6 +1468,55 @@ BX.bp_omega = function(m, st, g)
 	end
 end
 
+-- лямки через плечи на грудь (видны спереди)
+local function bpStraps(m, st, w, h, zb, zf)
+	for _, sx in ipairs({ -1, 1 }) do
+		local x = sx * w * 0.25
+		P(m, { name = "Strap", size = Vector3.new(w * 0.13, h * 0.8, 0.06), cf = CFrame.new(x, -h * 0.02, zf - 0.03), color = st.strap, v = st.strapV })
+		P(m, { name = "Strap", size = Vector3.new(w * 0.13, 0.08, zb - zf + 0.06), cf = CFrame.new(x, h * 0.5 + 0.04, (zb + zf) / 2), color = st.strap, v = st.strapV })
+		P(m, { name = "Buckle", size = Vector3.new(w * 0.15, 0.1, 0.05), cf = CFrame.new(x, -h * 0.3, zf - 0.07), color = C(190, 190, 195), mat = M.Metal })
+	end
+	if st.chest then
+		P(m, { name = "ChestStrap", size = Vector3.new(w * 0.52, 0.08, 0.05), cf = CFrame.new(0, h * 0.18, zf - 0.07), color = st.strap, v = st.strapV })
+	end
+end
+
+-- качественные 3D-модели рюкзаков (ReplicatedStorage.ZSS.BackpackMeshes/<id>):
+-- шаблон с центром габаритов в начале координат, сторона к спине игрока смотрит в -Z.
+-- Fit — ширина относительно торса, Up — сдвиг вверх (доля высоты торса), Sink — насколько утоплен в спину.
+local function backpackMesh(m, id, st, w, h, zb)
+	local z = game:GetService("ReplicatedStorage"):FindFirstChild("ZSS")
+	local lib = z and z:FindFirstChild("BackpackMeshes")
+	local tpl = lib and lib:FindFirstChild(id)
+	if not tpl then
+		return false
+	end
+	local c = tpl:Clone()
+	local _, size = c:GetBoundingBox()
+	c:ScaleTo(c:GetScale() * w * (tpl:GetAttribute("Fit") or 0.85) / size.X)
+	local _, sz = c:GetBoundingBox()
+	c:PivotTo(CFrame.new(0, h * (tpl:GetAttribute("Up") or 0), zb + sz.Z * (0.5 - (tpl:GetAttribute("Sink") or 0.06))))
+	local first
+	for _, p in ipairs(c:GetDescendants()) do
+		if p:IsA("BasePart") then
+			p.Anchored = true
+			p.CanCollide = false
+			p.CanQuery = false
+			p.CanTouch = false
+			p.Massless = true
+			p.CastShadow = false
+			p.Name = "Bag"
+			p.Parent = m
+			first = first or p
+		end
+	end
+	c:Destroy()
+	if first and (st.glow or st.gem) then
+		bpLight(first, st.glow or st.gem, 7)
+	end
+	return first ~= nil
+end
+
 function IB.Backpack(item, box, armored)
 	box = box or Vector3.new(2, 1.6, 1)
 	local st = BP[item.id] or BP.bp_old
@@ -1476,6 +1525,10 @@ function IB.Backpack(item, box, armored)
 	local w, h, d = box.X, box.Y, box.Z
 	local zb = armored and d * 0.68 or d * 0.52 -- спина (или броня на спине)
 	local zf = -(armored and d * 0.7 or d * 0.53) -- грудь
+	if backpackMesh(m, item.id, st, w, h, zb) then
+		bpStraps(m, st, w, h, zb, zf)
+		return m
+	end
 	local g = { bw = w * (st.bw or 0.8), bh = h * (st.bh or 0.86), bd = d * (st.bd or 0.6) }
 	g.cy = h * (st.by or -0.04)
 	g.cz = zb + g.bd / 2
@@ -1509,16 +1562,7 @@ function IB.Backpack(item, box, armored)
 			P(m, { name = "SidePocket", size = Vector3.new(g.bw * 0.16, g.bh * 0.42, g.bd * 0.7), cf = CFrame.new(sx * (g.bw / 2 + g.bw * 0.07), g.cy - g.bh * 0.2, g.cz), color = st.pocket or st.main, v = st.pocketV or st.v })
 		end
 	end
-	-- лямки через плечи на грудь
-	for _, sx in ipairs({ -1, 1 }) do
-		local x = sx * w * 0.25
-		P(m, { name = "Strap", size = Vector3.new(w * 0.13, h * 0.8, 0.06), cf = CFrame.new(x, -h * 0.02, zf - 0.03), color = st.strap, v = st.strapV })
-		P(m, { name = "Strap", size = Vector3.new(w * 0.13, 0.08, zb - zf + 0.06), cf = CFrame.new(x, h * 0.5 + 0.04, (zb + zf) / 2), color = st.strap, v = st.strapV })
-		P(m, { name = "Buckle", size = Vector3.new(w * 0.15, 0.1, 0.05), cf = CFrame.new(x, -h * 0.3, zf - 0.07), color = C(190, 190, 195), mat = M.Metal })
-	end
-	if st.chest then
-		P(m, { name = "ChestStrap", size = Vector3.new(w * 0.52, 0.08, 0.05), cf = CFrame.new(0, h * 0.18, zf - 0.07), color = st.strap, v = st.strapV })
-	end
+	bpStraps(m, st, w, h, zb, zf)
 	if BX[item.id] then
 		BX[item.id](m, st, g)
 	end
