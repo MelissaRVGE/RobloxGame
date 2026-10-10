@@ -14,6 +14,7 @@ function Equipment.Reconcile(p)
 	p.items = p.items or {}
 	p.items[Shop.DefaultWeapon] = true
 	p.items[Shop.DefaultTool] = true
+	p.items[Shop.DefaultBackpack] = true
 	p.gear = p.gear or {}
 	for slot, id in pairs(p.gear) do
 		local it = Shop.ById[id]
@@ -27,7 +28,11 @@ function Equipment.Reconcile(p)
 	end
 	p.gear.weapon = p.gear.weapon or Shop.DefaultWeapon
 	p.gear.tool = p.gear.tool or Shop.DefaultTool
+	p.gear.backpack = p.gear.backpack or Shop.DefaultBackpack
 end
+
+-- слоты, которые нельзя снять (только заменить другим предметом)
+local FIXED = { weapon = true, tool = true, backpack = true }
 
 local function bodyParts(char)
 	local r15 = char:FindFirstChild("UpperTorso") ~= nil
@@ -206,9 +211,21 @@ function Equipment.Apply(player)
 	folder.Parent = char
 
 	local g = p.gear
+	local torsoBox = bp.r15 and bp.torso.Size or Vector3.new(2, 2, 1)
 	if g.armor then
-		local box = bp.r15 and bp.torso.Size or Vector3.new(2, 2, 1)
-		attach(folder, IB.Armor(Shop.ById[g.armor], box), bp.torso, CFrame.new())
+		local am = IB.Armor(Shop.ById[g.armor], torsoBox)
+		if g.backpack then
+			-- под рюкзаком прячем то, что у брони висит на спине (ранец, баллоны, выхлоп)
+			for _, d in ipairs(am:GetChildren()) do
+				if d:IsA("BasePart") and d.Name ~= "Wing" and d.Name ~= "Cape" and d.Position.Z > torsoBox.Z * 0.7 then
+					d:Destroy()
+				end
+			end
+		end
+		attach(folder, am, bp.torso, CFrame.new())
+	end
+	if g.backpack and Shop.ById[g.backpack] then
+		attach(folder, IB.Backpack(Shop.ById[g.backpack], torsoBox, g.armor ~= nil), bp.torso, CFrame.new())
 	end
 	local hideHead = false
 	if g.helmet then
@@ -251,6 +268,9 @@ function Equipment.Apply(player)
 	end
 	char:SetAttribute("ZSS_DmgMult", 1 - t.def)
 	player:SetAttribute("ZSS_ScrapMult", 1 + t.scrap + (perks.scrap or 0))
+	-- бонусы переработки от рюкзака (читают Переработчик и способность дрона «Переработка»)
+	player:SetAttribute("ZSS_ConvMult", 1 + t.conv)
+	player:SetAttribute("ZSS_ConvSpeed", 1 + t.cspeed)
 
 	giveWeapon(player, p)
 end
@@ -313,7 +333,7 @@ function Equipment.Equip(player, id)
 	if not p or not item or not p.items[id] then
 		return
 	end
-	if p.gear[item.slot] == id and item.slot ~= "weapon" and item.slot ~= "tool" then
+	if p.gear[item.slot] == id and not FIXED[item.slot] then
 		p.gear[item.slot] = nil -- повторное нажатие снимает
 	else
 		p.gear[item.slot] = id

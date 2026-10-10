@@ -89,6 +89,9 @@ function K.Dress(m, gear)
 	if gear.armor then
 		put(IB.Armor(Shop.ById[gear.armor], m.UpperTorso.Size), m.UpperTorso)
 	end
+	if gear.backpack and Shop.ById[gear.backpack] then
+		put(IB.Backpack(Shop.ById[gear.backpack], m.UpperTorso.Size, gear.armor ~= nil), m.UpperTorso)
+	end
 	if gear.helmet then
 		local face = m.Head:FindFirstChildOfClass("Decal")
 		if face then

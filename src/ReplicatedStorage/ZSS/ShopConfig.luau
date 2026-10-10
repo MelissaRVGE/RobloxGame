@@ -9,6 +9,7 @@ S.Slots = {
 	{ key = "helmet", name = "Шлемы", icon = "⛑" },
 	{ key = "gloves", name = "Перчатки", icon = "🧤" },
 	{ key = "boots", name = "Ботинки", icon = "🥾" },
+	{ key = "backpack", name = "Рюкзаки", icon = "🎒" },
 	{ key = "consumable", name = "Расходники", icon = "🧪" },
 }
 
@@ -30,6 +31,7 @@ S.Grades = {
 
 S.DefaultWeapon = "shiv"
 S.DefaultTool = "scraper"
+S.DefaultBackpack = "bp_old"
 
 S.Items = {
 	-- ===== ОРУЖИЕ (только урон по зомби) =====
@@ -261,6 +263,32 @@ for _, slot in ipairs({ "armor", "helmet", "gloves", "boots" }) do
 	end
 end
 
+-- ===== РЮКЗАКИ (видны на спине) =====
+-- cap — бонус к вместимости (умножает вместимость уровня рюкзака), conv — больше батарей
+-- за переработку, cspeed — быстрее работает Переработчик. Бонус переработки есть не у всех.
+local BACKPACKS = {
+	{ "bp_old", "Школьный рюкзак", 0, 1, { cap = 0 }, "Потёртый рюкзак с брелоком. Лучше, чем ничего." },
+	{ "bp_sack", "Брезентовый вещмешок", 2500, 1, { cap = 0.1 }, "Мешок на верёвке. Влезает чуть больше лома." },
+	{ "bp_denim", "Джинсовый рюкзак", 12000, 2, { cap = 0.15, conv = 0.05 }, "Сшит из старых джинсов, весь в нашивках. Счастливый: переработка выгоднее." },
+	{ "bp_hiker", "Туристический рюкзак", 40000, 2, { cap = 0.3 }, "Каркасный рюкзак со спальником и флягой." },
+	{ "bp_scrapper", "Сумка утилизатора", 90000, 3, { cap = 0.2, conv = 0.12, cspeed = 0.25 }, "Встроенный сортировщик: лом перерабатывается быстрее и выгоднее." },
+	{ "bp_raid", "Армейский рейдовый рюкзак", 250000, 3, { cap = 0.5 }, "Камуфляж и куча подсумков — максимум места." },
+	{ "bp_tactical", "Тактический MOLLE-рюкзак", 700000, 4, { cap = 0.75, cspeed = 0.15 }, "Стропы MOLLE, рация и быстрая разгрузка." },
+	{ "bp_hazmat", "Хим-контейнер «Изотоп»", 1800000, 4, { cap = 0.6, conv = 0.2 }, "Бак с нейтрализатором растворяет лом в чистую энергию." },
+	{ "bp_reactor", "Ранец с мини-реактором", 5000000, 5, { cap = 1.0, conv = 0.15, cspeed = 0.4 }, "Реактор подзаряжает батареи прямо на спине." },
+	{ "bp_bone", "Костяной короб", 12000000, 5, { cap = 1.4 }, "Шкура мутанта на рёбрах чудовища. Огромный и жуткий." },
+	{ "bp_dragon", "Драконий ранец", 30000000, 6, { cap = 1.8, conv = 0.3 }, "Чешуя, золото и сложенные крылья. Тлеет изнутри." },
+	{ "bp_crystal", "Кристальный ранец", 70000000, 6, { cap = 2.2, cspeed = 0.6 }, "Радиокристаллы гудят и ускоряют переработку." },
+	{ "bp_magma", "Магма-плавильня", 150000000, 6, { cap = 2.6, conv = 0.45, cspeed = 0.5 }, "Плавит лом на ходу. Из трубы валит огонь." },
+	{ "bp_obsidian", "Обсидиановый сундук", 350000000, 7, { cap = 3.3 }, "Чёрное стекло с фиолетовыми рунами. Внутри больше, чем снаружи." },
+	{ "bp_nano", "Нано-ранец «Призрак»", 800000000, 7, { cap = 3.8, conv = 0.6, cspeed = 0.8 }, "Наноботы сортируют лом, голограмма считает батареи." },
+	{ "bp_royal", "Королевский сундук", 1600000000, 7, { cap = 4.6 }, "Гравированное золото, рубины и бархат. Для короля пустоши." },
+	{ "bp_omega", "Пространственный ранец «Омега»", 3000000000, 7, { cap = 6, conv = 0.8, cspeed = 1.2 }, "Портал в карманное измерение и энергетические крылья." },
+}
+for k, b in ipairs(BACKPACKS) do
+	table.insert(S.Items, { id = b[1], slot = "backpack", name = b[2], price = b[3], grade = b[4], stats = b[5], desc = b[6], tier = k })
+end
+
 -- ===== КРАФТ: находки из куч лома, нужные помимо батарей =====
 S.Mats = {
 	-- инструменты
@@ -325,6 +353,23 @@ S.Mats = {
 	lavaforge = { omegacore = 2, goldbar = 6, mutantheart = 3 },
 	nanoswarm = { omegacore = 3, chip = 30, dronecell = 12 },
 	singularity = { omegacore = 5, goldbar = 10, plutonium = 10 },
+	-- рюкзаки
+	bp_sack = { wire = 2 },
+	bp_denim = { nut = 4, wire = 3 },
+	bp_hiker = { cog = 2, wire = 5 },
+	bp_scrapper = { cog = 4, oldbattery = 3 },
+	bp_raid = { dogtag = 3, cog = 5 },
+	bp_tactical = { keycard = 1, chip = 4 },
+	bp_hazmat = { slime = 4, chip = 5 },
+	bp_reactor = { dronecell = 4, radcrystal = 4 },
+	bp_bone = { mutantheart = 1, tooth = 10 },
+	bp_dragon = { mutantheart = 2, goldbar = 1 },
+	bp_crystal = { radcrystal = 10, gemshard = 4 },
+	bp_magma = { plutonium = 4, goldbar = 3 },
+	bp_obsidian = { omegacore = 1, gemshard = 10 },
+	bp_nano = { omegacore = 2, chip = 24 },
+	bp_royal = { goldbar = 10, mutantheart = 4 },
+	bp_omega = { omegacore = 5, goldbar = 10, plutonium = 8 },
 }
 -- материалы для снаряжения уровней 6–15
 do
@@ -353,8 +398,8 @@ end
 
 -- суммарные характеристики по экипировке
 function S.Totals(gear)
-	local t = { hp = 0, def = 0, scrap = 0, speed = 0, jump = 0 }
-	for _, slot in ipairs({ "armor", "helmet", "gloves", "boots" }) do
+	local t = { hp = 0, def = 0, scrap = 0, speed = 0, jump = 0, cap = 0, conv = 0, cspeed = 0 }
+	for _, slot in ipairs({ "armor", "helmet", "gloves", "boots", "backpack" }) do
 		local it = gear and gear[slot] and S.ById[gear[slot]]
 		if it then
 			for k, v in pairs(it.stats) do

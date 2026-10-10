@@ -79,7 +79,7 @@ function Converter.Init(dataModule)
 				elseif p.scrap <= 0 then
 					Converter.Stop(player)
 				else
-					local rate = CV.baseRate + Data.Capacity(p) * CV.capRate
+					local rate = (CV.baseRate + Data.Capacity(p) * CV.capRate) * (player:GetAttribute("ZSS_ConvSpeed") or 1)
 					local chunk = math.min(p.scrap, math.max(1, math.floor(rate * TICK + 0.5)))
 					p.scrap -= chunk
 					-- списываем ресурсы по порядку (сначала простые)
@@ -96,8 +96,12 @@ function Converter.Init(dataModule)
 							left -= take
 						end
 					end
-					st.total += chunk
-					Data.AddBatteries(player, chunk)
+					-- бонус переработки от рюкзака: дробная часть копится между тиками
+					local gain = chunk * (player:GetAttribute("ZSS_ConvMult") or 1) + (st.frac or 0)
+					local whole = math.floor(gain)
+					st.frac = gain - whole
+					st.total += whole
+					Data.AddBatteries(player, whole)
 					Quests.Event(player, "convert", nil, chunk)
 					local now = os.clock()
 					if not st.nextFx or now >= st.nextFx then
