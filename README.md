@@ -8,7 +8,7 @@ Roblox-игра в духе Bee Swarm Simulator, только вместо пч�
 
 **Один раз:**
 
-1. Установи Rojo: через [Rokit](https://github.com/rojo-rbx/rokit) командой `rokit install` в папке репозитория или скачай `rojo` 7.4.4 со [страницы релизов](https://github.com/rojo-rbx/rojo/releases).
+1. Установи Rojo: через [Rokit](https://github.com/rojo-rbx/rokit) командой `rokit install` в папке репозитория или скачай `rojo` 7.7.1 со [страницы релизов](https://github.com/rojo-rbx/rojo/releases).
 2. Поставь плагин Rojo в Studio: `rojo plugin install` или найди «Rojo» в Creator Store.
 3. Склонируй репозиторий: `git clone https://github.com/MelissaRVGE/RobloxGame`.
 

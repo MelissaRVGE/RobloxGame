@@ -8,3 +8,7 @@
 .DS_Store
 Thumbs.db
 .vscode/
+
+# Rojo, скачанный прямо в папку
+rojo.exe
+rojo.zip
