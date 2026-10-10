@@ -828,9 +828,57 @@ local function armorHigh(m, t, box)
 	end
 end
 
+-- качественные 3D-модели брони (ReplicatedStorage.ZSS.ArmorMeshes/armorN, один MeshPart).
+-- Используются собственные оси меша: грудь смотрит в -Z, Yaw (градусы) доворачивает меш, если он сгенерирован боком.
+-- SX / SY / SZ — размер относительно торса по осям (меш растягивается, чтобы обернуть торс),
+-- Up — сдвиг вверх (доля высоты торса), Back — сдвиг назад (доля глубины торса).
+local function armorMesh(m, t, box)
+	local z = game:GetService("ReplicatedStorage"):FindFirstChild("ZSS")
+	local lib = z and z:FindFirstChild("ArmorMeshes")
+	local tpl = lib and lib:FindFirstChild("armor" .. t)
+	local src = tpl and tpl:FindFirstChildWhichIsA("BasePart", true)
+	if not src then
+		return false
+	end
+	local w, h, d = box.X, box.Y, box.Z
+	local yaw = math.rad(tpl:GetAttribute("Yaw") or 0)
+	local size = Vector3.new(w * (tpl:GetAttribute("SX") or 1.5), h * (tpl:GetAttribute("SY") or 1.2), d * (tpl:GetAttribute("SZ") or 2.3))
+	if math.abs(math.cos(yaw)) < 0.5 then
+		size = Vector3.new(size.Z, size.Y, size.X)
+	end
+	local p = src:Clone()
+	p.Size = size
+	p.CFrame = CFrame.new(0, h * (tpl:GetAttribute("Up") or -0.04), d * (tpl:GetAttribute("Back") or 0)) * CFrame.Angles(0, yaw, 0)
+	p.Anchored = true
+	p.CanCollide = false
+	p.CanQuery = false
+	p.CanTouch = false
+	p.Massless = true
+	p.CastShadow = false
+	p.Name = "Vest"
+	p.Parent = m
+	local st = HI[t] or ARMOR[t]
+	if st and st.glow then
+		local l = Instance.new("PointLight")
+		l.Color = st.glow
+		l.Range = 7
+		l.Brightness = 1.2
+		l.Parent = p
+	end
+	return true
+end
+
 function IB.Armor(item, box)
 	box = box or Vector3.new(2, 1.6, 1)
 	local t = item.tier
+	do
+		local m = newModel(item.id)
+		root(m)
+		if armorMesh(m, t, box) then
+			return m
+		end
+		m:Destroy()
+	end
 	if t >= 6 and HI[t] then
 		local m = newModel(item.id)
 		root(m)
@@ -1525,7 +1573,7 @@ function IB.Backpack(item, box, armored)
 	local m = newModel(item.id)
 	root(m)
 	local w, h, d = box.X, box.Y, box.Z
-	local zb = armored and d * 0.68 or d * 0.52 -- спина (или броня на спине)
+	local zb = armored and d * 0.85 or d * 0.52 -- спина (или 3D-броня на спине)
 	local zf = -(armored and d * 0.7 or d * 0.53) -- грудь
 	if backpackMesh(m, item.id, st, w, h, zb) then
 		bpStraps(m, st, w, h, zb, zf)

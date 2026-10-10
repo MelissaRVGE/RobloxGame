@@ -73,15 +73,15 @@ local function attach(folder, model, part, offset)
 	model.Parent = folder
 end
 
--- 3D-модели рюкзаков не рисуются внутри модели с Humanoid, поэтому надетый рюкзак
--- лежит в отдельной папке Workspace и приварен к торсу
+-- сгенерированные 3D-модели не всегда рисуются внутри модели с Humanoid, поэтому броня и рюкзак
+-- лежат в отдельной папке Workspace и приварены к торсу
 local worn = {}
 
 local function dropWorn(player)
-	if worn[player] then
-		worn[player]:Destroy()
-		worn[player] = nil
+	for _, m in ipairs(worn[player] or {}) do
+		m:Destroy()
 	end
+	worn[player] = nil
 end
 
 local function wornFolder()
@@ -234,6 +234,7 @@ function Equipment.Apply(player)
 
 	local g = p.gear
 	local torsoBox = bp.r15 and bp.torso.Size or Vector3.new(2, 2, 1)
+	local list = {}
 	if g.armor then
 		local am = IB.Armor(Shop.ById[g.armor], torsoBox)
 		if g.backpack then
@@ -244,18 +245,23 @@ function Equipment.Apply(player)
 				end
 			end
 		end
-		attach(folder, am, bp.torso, CFrame.new())
+		am.Name = "Armor_" .. player.UserId
+		attach(wornFolder(), am, bp.torso, CFrame.new())
+		table.insert(list, am)
 	end
 	if g.backpack and Shop.ById[g.backpack] then
 		local bag = IB.Backpack(Shop.ById[g.backpack], torsoBox, g.armor ~= nil)
 		bag.Name = "Backpack_" .. player.UserId
 		attach(wornFolder(), bag, bp.torso, CFrame.new())
-		worn[player] = bag
+		table.insert(list, bag)
+	end
+	if #list > 0 then
+		worn[player] = list
 		local conn
 		conn = char.AncestryChanged:Connect(function()
 			if not char:IsDescendantOf(workspace) then
 				conn:Disconnect()
-				if worn[player] == bag then
+				if worn[player] == list then
 					dropWorn(player)
 				end
 			end
