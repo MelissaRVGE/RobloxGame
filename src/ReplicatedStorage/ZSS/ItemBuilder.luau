@@ -19,6 +19,9 @@ local VBASE = {
 	ZSSG_W_Circuit = M.SmoothPlastic, ZSSG_W_Bone = M.Limestone, ZSSG_W_Titanium = M.Metal, ZSSG_W_Crystal = M.Ice,
 	ZSSG_W_Magma = M.CrackedLava, ZSSG_W_Hazmat = M.Rubber, ZSSG_W_Steel = M.Metal, ZSSG_W_LeatherBlack = M.Leather,
 	ZSSG_W_Leather = M.Leather, ZSSG_W_Plate = M.DiamondPlate, ZSSG_W_Carbon = M.SmoothPlastic, ZSSG_W_Wood = M.Wood,
+	-- ткани рюкзаков
+	ZSSG_B_Nylon = M.Fabric, ZSSG_B_Patchwork = M.Fabric, ZSSG_B_Molle = M.Fabric,
+	ZSSG_B_Fur = M.Fabric, ZSSG_B_Quilted = M.Fabric,
 }
 
 -- Улучшенные PBR-текстуры снаряжения (MaterialService, ZSSG_W_*). Старые остаются как запасные.
@@ -1181,17 +1184,17 @@ end
 local BLACK = C(0, 0, 0)
 local BP = {
 	bp_old = { main = C(200, 60, 50), v = "ZSSG_B_Nylon", pocket = C(40, 70, 150), pocketV = "ZSSG_B_Nylon", strap = C(35, 35, 40), strapV = "ZSSG_B_Molle", round = true },
-	bp_sack = { main = C(175, 155, 115), v = "ZSSG_Canvas", strap = C(140, 110, 70), strapV = "ZSS_I_Burlap", shape = "sack", nopocket = true },
+	bp_sack = { main = C(185, 160, 120), v = "ZSS_I_Burlap", strap = C(140, 110, 70), strapV = "ZSS_I_Burlap", nopocket = true, round = true, bw = 0.7, bh = 0.8 },
 	bp_denim = { main = C(80, 110, 170), v = "ZSSG_B_Patchwork", pocket = C(50, 75, 130), pocketV = "ZSS_I_Denim", strap = C(120, 80, 50), strapV = "ZSSG_W_Leather", round = true },
 	bp_hiker = { main = C(230, 120, 40), v = "ZSSG_B_Nylon", pocket = C(60, 70, 80), pocketV = "ZSSG_B_Nylon", strap = C(40, 45, 50), strapV = "ZSSG_B_Molle", bh = 1.0, by = 0.06, side = true, chest = true },
 	bp_scrapper = { main = C(120, 95, 70), v = "ZSSG_W_Leather", pocket = C(200, 150, 110), pocketV = "ZSS_D_Rust", strap = C(40, 35, 30), strapV = "ZSSG_W_LeatherBlack", trim = C(240, 190, 30), trimV = "ZSS_D_Hazard", glow = C(120, 255, 80) },
-	bp_raid = { main = C(120, 130, 85), v = "ZSSG_W_Camo", pocket = C(95, 105, 70), pocketV = "ZSSG_W_Camo", strap = C(55, 60, 45), strapV = "ZSSG_B_Molle", side = true, chest = true, flap = true },
+	bp_raid = { main = C(120, 130, 85), v = "ZSS_D_Camo", pocket = C(95, 105, 70), pocketV = "ZSS_D_Camo", strap = C(55, 60, 45), strapV = "ZSSG_B_Molle", side = true, chest = true, flap = true },
 	bp_tactical = { main = C(70, 75, 62), v = "ZSSG_B_Molle", pocket = C(58, 62, 52), pocketV = "ZSSG_B_Molle", strap = C(35, 38, 32), strapV = "ZSSG_B_Molle", side = true, chest = true, flap = true },
 	bp_hazmat = { main = C(240, 200, 40), v = "ZSSG_W_Hazmat", strap = C(40, 40, 44), strapV = "ZSS_I_Tread", trim = C(40, 40, 44), trimV = "ZSS_I_Tread", nopocket = true, glow = C(130, 255, 80), bd = 0.5 },
-	bp_reactor = { main = C(95, 100, 115), v = "ZSSG_W_SciFi", pocket = C(50, 52, 60), pocketV = "ZSSG_W_Carbon", strap = C(40, 40, 45), strapV = "ZSSG_W_Carbon", trim = C(50, 52, 60), trimV = "ZSSG_W_Carbon", glow = C(80, 220, 255), nopocket = true },
+	bp_reactor = { main = C(95, 100, 115), v = "ZSS_D_SciFi", pocket = C(50, 52, 60), pocketV = "ZSSG_W_Carbon", strap = C(40, 40, 45), strapV = "ZSSG_W_Carbon", trim = C(50, 52, 60), trimV = "ZSSG_W_Carbon", glow = C(80, 220, 255), nopocket = true },
 	bp_bone = { main = C(120, 90, 65), v = "ZSSG_B_Fur", strap = C(70, 50, 40), strapV = "ZSSG_W_Leather", nopocket = true, bh = 0.95, bd = 0.7, round = true, bone = C(238, 228, 205) },
 	bp_dragon = { main = C(170, 35, 35), v = "ZSSG_W_DragonScale", pocket = C(130, 25, 25), pocketV = "ZSSG_W_DragonScale", strap = C(255, 200, 110), strapV = "ZSSG_W_GoldEngraved", trim = C(255, 200, 110), trimV = "ZSSG_W_GoldEngraved", glow = C(255, 120, 40), round = true },
-	bp_crystal = { main = C(95, 105, 135), v = "ZSSG_W_Titanium", strap = C(60, 65, 85), strapV = "ZSSG_W_Plate", trim = C(60, 65, 85), trimV = "ZSSG_W_Plate", glow = C(120, 220, 255), nopocket = true },
+	bp_crystal = { main = C(95, 105, 135), v = "ZSSG_W_Titanium", strap = C(60, 65, 85), strapV = "ZSS_I_DarkPlate", trim = C(60, 65, 85), trimV = "ZSS_I_DarkPlate", glow = C(120, 220, 255), nopocket = true },
 	bp_magma = { main = C(70, 45, 35), v = "ZSSG_W_Magma", strap = C(30, 25, 30), strapV = "ZSSG_W_Obsidian", trim = C(30, 25, 30), trimV = "ZSSG_W_Obsidian", glow = C(255, 110, 20), nopocket = true, bd = 0.66 },
 	bp_obsidian = { main = C(40, 34, 52), v = "ZSSG_W_Obsidian", strap = C(30, 26, 38), strapV = "ZSSG_W_Obsidian", trim = C(25, 22, 30), trimV = "ZSSG_W_Obsidian", glow = C(190, 90, 255), nopocket = true, round = true, chest = true },
 	bp_nano = { main = C(40, 50, 62), v = "ZSSG_W_Circuit", pocket = C(28, 34, 44), pocketV = "ZSSG_W_Carbon", strap = C(28, 34, 44), strapV = "ZSSG_W_Carbon", trim = C(28, 34, 44), trimV = "ZSSG_W_Carbon", glow = C(80, 255, 230) },
@@ -1228,10 +1231,11 @@ end
 
 BX.bp_sack = function(m, st, g)
 	-- горловина, стянутая верёвкой
-	P(m, { shape = Ball, size = Vector3.new(g.bw * 0.55, g.bh * 0.3, g.bd * 0.6), cf = CFrame.new(0, g.top + g.bh * 0.02, g.cz), color = st.main:Lerp(BLACK, 0.1), v = st.v })
-	P(m, { shape = Cyl, size = Vector3.new(0.1, g.bd * 0.62, g.bd * 0.62), cf = CFrame.new(0, g.top - g.bh * 0.04, g.cz) * CFrame.Angles(0, 0, R90), color = C(150, 120, 75), v = "ZSS_I_Burlap" })
+	local neckY = g.top + g.bd * 0.45
+	P(m, { name = "Neck", shape = Cyl, size = Vector3.new(g.bh * 0.25, g.bd * 0.5, g.bd * 0.5), cf = CFrame.new(0, neckY, g.cz) * CFrame.Angles(0, 0, R90), color = st.main:Lerp(BLACK, 0.1), v = st.v })
+	P(m, { name = "Rope", shape = Cyl, size = Vector3.new(0.08, g.bd * 0.56, g.bd * 0.56), cf = CFrame.new(0, neckY - g.bh * 0.05, g.cz) * CFrame.Angles(0, 0, R90), color = C(110, 80, 50), v = "ZSSG_W_Leather" })
 	for _, sx in ipairs({ -1, 1 }) do
-		P(m, { size = Vector3.new(0.07, g.bh * 0.35, 0.07), cf = CFrame.new(sx * 0.12, g.top - g.bh * 0.2, g.back - 0.02) * CFrame.Angles(0, 0, sx * 0.25), color = C(150, 120, 75), v = "ZSS_I_Burlap" })
+		P(m, { name = "Rope", size = Vector3.new(0.06, g.bh * 0.4, 0.06), cf = CFrame.new(sx * 0.1, neckY - g.bh * 0.25, g.back + 0.02) * CFrame.Angles(0, 0, sx * 0.25), color = C(110, 80, 50), v = "ZSSG_W_Leather" })
 	end
 	-- заплатка
 	P(m, { size = Vector3.new(g.bw * 0.28, g.bh * 0.22, 0.04), cf = CFrame.new(-g.bw * 0.15, g.cy - g.bh * 0.15, g.back + 0.01) * CFrame.Angles(0, 0, 0.15), color = C(120, 95, 70), v = "ZSS_I_Burlap" })
@@ -1401,9 +1405,18 @@ BX.bp_obsidian = function(m, st, g)
 	for _, sx in ipairs({ -0.48, 0.48 }) do
 		P(m, { size = Vector3.new(0.05, g.bh * 0.85, g.bd * 1.03), cf = CFrame.new(g.bw * sx, g.cy, g.cz), color = st.glow, mat = M.Neon })
 	end
-	-- руна-круг за спиной
-	local rune = disc(m, { name = "Rune", th = 0.04, dia = g.bh * 1.1, cf = CFrame.new(0, g.cy + g.bh * 0.05, g.back + 0.25), color = st.glow, mat = M.Neon, tr = 0.55 })
-	disc(m, { th = 0.05, dia = g.bh * 0.85, cf = CFrame.new(0, g.cy + g.bh * 0.05, g.back + 0.25), color = C(20, 10, 30), mat = M.SmoothPlastic, tr = 0.3 })
+	-- кольцо рун за спиной (из отдельных сегментов, чтобы сундук был виден сквозь него)
+	local rc = CFrame.new(0, g.cy + g.bh * 0.05, g.back + 0.2)
+	local r = g.bh * 0.55
+	local rune
+	for k = 0, 11 do
+		local a = k / 12 * math.pi * 2
+		local seg = P(m, { name = "Rune", size = Vector3.new(r * 0.42, 0.06, 0.04), cf = rc * CFrame.Angles(0, 0, a) * CFrame.new(0, r, 0), color = st.glow, mat = M.Neon, tr = k % 3 == 0 and 0 or 0.3 })
+		rune = rune or seg
+	end
+	-- глиф в центре
+	P(m, { size = Vector3.new(0.06, g.bh * 0.4, 0.04), cf = CFrame.new(0, g.cy + g.bh * 0.05, g.back + 0.02), color = st.glow, mat = M.Neon })
+	P(m, { size = Vector3.new(g.bw * 0.2, g.bw * 0.2, 0.04), cf = CFrame.new(0, g.cy + g.bh * 0.05, g.back + 0.02) * CFrame.Angles(0, 0, math.rad(45)), color = st.glow, mat = M.Neon, tr = 0.4 })
 	emit(rune, st.glow, nil, 8, 0.18, 0.8, 0.8)
 	bpLight(rune, st.glow, 8)
 end
@@ -1469,16 +1482,12 @@ function IB.Backpack(item, box, armored)
 	g.back = zb + g.bd
 	g.top = g.cy + g.bh / 2
 	-- корпус
-	if st.shape == "sack" then
-		P(m, { name = "Bag", shape = Ball, size = Vector3.new(g.bw, g.bh * 1.05, g.bd * 1.1), cf = CFrame.new(0, g.cy, g.cz), color = st.main, v = st.v })
-	else
-		P(m, { name = "Bag", size = Vector3.new(g.bw, g.bh, g.bd), cf = CFrame.new(0, g.cy, g.cz), color = st.main, v = st.v })
-		if st.round then
-			P(m, { name = "Lid", shape = Cyl, size = Vector3.new(g.bw, g.bd, g.bd), cf = CFrame.new(0, g.top, g.cz), color = st.main, v = st.v })
-		end
-		-- окантовка дна
-		P(m, { name = "Base", size = Vector3.new(g.bw * 1.03, g.bh * 0.08, g.bd * 1.04), cf = CFrame.new(0, g.cy - g.bh * 0.46, g.cz), color = st.trim or st.strap, v = st.trimV or st.strapV })
+	P(m, { name = "Bag", size = Vector3.new(g.bw, g.bh, g.bd), cf = CFrame.new(0, g.cy, g.cz), color = st.main, v = st.v })
+	if st.round then
+		P(m, { name = "Lid", shape = Cyl, size = Vector3.new(g.bw, g.bd, g.bd), cf = CFrame.new(0, g.top, g.cz), color = st.main, v = st.v })
 	end
+	-- окантовка дна
+	P(m, { name = "Base", size = Vector3.new(g.bw * 1.03, g.bh * 0.08, g.bd * 1.04), cf = CFrame.new(0, g.cy - g.bh * 0.46, g.cz), color = st.trim or st.strap, v = st.trimV or st.strapV })
 	-- клапан
 	if st.flap then
 		P(m, { name = "Flap", size = Vector3.new(g.bw * 1.02, g.bh * 0.3, 0.08), cf = CFrame.new(0, g.cy + g.bh * 0.34, g.back + 0.04), color = st.pocket or st.main, v = st.pocketV or st.v })
