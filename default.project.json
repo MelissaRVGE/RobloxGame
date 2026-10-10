@@ -1,0 +1,47 @@
+{
+  "name": "ZombieSwarmSimulator",
+  "tree": {
+    "$className": "DataModel",
+
+    "ServerScriptService": {
+      "$className": "ServerScriptService",
+      "$ignoreUnknownInstances": true,
+      "ZSS": {
+        "$path": "src/ServerScriptService/ZSS"
+      }
+    },
+
+    "ServerStorage": {
+      "$className": "ServerStorage",
+      "$ignoreUnknownInstances": true,
+      "ZSS_Placer": { "$path": "src/ServerStorage/ZSS_Placer.luau" },
+      "ZSS_DroneNorm": { "$path": "src/ServerStorage/ZSS_DroneNorm.luau" },
+      "ZSS_FlowerKit": { "$path": "src/ServerStorage/ZSS_FlowerKit.luau" },
+      "ZSS_MannequinKit": { "$path": "src/ServerStorage/ZSS_MannequinKit.luau" }
+    },
+
+    "ReplicatedStorage": {
+      "$className": "ReplicatedStorage",
+      "$ignoreUnknownInstances": true,
+      "ZSS": {
+        "$path": "src/ReplicatedStorage/ZSS",
+        "$ignoreUnknownInstances": true
+      },
+      "Shared": {
+        "$path": "src/ReplicatedStorage/Shared"
+      }
+    },
+
+    "StarterPlayer": {
+      "$className": "StarterPlayer",
+      "$ignoreUnknownInstances": true,
+      "StarterPlayerScripts": {
+        "$className": "StarterPlayerScripts",
+        "$ignoreUnknownInstances": true,
+        "ZSSClient": {
+          "$path": "src/StarterPlayer/StarterPlayerScripts/ZSSClient"
+        }
+      }
+    }
+  }
+}

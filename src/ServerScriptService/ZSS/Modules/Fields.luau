@@ -1,0 +1,198 @@
+-- Поля с кучами лома (аналог цветочных полей из BSS)
+local RS = game:GetService("ReplicatedStorage")
+local Config = require(RS.ZSS.Config)
+local Remotes = RS.ZSS.Remotes
+
+local Fields = {}
+Fields.List = {}
+
+local Data, Loot
+-- плитки в стиле BSS: низкие, при сборе проседают, значок сверху бледнеет
+local MIN_H, MAX_H = 0.2, 1.0
+local GOLD = Color3.fromRGB(255, 200, 40)
+local lastFullWarn = {}
+
+function Fields.UpdateTile(tile)
+	local h = MIN_H + (MAX_H - MIN_H) * tile.fill
+	if math.abs(h - tile.h) < 0.04 and tile.fill < 1 then
+		return
+	end
+	tile.h = h
+	local p = tile.part
+	p.Size = Vector3.new(p.Size.X, h, p.Size.Z)
+	p.Position = Vector3.new(tile.x, tile.bottom + h / 2, tile.z)
+	if tile.icon then
+		tile.icon.Transparency = 0.7 * (1 - tile.fill)
+	end
+	if not tile.gold then
+		p.Color = tile.baseColor:Lerp(Color3.new(0.35, 0.3, 0.25), 0.45 * (1 - tile.fill))
+	end
+end
+
+function Fields.TopPos(tile)
+	return Vector3.new(tile.x, tile.bottom + tile.h, tile.z)
+end
+
+function Fields.At(pos)
+	for _, f in ipairs(Fields.List) do
+		local c = f.cfg.center
+		if math.abs(pos.X - c.X) <= f.half + 1 and math.abs(pos.Z - c.Z) <= f.half + 1 and pos.Y < c.Y + 40 and pos.Y > c.Y - 8 then
+			return f
+		end
+	end
+	return nil
+end
+
+local GATE_DIR = {
+	south = Vector3.new(0, 0, -1),
+	north = Vector3.new(0, 0, 1),
+	west = Vector3.new(-1, 0, 0),
+	east = Vector3.new(1, 0, 0),
+}
+function Fields.GateDir(field)
+	return GATE_DIR[field.cfg.gate or "south"]
+end
+
+function Fields.Entrance(field)
+	return field.cfg.center + Vector3.new(0, 4, 0) + Fields.GateDir(field) * (field.half + 7)
+end
+
+function Fields.RandomPoint(field)
+	local c = field.cfg.center
+	local h = field.half - 3
+	return Vector3.new(c.X + math.random(-h, h), c.Y + 3, c.Z + math.random(-h, h))
+end
+
+function Fields.TilesNear(field, pos, radius)
+	local out = {}
+	local r2 = radius * radius
+	for _, t in ipairs(field.tiles) do
+		local dx, dz = t.x - pos.X, t.z - pos.Z
+		if dx * dx + dz * dz <= r2 then
+			table.insert(out, t)
+		end
+	end
+	return out
+end
+
+function Fields.RandomTileNear(field, pos, radius)
+	local list = Fields.TilesNear(field, pos, radius)
+	if #list == 0 then
+		return nil
+	end
+	local best
+	for _ = 1, 3 do
+		local t = list[math.random(#list)]
+		if not best or t.fill > best.fill then
+			best = t
+		end
+	end
+	return best
+end
+
+function Fields.SetGold(tile, duration)
+	tile.gold = true
+	tile.goldUntil = os.clock() + duration
+	tile.part.Color = GOLD
+	tile.part.Material = Enum.Material.Neon
+end
+
+local function clearGold(tile)
+	tile.gold = false
+	tile.part.Color = tile.baseColor
+	tile.part.Material = tile.baseMat
+	Fields.UpdateTile(tile)
+end
+
+function Fields.Collect(player, tile, base, mult)
+	local f = tile.field
+	local gold = tile.gold and 5 or 1
+	local amount = base * (mult or 1) * f.cfg.mult * tile.kmult * gold * (0.4 + 0.6 * tile.fill)
+	amount = amount * (player:GetAttribute("ZSS_ScrapMult") or 1)
+	amount = amount * require(RS.ZSS.BuffsConfig).Mult(player, "scrap")
+	if Loot.IsNight() then
+		amount *= Config.DayNight.rewardMult
+	end
+	amount = math.max(1, math.floor(amount + 0.5))
+	tile.fill = math.max(0, tile.fill - 0.08)
+	Fields.UpdateTile(tile)
+	local res = Config.ResourceByField[f.cfg.id]
+	local added, full = Data.AddScrap(player, amount, res and res.id)
+	if added > 0 then
+		Remotes.Popup:FireClient(player, Fields.TopPos(tile), "+" .. added, gold > 1 and "gold" or (res and ("res:" .. res.id)) or tile.kind)
+		require(script.Parent.Quests).Event(player, "scrap", nil, added)
+	end
+	-- случайная находка в куче лома
+	Loot.TryDrop(player, "droneGather", f.index, Fields.TopPos(tile))
+	-- добыча — активность: рядом может появиться «добывающий» бафф
+	require(script.Parent.Drops).OnActivity(player, "gather", Fields.TopPos(tile), f)
+	if full then
+		local now = os.clock()
+		if not lastFullWarn[player] or now - lastFullWarn[player] > 6 then
+			lastFullWarn[player] = now
+			Remotes.Notify:FireClient(player, "🎒 Рюкзак полон! Отнеси ресурсы к Переработчику на базе.", "bad")
+		end
+	end
+	return added
+end
+
+function Fields.Init(dataModule)
+	Data = dataModule
+	Loot = require(script.Parent.Loot)
+	local root = workspace:WaitForChild("Map"):WaitForChild("Fields")
+	for i, cfg in ipairs(Config.Fields) do
+		local folder = root:FindFirstChild(cfg.id) or root:WaitForChild(cfg.id, 10)
+		if not folder then
+			folder = Instance.new("Folder")
+			folder.Name = cfg.id
+			folder.Parent = root
+		end
+		if not folder:FindFirstChild("Tiles") then
+			local tf = Instance.new("Folder")
+			tf.Name = "Tiles"
+			tf.Parent = folder
+		end
+		local field = { cfg = cfg, index = i, tiles = {}, folder = folder, half = cfg.size / 2, zcount = 0 }
+		for _, t in ipairs(folder:WaitForChild("Tiles"):GetChildren()) do
+			local kind = t:GetAttribute("Kind") or "rust"
+			local tile = {
+				part = t,
+				fill = 1,
+				gold = false,
+				goldUntil = 0,
+				kind = kind,
+				kmult = Config.TileKinds[kind].mult,
+				baseColor = t.Color,
+				baseMat = t.Material,
+				bottom = t.Position.Y - t.Size.Y / 2,
+				x = t.Position.X,
+				z = t.Position.Z,
+				h = t.Size.Y,
+				icon = t:FindFirstChild("Icon"),
+				field = field,
+			}
+			table.insert(field.tiles, tile)
+		end
+		Fields.List[i] = field
+	end
+
+	task.spawn(function()
+		while true do
+			task.wait(1)
+			local now = os.clock()
+			for _, f in ipairs(Fields.List) do
+				for _, tile in ipairs(f.tiles) do
+					if tile.fill < 1 then
+						tile.fill = math.min(1, tile.fill + 0.025)
+						Fields.UpdateTile(tile)
+					end
+					if tile.gold and now > tile.goldUntil then
+						clearGold(tile)
+					end
+				end
+			end
+		end
+	end)
+end
+
+return Fields

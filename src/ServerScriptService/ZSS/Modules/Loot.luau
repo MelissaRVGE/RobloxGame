@@ -1,0 +1,70 @@
+-- Случайные предметы для рюкзака: выпадают с мест добычи, зомби и босса
+local RS = game:GetService("ReplicatedStorage")
+local Items = require(RS.ZSS.ItemsConfig)
+local Buffs = require(RS.ZSS.BuffsConfig)
+local Remotes = RS.ZSS.Remotes
+local Data = require(script.Parent.Data)
+
+local Loot = {}
+local rng = Random.new()
+local lastFullWarn = {}
+
+function Loot.IsNight()
+	return workspace:GetAttribute("ZSS_Night") == true
+end
+
+-- выдать конкретный предмет с уведомлением и эффектом
+function Loot.Give(player, item, pos)
+	if Data.AddItem(player, item.id, 1) then
+		Remotes.FX:FireClient(player, "itemdrop", { id = item.id, pos = pos })
+		require(script.Parent.Quests).Event(player, "find")
+		return true
+	end
+	local now = os.clock()
+	if not lastFullWarn[player] or now - lastFullWarn[player] > 20 then
+		lastFullWarn[player] = now
+		Remotes.Notify:FireClient(player, "🎒 В рюкзаке нет места для находки «" .. item.name .. "». Продай или используй предметы!", "bad")
+	end
+	return false
+end
+
+-- честный бросок: chance за событие (ночью x2). Периодичности нет — может выпасть
+-- два раза подряд или не выпасть очень долго.
+function Loot.TryDrop(player, kind, fieldIndex, pos)
+	local chance = Items.DropChance[kind] or 0
+	if Loot.IsNight() then
+		chance *= 2
+	end
+	-- перк удачи за финал цепочки Профессора
+	local p = Data.Get(player)
+	if p and p.perks and p.perks.luck then
+		chance *= 1 + p.perks.luck
+	end
+	-- бафф «Удача»
+	chance *= Buffs.Mult(player, "luck")
+	if rng:NextNumber() >= chance then
+		return nil
+	end
+	local item = Items.Roll(rng, fieldIndex, Loot.IsNight() and 0.5 or 0)
+	if pos then
+		-- находка падает ящичком на землю — её нужно подобрать
+		require(script.Parent.Drops).SpawnItem(player, item, pos)
+	else
+		Loot.Give(player, item, pos)
+	end
+	return item
+end
+
+-- несколько предметов с повышенной удачей (босс)
+function Loot.Many(player, count, luck, pos)
+	local got = {}
+	for _ = 1, count do
+		local item = Items.Roll(rng, 6, luck)
+		if Loot.Give(player, item, pos) then
+			table.insert(got, item)
+		end
+	end
+	return got
+end
+
+return Loot
