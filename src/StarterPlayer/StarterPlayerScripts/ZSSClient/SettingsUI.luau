@@ -1,0 +1,462 @@
+-- Меню настроек: графика, управление, звук, интерфейс. Значения сохраняются в профиль игрока.
+local Players = game:GetService("Players")
+local RS = game:GetService("ReplicatedStorage")
+local Lighting = game:GetService("Lighting")
+local UIS = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+local Shared = RS:WaitForChild("ZSS")
+local Icons = require(Shared.Icons)
+local Remotes = Shared:WaitForChild("Remotes")
+local U = require(script.Parent.U)
+local State = require(script.Parent.State)
+local FX = require(script.Parent.FX)
+
+local player = Players.LocalPlayer
+local new = U.new
+local T = U.Theme
+local C = Color3.fromRGB
+
+local S = {}
+local api
+local win, scaleObj
+local pages, tabs = {}, {}
+local widgets = {}
+local ACCENT = C(90, 200, 255)
+
+S.Defaults = {
+	preset = "high",
+	shadows = true,
+	effects = true,
+	particles = true,
+	fov = 70,
+	sensitivity = 1,
+	shake = true,
+	master = 1,
+	sfx = 1,
+	ui = 1,
+	uiScale = 1,
+	showQuests = true,
+	showDamage = true,
+	toasts = true,
+}
+S.Values = table.clone(S.Defaults)
+local loaded = false
+local saveToken = 0
+
+-- ===== ПРИМЕНЕНИЕ =====
+local function applyAll()
+	local v = S.Values
+	Lighting.GlobalShadows = v.shadows
+	for _, e in ipairs(Lighting:GetChildren()) do
+		if e:IsA("BloomEffect") or e:IsA("SunRaysEffect") or e:IsA("DepthOfFieldEffect") then
+			e.Enabled = v.effects
+		end
+	end
+	FX.Particles = v.particles and 1 or 0.35
+	FX.ShakeEnabled = v.shake
+	FX.ShowDamage = v.showDamage
+	workspace.CurrentCamera.FieldOfView = v.fov
+	UIS.MouseDeltaSensitivity = v.sensitivity
+	U.Volume.master = v.master
+	U.Volume.sfx = v.sfx
+	U.Volume.ui = v.ui
+	if api and api.onApply then
+		api.onApply(v)
+	end
+end
+
+local function save()
+	saveToken += 1
+	local my = saveToken
+	task.delay(1, function()
+		if my == saveToken then
+			Remotes.SaveSettings:FireServer(S.Values)
+		end
+	end)
+end
+
+local function set(key, value)
+	S.Values[key] = value
+	applyAll()
+	save()
+	for _, w in ipairs(widgets) do
+		if w.key == key and w.sync then
+			w.sync()
+		end
+	end
+end
+
+local PRESETS = {
+	low = { shadows = false, effects = false, particles = false },
+	med = { shadows = true, effects = false, particles = true },
+	high = { shadows = true, effects = true, particles = true },
+}
+
+-- ===== ЭЛЕМЕНТЫ =====
+local function row(page, order, iconText, title, desc)
+	local r = new("Frame", { Size = UDim2.new(1, -8, 0, 60), BackgroundColor3 = C(26, 30, 36), LayoutOrder = order, Parent = page }, { U.corner(12), U.stroke(C(55, 62, 72), 1.2) })
+	new("TextLabel", { Position = UDim2.fromOffset(12, 0), Size = UDim2.fromOffset(30, 60), BackgroundTransparency = 1, Font = Enum.Font.GothamBlack, Text = iconText, TextSize = 24, TextColor3 = ACCENT, Parent = r })
+	new("TextLabel", { Position = UDim2.fromOffset(48, 9), Size = UDim2.new(1, -290, 0, 22), BackgroundTransparency = 1, Font = Enum.Font.GothamBlack, Text = title, TextSize = 16, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = C(240, 244, 248), Parent = r })
+	new("TextLabel", { Position = UDim2.fromOffset(48, 31), Size = UDim2.new(1, -290, 0, 18), BackgroundTransparency = 1, Font = Enum.Font.Gotham, Text = desc or "", TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = C(150, 160, 172), TextTruncate = Enum.TextTruncate.AtEnd, Parent = r })
+	return r
+end
+
+local function toggle(page, order, key, iconText, title, desc)
+	local r = row(page, order, iconText, title, desc)
+	local track = new("TextButton", { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -16, 0.5, 0), Size = UDim2.fromOffset(64, 32), BackgroundColor3 = C(60, 66, 76), Text = "", AutoButtonColor = false, Parent = r }, { U.round() })
+	local knob = new("Frame", { AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 4, 0.5, 0), Size = UDim2.fromOffset(24, 24), BackgroundColor3 = C(255, 255, 255), Parent = track }, { U.round(), U.grad(C(255, 255, 255), C(200, 205, 215), 90) })
+	local w = { key = key }
+	function w.sync()
+		local on = S.Values[key]
+		U.tween(track, 0.15, { BackgroundColor3 = on and C(70, 190, 90) or C(60, 66, 76) })
+		U.tween(knob, 0.15, { Position = on and UDim2.new(0, 36, 0.5, 0) or UDim2.new(0, 4, 0.5, 0) })
+	end
+	U.pressFx(track, { hover = 1.06, hoverSound = false })
+	track.Activated:Connect(function()
+		U.play(U.Sounds.tap, 0.5, S.Values[key] and 0.9 or 1.2)
+		-- кнопка «пружинит» в сторону переключения
+		knob.Size = UDim2.fromOffset(32, 22)
+		U.tween(knob, 0.3, { Size = UDim2.fromOffset(24, 24) }, Enum.EasingStyle.Elastic)
+		set(key, not S.Values[key])
+		if key == "shadows" or key == "effects" or key == "particles" then
+			S.Values.preset = "custom"
+			for _, x in ipairs(widgets) do
+				if x.key == "preset" then
+					x.sync()
+				end
+			end
+		end
+	end)
+	table.insert(widgets, w)
+	return w
+end
+
+local function slider(page, order, key, iconText, title, desc, minV, maxV, step, fmt)
+	local r = row(page, order, iconText, title, desc)
+	local valueLbl = new("TextLabel", { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -14, 0.5, 0), Size = UDim2.fromOffset(52, 24), BackgroundColor3 = C(16, 20, 26), Font = Enum.Font.GothamBlack, TextSize = 14, TextColor3 = ACCENT, Parent = r }, { U.corner(8) })
+	local track = new("TextButton", { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -78, 0.5, 0), Size = UDim2.fromOffset(170, 10), BackgroundColor3 = C(16, 20, 26), Text = "", AutoButtonColor = false, Parent = r }, { U.round() })
+	local fill = new("Frame", { Size = UDim2.fromScale(0.5, 1), BackgroundColor3 = C(255, 255, 255), Parent = track }, { U.round(), U.grad(C(130, 230, 255), C(50, 140, 230), 0) })
+	local knob = new("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(22, 22), BackgroundColor3 = C(255, 255, 255), ZIndex = 3, Parent = track }, { U.round(), U.stroke(ACCENT, 2) })
+	local w = { key = key }
+	function w.sync()
+		local v = S.Values[key]
+		local a = math.clamp((v - minV) / (maxV - minV), 0, 1)
+		fill.Size = UDim2.fromScale(a, 1)
+		knob.Position = UDim2.fromScale(a, 0.5)
+		valueLbl.Text = fmt and fmt(v) or tostring(v)
+	end
+	local dragging = false
+	local function update(x)
+		local a = math.clamp((x - track.AbsolutePosition.X) / math.max(track.AbsoluteSize.X, 1), 0, 1)
+		local v = minV + (maxV - minV) * a
+		v = math.floor(v / step + 0.5) * step
+		if v ~= S.Values[key] then
+			set(key, v)
+		end
+	end
+	track.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			dragging = true
+			update(input.Position.X)
+		end
+	end)
+	UIS.InputChanged:Connect(function(input)
+		if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+			update(input.Position.X)
+		end
+	end)
+	UIS.InputEnded:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			dragging = false
+		end
+	end)
+	table.insert(widgets, w)
+	return w
+end
+
+local function segmented(page, order, key, iconText, title, desc, options)
+	local r = row(page, order, iconText, title, desc)
+	local holder = new("Frame", { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -14, 0.5, 0), Size = UDim2.fromOffset(234, 34), BackgroundColor3 = C(16, 20, 26), Parent = r }, { U.corner(10), U.pad(3), new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 3), SortOrder = Enum.SortOrder.LayoutOrder }) })
+	local btns = {}
+	for i, o in ipairs(options) do
+		local b = new("TextButton", { Size = UDim2.new(1 / #options, -2, 1, 0), BackgroundColor3 = C(16, 20, 26), Font = Enum.Font.GothamBlack, Text = o.label, TextSize = 13, TextColor3 = C(170, 180, 190), AutoButtonColor = false, LayoutOrder = i, Parent = holder }, { U.corner(8) })
+		btns[o.value] = b
+		U.pressFx(b, { hover = 1.04, hoverSound = false })
+		b.Activated:Connect(function()
+			U.play(U.Sounds.tap, 0.5, 1.1)
+			if o.apply then
+				for k, v in pairs(o.apply) do
+					S.Values[k] = v
+				end
+			end
+			set(key, o.value)
+			for _, x in ipairs(widgets) do
+				if x.sync then
+					x.sync()
+				end
+			end
+		end)
+	end
+	local w = { key = key }
+	function w.sync()
+		for value, b in pairs(btns) do
+			local on = S.Values[key] == value
+			b.BackgroundColor3 = on and C(50, 150, 230) or C(16, 20, 26)
+			b.TextColor3 = on and C(255, 255, 255) or C(170, 180, 190)
+		end
+	end
+	table.insert(widgets, w)
+	return w
+end
+
+local function keyRow(page, order, key, text)
+	local r = new("Frame", { Size = UDim2.new(1, -8, 0, 40), BackgroundColor3 = C(26, 30, 36), LayoutOrder = order, Parent = page }, { U.corner(10) })
+	new("TextLabel", { Position = UDim2.fromOffset(12, 6), Size = UDim2.fromOffset(64, 28), BackgroundColor3 = C(235, 238, 242), Font = Enum.Font.GothamBlack, Text = key, TextSize = 14, TextColor3 = C(20, 24, 30), Parent = r }, { U.corner(7), U.stroke(C(140, 150, 160), 1.5) })
+	new("TextLabel", { Position = UDim2.fromOffset(88, 0), Size = UDim2.new(1, -100, 1, 0), BackgroundTransparency = 1, Font = Enum.Font.GothamBold, Text = text, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = C(220, 226, 232), Parent = r })
+end
+
+local function header(page, order, text)
+	new("TextLabel", { Size = UDim2.new(1, -8, 0, 26), BackgroundTransparency = 1, Font = Enum.Font.GothamBlack, Text = text, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = ACCENT, LayoutOrder = order, Parent = page })
+end
+
+-- ===== ОКНО =====
+local TABS = {
+	{ id = "graphics", label = "Графика", icon = "setGraphics", color = C(90, 170, 255) },
+	{ id = "controls", label = "Управление", icon = "setControls", color = C(255, 170, 70) },
+	{ id = "sound", label = "Звук", icon = "setSound", color = C(110, 230, 120) },
+	{ id = "ui", label = "Интерфейс", icon = "setUi", color = C(190, 130, 255) },
+	{ id = "codes", label = "Промокоды", icon = "lootCrate", color = C(255, 200, 60) },
+}
+
+local function selectTab(id)
+	for _, t in ipairs(TABS) do
+		local on = t.id == id
+		pages[t.id].Visible = on
+		local b = tabs[t.id]
+		U.tween(b.btn, 0.15, { BackgroundColor3 = on and C(36, 44, 56) or C(22, 26, 32) })
+		b.stroke.Color = on and t.color or C(45, 50, 58)
+		b.bar.Visible = on
+		b.label.TextColor3 = on and C(255, 255, 255) or C(160, 170, 180)
+	end
+end
+
+local function build()
+	win = new("Frame", {
+		Name = "Settings",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.fromOffset(780, 500),
+		BackgroundColor3 = C(16, 19, 24),
+		Visible = false,
+		ZIndex = 30,
+		Parent = api.gui,
+	}, { U.corner(20), U.grad(C(255, 255, 255), C(190, 195, 205), 90) })
+	local wst = U.stroke(C(255, 255, 255), 3)
+	wst.Parent = win
+	new("UIGradient", { Rotation = 45, Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, C(90, 200, 255)), ColorSequenceKeypoint.new(0.5, C(170, 120, 255)), ColorSequenceKeypoint.new(1, C(90, 230, 140)) }), Parent = wst })
+	scaleObj = api.addScale(win)
+	-- шапка
+	local head = new("Frame", { Size = UDim2.new(1, 0, 0, 66), BackgroundColor3 = C(24, 30, 40), Parent = win }, { U.corner(20), U.grad(C(255, 255, 255), C(150, 160, 180), 90) })
+	local gear = new("ImageLabel", { Name = "Gear", BackgroundTransparency = 1, Image = Icons.gear, Position = UDim2.fromOffset(14, 9), Size = UDim2.fromOffset(48, 48), Parent = head })
+	S.gearIcon = gear
+	local title = new("TextLabel", { Position = UDim2.fromOffset(74, 8), Size = UDim2.new(1, -150, 0, 32), BackgroundTransparency = 1, Font = Enum.Font.GothamBlack, Text = "НАСТРОЙКИ", TextSize = 28, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = C(255, 255, 255), Parent = head }, { U.textStroke(C(0, 10, 25), 2) })
+	new("UIGradient", { Rotation = 90, Color = ColorSequence.new(C(230, 245, 255), C(120, 200, 255)), Parent = title })
+	new("TextLabel", { Position = UDim2.fromOffset(75, 40), Size = UDim2.new(1, -150, 0, 16), BackgroundTransparency = 1, Font = Enum.Font.GothamBold, Text = "Изменения сохраняются автоматически", TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = C(150, 170, 190), Parent = head })
+	local close = api.button({ AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -14, 0.5, 0), Size = UDim2.fromOffset(44, 44), BackgroundColor3 = T.Danger, Font = Enum.Font.GothamBlack, Text = "X", TextSize = 20, TextColor3 = C(255, 255, 255), Parent = head }, function()
+		S.Close()
+	end)
+	U.corner(12).Parent = close
+	-- вкладки
+	local side = new("Frame", { Position = UDim2.fromOffset(14, 80), Size = UDim2.fromOffset(196, 406), BackgroundTransparency = 1, Parent = win }, { new("UIListLayout", { Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }) })
+	for i, t in ipairs(TABS) do
+		local b = new("TextButton", { Size = UDim2.new(1, 0, 0, 62), BackgroundColor3 = C(22, 26, 32), Text = "", AutoButtonColor = false, LayoutOrder = i, Parent = side }, { U.corner(14) })
+		local st = U.stroke(C(45, 50, 58), 2)
+		st.Parent = b
+		local bar = new("Frame", { Position = UDim2.fromOffset(0, 12), Size = UDim2.fromOffset(5, 38), BackgroundColor3 = t.color, Visible = false, Parent = b }, { U.round() })
+		new("ImageLabel", { BackgroundTransparency = 1, Image = Icons[t.icon], Position = UDim2.fromOffset(14, 9), Size = UDim2.fromOffset(44, 44), Parent = b })
+		local lbl = new("TextLabel", { Position = UDim2.fromOffset(68, 0), Size = UDim2.new(1, -74, 1, 0), BackgroundTransparency = 1, Font = Enum.Font.GothamBlack, Text = t.label, TextSize = 17, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = C(160, 170, 180), Parent = b })
+		b.Activated:Connect(function()
+			U.play(U.Sounds.click, 0.4, 1.1)
+			selectTab(t.id)
+		end)
+		U.pressFx(b, { hover = 1.03, color = t.color })
+		tabs[t.id] = { btn = b, stroke = st, bar = bar, label = lbl }
+		pages[t.id] = new("ScrollingFrame", {
+			Position = UDim2.fromOffset(222, 80),
+			Size = UDim2.new(1, -236, 1, -94),
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+			ScrollBarThickness = 5,
+			ScrollBarImageColor3 = t.color,
+			AutomaticCanvasSize = Enum.AutomaticSize.Y,
+			CanvasSize = UDim2.new(),
+			Visible = false,
+			Parent = win,
+		}, { new("UIListLayout", { Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }) })
+	end
+	-- ГРАФИКА
+	local g = pages.graphics
+	segmented(g, 1, "preset", "⭐", "Качество графики", "Быстрый выбор для слабых и мощных устройств", {
+		{ value = "low", label = "НИЗКОЕ", apply = PRESETS.low },
+		{ value = "med", label = "СРЕДНЕЕ", apply = PRESETS.med },
+		{ value = "high", label = "ВЫСОКОЕ", apply = PRESETS.high },
+	})
+	toggle(g, 2, "shadows", "🌗", "Тени", "Мягкие тени от солнца и фонарей")
+	toggle(g, 3, "effects", "✨", "Пост-эффекты", "Свечение и солнечные лучи")
+	toggle(g, 4, "particles", "💥", "Все частицы", "Выключи, если игра подтормаживает")
+	slider(g, 5, "fov", "📷", "Поле зрения", "Ширина обзора камеры", 55, 100, 1, function(v)
+		return tostring(v) .. "°"
+	end)
+	-- УПРАВЛЕНИЕ
+	local c = pages.controls
+	slider(c, 1, "sensitivity", "🖱", "Чувствительность мыши", "Скорость поворота камеры", 0.2, 3, 0.05, function(v)
+		return ("%.2f"):format(v)
+	end)
+	toggle(c, 2, "shake", "📳", "Тряска камеры", "При взрывах и ударах босса")
+	header(c, 3, "ГОРЯЧИЕ КЛАВИШИ")
+	local keys = {
+		{ "Y", "Инвентарь дронов" }, { "G", "Гача (Лаборатория дронов)" }, { "N", "Магазин" }, { "B", "Рюкзак" }, { "M", "Карта и телепорт" }, { "R", "Телепорт к Переработчику" },
+		{ "P", "Настройки" }, { "E", "Взаимодействие (NPC, станции, переработчик)" }, { "1 / 2", "Оружие / инструмент добычи" }, { "3–5", "Расходники" }, { "ЛКМ", "Удар оружием / добыча инструментом" }, { "Esc", "Закрыть окна" },
+	}
+	for i, k in ipairs(keys) do
+		keyRow(c, 10 + i, k[1], k[2])
+	end
+	-- ЗВУК
+	local pct = function(v)
+		return math.floor(v * 100 + 0.5) .. "%"
+	end
+	local sd = pages.sound
+	slider(sd, 1, "master", "🔊", "Общая громкость", "Все звуки игры", 0, 1, 0.05, pct)
+	slider(sd, 2, "sfx", "💣", "Эффекты", "Взрывы, удары, находки, гача", 0, 1, 0.05, pct)
+	slider(sd, 3, "ui", "🔘", "Интерфейс", "Щелчки кнопок и меню", 0, 1, 0.05, pct)
+	-- ИНТЕРФЕЙС
+	local ui = pages.ui
+	slider(ui, 1, "uiScale", "🔍", "Размер интерфейса", "Увеличить или уменьшить все окна", 0.7, 1.3, 0.05, pct)
+	toggle(ui, 2, "showQuests", "📜", "Список заданий", "Принятые квесты слева на экране")
+	toggle(ui, 3, "showDamage", "⚔️", "Цифры урона", "Всплывающие числа над зомби")
+	toggle(ui, 4, "toasts", "🔔", "Уведомления", "Сообщения вверху экрана (важные показываются всегда)")
+	-- сброс
+	local reset = api.button({ Size = UDim2.new(1, -8, 0, 44), BackgroundColor3 = C(70, 40, 40), Font = Enum.Font.GothamBlack, Text = "↺ СБРОСИТЬ ВСЕ НАСТРОЙКИ", TextSize = 15, TextColor3 = C(255, 210, 200), LayoutOrder = 99, Parent = ui }, function()
+		S.Values = table.clone(S.Defaults)
+		applyAll()
+		save()
+		for _, w in ipairs(widgets) do
+			w.sync()
+		end
+	end)
+	U.corner(12).Parent = reset
+	-- ПРОМОКОДЫ
+	local cp = pages.codes
+	header(cp, 1, "ВВЕДИ ПРОМОКОД")
+	local box = new("Frame", { Size = UDim2.new(1, -8, 0, 120), BackgroundColor3 = C(22, 26, 32), LayoutOrder = 2, Parent = cp }, { U.corner(14) })
+	local bst = U.stroke(C(255, 200, 60), 2, 0.3)
+	bst.Parent = box
+	new("ImageLabel", { BackgroundTransparency = 1, Image = Icons.lootCrate, Position = UDim2.fromOffset(14, 14), Size = UDim2.fromOffset(52, 52), Parent = box })
+	local input = new("TextBox", { Position = UDim2.fromOffset(78, 16), Size = UDim2.new(1, -96, 0, 48), BackgroundColor3 = C(12, 14, 18), Font = Enum.Font.GothamBlack, PlaceholderText = "Например: RELEASE", PlaceholderColor3 = C(100, 110, 120), Text = "", TextSize = 22, TextColor3 = C(255, 230, 150), ClearTextOnFocus = false, Parent = box }, { U.corner(10), U.stroke(C(60, 66, 76), 2) })
+	local status = new("TextLabel", { Position = UDim2.fromOffset(14, 76), Size = UDim2.new(1, -196, 0, 34), BackgroundTransparency = 1, Font = Enum.Font.GothamBold, Text = "Коды публикуются в соцсетях игры", TextSize = 13, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = C(160, 170, 180), Parent = box })
+	local busy = false
+	local function redeem()
+		if busy then
+			return
+		end
+		busy = true
+		status.Text = "Проверяем…"
+		status.TextColor3 = C(200, 200, 200)
+		local ok, res = pcall(function()
+			return Remotes.RedeemCode:InvokeServer(input.Text)
+		end)
+		busy = false
+		if ok and res and res.ok then
+			status.Text = res.msg
+			status.TextColor3 = C(140, 255, 120)
+			input.Text = ""
+			U.play(U.Sounds.prize, 0.6, 1)
+			if api.toast then
+				api.toast(res.msg, "good")
+			end
+			-- радостная вспышка поля
+			bst.Color = C(140, 255, 120)
+			bst.Transparency = 0
+			U.tween(bst, 0.8, { Transparency = 0.3, Color = C(255, 200, 60) })
+		else
+			status.Text = (ok and res and res.err) or "Ошибка сети, попробуй ещё раз"
+			status.TextColor3 = C(255, 120, 110)
+			U.play(U.Sounds.error, 0.5, 0.7)
+			-- поле «мотает головой»
+			local p0 = input.Position
+			for k = 1, 4 do
+				U.tween(input, 0.04, { Position = p0 + UDim2.fromOffset(k % 2 == 0 and -8 or 8, 0) }).Completed:Wait()
+			end
+			input.Position = p0
+		end
+	end
+	local go = api.button({ AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -14, 0, 72), Size = UDim2.fromOffset(170, 40), BackgroundColor3 = C(255, 180, 40), Font = Enum.Font.GothamBlack, Text = "🎁 АКТИВИРОВАТЬ", TextSize = 15, TextColor3 = C(40, 25, 0), Parent = box }, redeem)
+	U.corner(12).Parent = go
+	input.FocusLost:Connect(function(enter)
+		if enter then
+			redeem()
+		end
+	end)
+	selectTab("graphics")
+end
+
+function S.Toggle()
+	if win.Visible then
+		S.Close()
+	else
+		if api.closeOthers then
+			api.closeOthers()
+		end
+		for _, w in ipairs(widgets) do
+			w.sync()
+		end
+		api.openWindow(win, scaleObj)
+	end
+end
+
+function S.Close()
+	if win then
+		win.Visible = false
+	end
+end
+
+function S.Init(a)
+	api = a
+	build()
+	local function onData(d)
+		if loaded or not d then
+			return
+		end
+		loaded = true
+		for k, v in pairs(d.settings or {}) do
+			if S.Defaults[k] ~= nil and typeof(v) == typeof(S.Defaults[k]) then
+				S.Values[k] = v
+			end
+		end
+		applyAll()
+	end
+	State.Changed:Connect(onData)
+	if State.data then
+		onData(State.data)
+	else
+		applyAll()
+	end
+	-- стандартная камера может сбросить FOV — держим выбранное
+	local acc = 0
+	RunService.RenderStepped:Connect(function(dt)
+		if win.Visible and S.gearIcon then
+			S.gearIcon.Rotation = (S.gearIcon.Rotation + dt * 30) % 360
+		end
+		acc += dt
+		if acc > 1 then
+			acc = 0
+			local cam = workspace.CurrentCamera
+			if cam and math.abs(cam.FieldOfView - S.Values.fov) > 0.5 and cam.CameraType == Enum.CameraType.Custom then
+				cam.FieldOfView = S.Values.fov
+			end
+		end
+	end)
+end
+
+return S

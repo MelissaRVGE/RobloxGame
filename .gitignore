@@ -1,0 +1,10 @@
+# сборки Rojo и файлы мест
+*.rbxl
+*.rbxlx
+*.rbxm
+*.rbxmx
+
+# системное
+.DS_Store
+Thumbs.db
+.vscode/
