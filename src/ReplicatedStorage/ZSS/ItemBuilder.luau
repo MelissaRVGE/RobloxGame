@@ -1483,7 +1483,8 @@ end
 
 -- качественные 3D-модели рюкзаков (ReplicatedStorage.ZSS.BackpackMeshes/<id>):
 -- шаблон с центром габаритов в начале координат, сторона к спине игрока смотрит в -Z.
--- Fit — ширина относительно торса, Up — сдвиг вверх (доля высоты торса), Sink — насколько утоплен в спину.
+-- Fit / Height — предельные ширина и высота относительно торса, Up — сдвиг вверх (доля высоты торса),
+-- Sink — какая доля глубины модели (лямки сзади) уходит в спину.
 local function backpackMesh(m, id, st, w, h, zb)
 	local z = game:GetService("ReplicatedStorage"):FindFirstChild("ZSS")
 	local lib = z and z:FindFirstChild("BackpackMeshes")
@@ -1493,7 +1494,8 @@ local function backpackMesh(m, id, st, w, h, zb)
 	end
 	local c = tpl:Clone()
 	local _, size = c:GetBoundingBox()
-	c:ScaleTo(c:GetScale() * w * (tpl:GetAttribute("Fit") or 0.85) / size.X)
+	local k = math.min(w * (tpl:GetAttribute("Fit") or 0.9) / size.X, h * (tpl:GetAttribute("Height") or 1.0) / size.Y)
+	c:ScaleTo(c:GetScale() * k)
 	local _, sz = c:GetBoundingBox()
 	c:PivotTo(CFrame.new(0, h * (tpl:GetAttribute("Up") or 0), zb + sz.Z * (0.5 - (tpl:GetAttribute("Sink") or 0.06))))
 	local first

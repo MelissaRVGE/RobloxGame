@@ -73,6 +73,27 @@ local function attach(folder, model, part, offset)
 	model.Parent = folder
 end
 
+-- 3D-модели рюкзаков не рисуются внутри модели с Humanoid, поэтому надетый рюкзак
+-- лежит в отдельной папке Workspace и приварен к торсу
+local worn = {}
+
+local function dropWorn(player)
+	if worn[player] then
+		worn[player]:Destroy()
+		worn[player] = nil
+	end
+end
+
+local function wornFolder()
+	local f = workspace:FindFirstChild("ZSS_WornBackpacks")
+	if not f then
+		f = Instance.new("Folder")
+		f.Name = "ZSS_WornBackpacks"
+		f.Parent = workspace
+	end
+	return f
+end
+
 local function setHatsHidden(char, hidden)
 	for _, acc in ipairs(char:GetChildren()) do
 		if acc:IsA("Accessory") then
@@ -206,6 +227,7 @@ function Equipment.Apply(player)
 	if folder then
 		folder:Destroy()
 	end
+	dropWorn(player)
 	folder = Instance.new("Folder")
 	folder.Name = "ZSS_Gear"
 	folder.Parent = char
@@ -225,7 +247,19 @@ function Equipment.Apply(player)
 		attach(folder, am, bp.torso, CFrame.new())
 	end
 	if g.backpack and Shop.ById[g.backpack] then
-		attach(folder, IB.Backpack(Shop.ById[g.backpack], torsoBox, g.armor ~= nil), bp.torso, CFrame.new())
+		local bag = IB.Backpack(Shop.ById[g.backpack], torsoBox, g.armor ~= nil)
+		bag.Name = "Backpack_" .. player.UserId
+		attach(wornFolder(), bag, bp.torso, CFrame.new())
+		worn[player] = bag
+		local conn
+		conn = char.AncestryChanged:Connect(function()
+			if not char:IsDescendantOf(workspace) then
+				conn:Disconnect()
+				if worn[player] == bag then
+					dropWorn(player)
+				end
+			end
+		end)
 	end
 	local hideHead = false
 	if g.helmet then
@@ -426,6 +460,7 @@ end
 
 function Equipment.Init(dataModule, dronesModule, fieldsModule, zombiesModule)
 	Data, Drones, Fields, Zombies = dataModule, dronesModule, fieldsModule, zombiesModule
+	game:GetService("Players").PlayerRemoving:Connect(dropWorn)
 end
 
 return Equipment
