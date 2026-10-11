@@ -200,8 +200,14 @@ local function syncMapReqs()
 		local board = folder and folder:FindFirstChild("InfoBoard")
 		if board then
 			for _, t in ipairs(board:GetDescendants()) do
-				if t:IsA("TextLabel") and t.Text:find("Нужно дронов") then
-					t.Text = "🤖 Нужно дронов: " .. f.req
+				if t:IsA("TextLabel") then
+					if t.Text:find("Нужно дронов") then
+						t.Text = "🤖 Нужно дронов: " .. f.req
+					elseif t.Text:find("Лом: x") then
+						t.Text = "⚙ Лом: x" .. tostring(f.mult)
+					elseif t.Text:find("HP$") then
+						t.Text = ("☠ %s • %d HP"):format(f.zombies.name, f.zombies.hp)
+					end
 				end
 			end
 		end
