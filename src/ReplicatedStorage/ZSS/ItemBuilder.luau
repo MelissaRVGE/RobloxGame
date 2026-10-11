@@ -1755,6 +1755,44 @@ function IB.Consumable(item)
 	return m
 end
 
+-- карточка магазина: сама 3D-модель в своих пропорциях, без поддоспешника и рукавов.
+-- Возвращает MeshPart в начале координат (лицом к -Z) и его ширину, или nil, если шаблона нет.
+local function previewMesh(m, libName, key, torso)
+	local z = game:GetService("ReplicatedStorage"):FindFirstChild("ZSS")
+	local lib = z and z:FindFirstChild(libName)
+	local tpl = lib and lib:FindFirstChild(key)
+	local src = tpl and tpl:FindFirstChildWhichIsA("BasePart", true)
+	if not src then
+		return nil
+	end
+	local yaw = math.rad(tpl:GetAttribute("Yaw") or 0)
+	local side = math.abs(math.cos(yaw)) < 0.5
+	local w, h, d = src.Size.X, src.Size.Y, src.Size.Z
+	if side then
+		w, d = d, w
+	end
+	if torso then
+		-- часть жилетов сгенерирована узкой и глубокой; в карточке приводим к пропорциям торса
+		w = math.max(w, h * 0.85)
+		d = math.min(d, w * 0.8)
+	end
+	local p = src:Clone()
+	for _, c in ipairs(p:GetChildren()) do
+		c:Destroy()
+	end
+	p.Size = side and Vector3.new(d, h, w) or Vector3.new(w, h, d)
+	p.CFrame = CFrame.Angles(0, yaw, 0)
+	p.Anchored = true
+	p.CanCollide = false
+	p.CanQuery = false
+	p.CanTouch = false
+	p.Massless = true
+	p.CastShadow = false
+	p.Name = "Shell"
+	p.Parent = m
+	return p, w
+end
+
 function IB.Preview(item)
 	if item.slot == "consumable" then
 		return IB.Consumable(item)
@@ -1764,8 +1802,13 @@ function IB.Preview(item)
 		m:PivotTo(CFrame.Angles(0, 0, math.rad(-35)) * m:GetPivot())
 		return m
 	elseif item.slot == "armor" then
-		local m = IB.Armor(item)
-		return m
+		local m = newModel(item.id)
+		root(m)
+		if previewMesh(m, "ArmorMeshes", "armor" .. item.tier, true) then
+			return m
+		end
+		m:Destroy()
+		return IB.Armor(item)
 	elseif item.slot == "backpack" then
 		-- рюкзак повёрнут к камере передним карманом
 		local m = IB.Backpack(item)
@@ -1779,6 +1822,15 @@ function IB.Preview(item)
 		return m
 	else
 		local holder = newModel(item.id)
+		local lib = item.slot == "gloves" and "GloveMeshes" or "BootMeshes"
+		local left, w = previewMesh(holder, lib, item.id)
+		if left then
+			root(holder)
+			local right = previewMesh(holder, lib, item.id)
+			left.CFrame = CFrame.new(-w * 0.62, 0, 0) * CFrame.Angles(0, -0.25, 0) * left.CFrame
+			right.CFrame = CFrame.new(w * 0.62, 0, 0) * CFrame.Angles(0, 0.25, 0) * right.CFrame
+			return holder
+		end
 		for _, sx in ipairs({ -1, 1 }) do
 			local one = item.slot == "gloves" and IB.Glove(item) or IB.Boot(item)
 			one:PivotTo(CFrame.new(sx * 0.55, 0, 0) * CFrame.Angles(0, sx * 0.25, 0))

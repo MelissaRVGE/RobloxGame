@@ -53,7 +53,9 @@ local function setVp(vp, item, yaw, pitch)
 		end
 	end
 	local m = IB.Preview(item)
-	Builder.SetupViewport(vp, m, yaw or math.rad(30), pitch or math.rad(15), 1.0)
+	-- броня, перчатки и ботинки вытянуты по высоте: подводим камеру ближе, чтобы модель заполняла карточку
+	local wear = item.slot == "armor" or item.slot == "gloves" or item.slot == "boots"
+	Builder.SetupViewport(vp, m, yaw or math.rad(30), pitch or math.rad(15), wear and 0.85 or 1.0)
 	return m
 end
 
