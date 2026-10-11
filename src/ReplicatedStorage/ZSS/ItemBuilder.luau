@@ -832,23 +832,25 @@ end
 -- Используются собственные оси меша: грудь смотрит в -Z, Yaw (градусы) доворачивает меш, если он сгенерирован боком.
 -- SX / SY / SZ — размер относительно торса по осям (меш растягивается, чтобы обернуть торс),
 -- Up — сдвиг вверх (доля высоты торса), Back — сдвиг назад (доля глубины торса).
--- поддоспешник под 3D-бронёй: облегает торс, чтобы в просветах брони была ткань/кольчуга, а не рубашка игрока
-local ARMOR_UNDER = {
-	{ C(150, 118, 78), "ZSS_I_Burlap" },
-	{ C(92, 58, 36), "ZSS_I_Leather" },
-	{ C(70, 76, 56), "ZSS_I_Kevlar" },
-	{ C(92, 98, 72), "ZSS_D_Camo" },
-	{ C(46, 46, 52), "ZSS_D_Carbon" },
-	{ C(112, 118, 128), "ZSSG_W_Steel" },
+-- общая палитра комплекта уровня (по шлему): поддоспешник под 3D-бронёй, рукава перчаток и голенища ботинок.
+-- { цвет, MaterialVariant или nil, материал без варианта }
+-- Поддоспешник облегает торс, чтобы в просветах брони была ткань/кольчуга, а не рубашка игрока.
+local SET_COLORS = {
+	{ C(196, 180, 128), "ZSS_I_Burlap" }, -- строительная каска: светлый брезент
+	{ C(140, 24, 28), "ZSS_I_Leather" }, -- мотошлем: красная кожа
+	{ C(92, 98, 72), "ZSS_D_Camo" }, -- военная каска: камуфляж
+	{ C(76, 84, 56), "ZSS_I_Kevlar" }, -- противогаз: оливковый брезент
+	{ C(46, 44, 48), "ZSSG_W_Steel" }, -- «Жнец»: воронёное железо
+	{ C(46, 70, 150), "ZSSG_B_Quilted" }, -- «Бастион»: синяя ткань, как гребень шлема
 	{ C(110, 26, 24), "ZSSG_W_DragonScale" },
 	{ C(84, 58, 40), "ZSS_I_Leather" },
-	{ C(214, 184, 46), "ZSSG_W_Hazmat" },
-	{ C(64, 84, 126), "ZSSG_W_Steel" },
-	{ C(44, 34, 32), "ZSSG_W_Obsidian" },
+	{ C(226, 216, 160), nil, M.Rubber }, -- химзащита: светлая резина
+	{ C(150, 200, 240), "ZSSG_W_Crystal" },
+	{ C(52, 36, 30), "ZSSG_W_Magma" },
 	{ C(28, 22, 38), "ZSSG_W_Obsidian" },
-	{ C(40, 46, 62), "ZSSG_W_Circuit" },
+	{ C(30, 48, 110), "ZSSG_W_Circuit" }, -- нано: тёмно-синий
 	{ C(128, 20, 30), "ZSSG_B_Quilted" },
-	{ C(220, 222, 232), "ZSS_D_SciFi" },
+	{ C(232, 236, 242), nil, M.SmoothPlastic }, -- «Омега»: белый глянец
 }
 
 local function armorMesh(m, t, box)
@@ -865,12 +867,12 @@ local function armorMesh(m, t, box)
 	if math.abs(math.cos(yaw)) < 0.5 then
 		size = Vector3.new(size.Z, size.Y, size.X)
 	end
-	local under = ARMOR_UNDER[t]
+	local under = SET_COLORS[t]
 	if under and tpl:GetAttribute("Under") ~= false then
-		P(m, { name = "Under", size = Vector3.new(w * 1.04, h * 0.98, d * 1.08), color = under[1], v = under[2] })
+		P(m, { name = "Under", size = Vector3.new(w * 1.04, h * 0.98, d * 1.08), color = under[1], v = under[2], mat = under[3] })
 		-- у R15 верхний торс ниже ширины; пояс закрывает LowerTorso, чтобы броня не обрывалась над поясом
 		if h < w * 0.9 then
-			P(m, { name = "Belt", size = Vector3.new(w * 1.06, h * 0.3, d * 1.12), cf = CFrame.new(0, -h * 0.62, 0), color = under[1], v = under[2] })
+			P(m, { name = "Belt", size = Vector3.new(w * 1.06, h * 0.3, d * 1.12), cf = CFrame.new(0, -h * 0.62, 0), color = under[1], v = under[2], mat = under[3] })
 		end
 	end
 	local p = src:Clone()
@@ -1181,7 +1183,7 @@ local function limbMesh(m, libName, key, box, reach, glow, sleeve, def)
 	end
 	local hgt = box.Y + reach
 	if sleeve and tpl:GetAttribute("Sleeve") ~= false then
-		P(m, { name = "Sleeve", size = Vector3.new(box.X * 1.06, hgt, box.Z * 1.06), cf = CFrame.new(0, (hgt - box.Y) / 2, 0), color = sleeve[1], v = sleeve[2] })
+		P(m, { name = "Sleeve", size = Vector3.new(box.X * 1.06, hgt, box.Z * 1.06), cf = CFrame.new(0, (hgt - box.Y) / 2, 0), color = sleeve[1], v = sleeve[2], mat = sleeve[3] })
 	end
 	local yaw = math.rad(tpl:GetAttribute("Yaw") or 0)
 	local size = Vector3.new(box.X * (tpl:GetAttribute("SX") or def.X), hgt * (tpl:GetAttribute("SY") or def.Y), box.Z * (tpl:GetAttribute("SZ") or def.Z))
@@ -1222,7 +1224,7 @@ function IB.Glove(item, box, reach)
 		local m = newModel(item.id)
 		root(m)
 		local st = HI[item.tier] or GLOVES[item.tier]
-		if limbMesh(m, "GloveMeshes", item.id, box, reach or box.Y * 1.6, st and st.glow, st and { st.main, st.v }, GLOVE_FIT) then
+		if limbMesh(m, "GloveMeshes", item.id, box, reach or box.Y * 1.6, st and st.glow, SET_COLORS[item.tier] or (st and { st.main, st.v }), GLOVE_FIT) then
 			return m
 		end
 		m:Destroy()
@@ -1293,7 +1295,7 @@ function IB.Boot(item, box, reach)
 		local m = newModel(item.id)
 		root(m)
 		local st = HI[item.tier] or BOOTS[item.tier]
-		if limbMesh(m, "BootMeshes", item.id, box, reach or box.Y * 1.5, st and st.glow, st and { st.main, st.v }, BOOT_FIT) then
+		if limbMesh(m, "BootMeshes", item.id, box, reach or box.Y * 1.5, st and st.glow, SET_COLORS[item.tier] or (st and { st.main, st.v }), BOOT_FIT) then
 			return m
 		end
 		m:Destroy()
