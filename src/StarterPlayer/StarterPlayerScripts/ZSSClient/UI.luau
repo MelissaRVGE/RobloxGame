@@ -454,7 +454,7 @@ local function buildHUD()
 			ZIndex = 3,
 			Parent = b,
 		})
-		local ic = iconImg(b, it.icon, UDim2.fromOffset(46, 46), UDim2.new(0.5, 0, 30 / BH, 0), 4)
+		local ic = iconImg(b, it.icon, UDim2.fromOffset(46, 46), UDim2.new(0.5, 0, 0, 30), 4)
 		ic.AnchorPoint = Vector2.new(0.5, 0.5)
 		local icScale = U.scaleOf(ic)
 		local glowScale = U.scaleOf(glow)
@@ -508,7 +508,6 @@ local function buildHUD()
 			fx.hover = true
 			U.tween(b, 0.15, { Position = UDim2.fromOffset(0, -2) }, Enum.EasingStyle.Back)
 			U.tween(icScale, 0.2, { Scale = 52 / 46 }, Enum.EasingStyle.Back)
-			U.tween(ic, 0.2, { Rotation = -6 }, Enum.EasingStyle.Back)
 			U.tween(glow, 0.2, { ImageTransparency = 0.15 })
 			U.tween(glowScale, 0.2, { Scale = 92 / 78 })
 		end)
@@ -516,7 +515,6 @@ local function buildHUD()
 			fx.hover = false
 			U.tween(b, 0.15, { Position = UDim2.fromOffset(0, 0) })
 			U.tween(icScale, 0.2, { Scale = 1 })
-			U.tween(ic, 0.2, { Rotation = 0 })
 			U.tween(glow, 0.2, { ImageTransparency = 0.45 })
 			U.tween(glowScale, 0.2, { Scale = 1 })
 		end)
@@ -557,21 +555,25 @@ local function buildHUD()
 		hud.buttons[it.key] = { b = b, label = lbl, sub = sub, hot = hot, icon = ic, holder = holder }
 	end
 	-- живые кнопки: иконки плавают, рамка переливается, иногда пробегает блик
-	RunService.RenderStepped:Connect(function()
+	RunService.RenderStepped:Connect(function(dt)
 		local t = os.clock()
 		for _, f in ipairs(hud.railFx) do
-			local y = math.sin(t * 2.2 + f.ph) * 2
+			-- Покачивание иконки — только поворотом. Интерфейс рисуется по целым пикселям, и медленный
+			-- сдвиг на 1–2 пикселя выглядит как подёргивание; поворот же отрисовывается без ступенек.
+			f.tilt = (f.tilt or 0) + ((f.hover and -6 or 0) - (f.tilt or 0)) * math.min(1, dt * 12)
+			local rot = math.sin(t * 1.6 + f.ph) * 5 + f.tilt
+			local y = 0
 			if f.jump then
 				local k = (t - f.jump) / 0.5
 				if k < 1 then
-					y -= math.sin(k * math.pi) * 9 * (1 - k * 0.5)
-					f.ic.Rotation = math.sin(k * math.pi * 2) * 14 * (1 - k)
+					y = -math.sin(k * math.pi) * 9 * (1 - k * 0.5)
+					rot += math.sin(k * math.pi * 2) * 14 * (1 - k)
 				else
 					f.jump = nil
 				end
 			end
-			-- сдвиг задаём долей высоты кнопки: дробные значения дают плавное движение без «ступенек» по пикселю
-			f.ic.Position = UDim2.new(0.5, 0, (30 + y) / BH, 0)
+			f.ic.Rotation = rot
+			f.ic.Position = UDim2.new(0.5, 0, 0, 30 + y)
 			f.stGrad.Rotation = (t * 60 + f.ph * 40) % 360
 			if t >= f.nextSheen then
 				f.nextSheen = t + 4 + math.random() * 3
@@ -1242,36 +1244,29 @@ local function setModelVp(vp, def, yaw, pitch)
 	return m
 end
 
--- Живая модель в окне: вращается вокруг центра габаритов (у части дронов точка привязки смещена,
--- и вокруг неё дрон «гулял» по кругу), а винты и орбитальные шары крутятся, как у дронов в мире.
-local function spinBase(m)
+-- Витрина модели в окне: сама модель стоит неподвижно, а камера плавно облетает её по кругу.
+-- Сдвигать каждый кадр десятки деталей внутри ViewportFrame дорого, и картинка подтормаживает,
+-- а движение одной камеры перерисовывается ровно, без рывков. Свет поворачивается вместе с камерой,
+-- поэтому дрон освещён одинаково со всех сторон, как будто вращается он сам.
+local function orbitBase(vp, m, pitch)
 	local box = m:GetBoundingBox()
-	local center = CFrame.new(box.Position)
-	local core = m.PrimaryPart and m.PrimaryPart.CFrame or m:GetPivot()
-	local entries = {}
-	for _, p in ipairs(m:GetDescendants()) do
-		if p:IsA("BasePart") then
-			table.insert(entries, { part = p, offset = core:ToObjectSpace(p.CFrame), spin = p:GetAttribute("Spin"), axis = p:GetAttribute("SpinAxis"), orbit = p:GetAttribute("Orbit") })
-		end
-	end
-	return { center = center, coreRel = center:ToObjectSpace(core), entries = entries }
+	local cam = vp.CurrentCamera
+	return {
+		vp = vp,
+		cam = cam,
+		center = box.Position,
+		dist = (cam.CFrame.Position - box.Position).Magnitude,
+		pitch = pitch,
+		light = vp:GetAttribute("BaseLight") or vp.LightDirection,
+	}
 end
 
-local function spinModel(base, cf, t)
-	local core = base.center * cf * base.coreRel
-	for _, e in ipairs(base.entries) do
-		local pcf
-		if e.orbit then
-			pcf = core * CFrame.Angles(0, t * e.orbit, 0) * e.offset
-		else
-			pcf = core * e.offset
-			if e.spin then
-				local a = t * e.spin
-				pcf = pcf * (e.axis == "X" and CFrame.Angles(a, 0, 0) or CFrame.Angles(0, a, 0))
-			end
-		end
-		e.part.CFrame = pcf
-	end
+local function orbitStep(o, yaw, bob)
+	local rot = CFrame.Angles(0, -yaw, 0)
+	local dir = (rot * CFrame.Angles(o.pitch, 0, 0)).LookVector
+	local target = o.center - Vector3.new(0, bob or 0, 0)
+	o.cam.CFrame = CFrame.lookAt(target + dir * o.dist, target)
+	o.vp.LightDirection = rot:VectorToWorldSpace(o.light)
 end
 
 local function ownedOf(id)
@@ -1791,7 +1786,8 @@ function UI.SelectDrone(id)
 	local hidden = owned == 0 and def.rarity == "Secret"
 	if inv.dmodelId ~= id then
 		inv.dmodel = setModelVp(inv.dvp, def, 0, math.rad(12))
-		inv.dmodelBase = spinBase(inv.dmodel)
+		inv.dvp:SetAttribute("BaseLight", inv.dvp:GetAttribute("BaseLight") or inv.dvp.LightDirection)
+		inv.dmodelBase = orbitBase(inv.dvp, inv.dmodel, math.rad(12))
 		inv.dmodelId = id
 		-- новая модель проявляется, а не появляется рывком
 		inv.dvp.ImageTransparency = 1
@@ -2327,7 +2323,8 @@ local function buildGacha()
 			end
 		end
 		gacha.showModel = setModelVp(gacha.showVp, def, 0, math.rad(12))
-		gacha.showBase = spinBase(gacha.showModel)
+		gacha.showVp:SetAttribute("BaseLight", gacha.showVp:GetAttribute("BaseLight") or gacha.showVp.LightDirection)
+		gacha.showBase = orbitBase(gacha.showVp, gacha.showModel, math.rad(12))
 		local r = Config.Rarities[def.rarity]
 		local hidden = def.rarity == "Secret" and not (State.data and (State.data.owned[def.id] or 0) > 0)
 		gacha.showVp.ImageColor3 = hidden and C(0, 0, 0) or C(255, 255, 255)
@@ -2784,16 +2781,14 @@ function UI.Init()
 		hp.Color = hp.Color:Lerp(hud.hpLow and Color3.new(1, 0.25 + 0.25 * math.sin(t * 8), 0.2) or C(70, 80, 70), math.min(1, dt * 12))
 		-- вращение моделей в окнах
 		if inv.win.Visible and inv.dmodel and inv.dmodel.Parent then
-			spinModel(inv.dmodelBase, CFrame.Angles(0, t * 0.8, 0), t)
+			orbitStep(inv.dmodelBase, t * 0.8)
 			if inv.drarityRainbow then
 				inv.drarity.TextColor3 = Config.Rainbow(t)
 			end
 		end
 		if gacha.win.Visible and gacha.showModel and gacha.showModel.Parent then
-			-- мягкое парение: плавный подъём/опускание и лёгкий наклон, вращение строго на месте
-			local bob = math.sin(t * 1.4) * 0.12
-			local tilt = CFrame.Angles(math.sin(t * 1.1) * 0.05, 0, math.sin(t * 0.9 + 1) * 0.05)
-			spinModel(gacha.showBase, CFrame.new(0, bob, 0) * tilt * CFrame.Angles(0, t * 0.9, 0), t)
+			-- медленный облёт камерой и мягкое парение дрона вверх-вниз
+			orbitStep(gacha.showBase, t * 0.7, math.sin(t * 1.4) * 0.1)
 			if gacha.showRainbow then
 				gacha.showName.TextColor3 = Config.Rainbow(t)
 			end
