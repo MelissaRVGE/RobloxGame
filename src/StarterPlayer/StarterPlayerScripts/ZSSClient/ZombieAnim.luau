@@ -1,5 +1,7 @@
 -- Процедурная анимация зомби: руки вперёд, шаркающая походка, заморозка
 local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local Debris = game:GetService("Debris")
 
 local ZA = {}
 local cache = {}
@@ -142,10 +144,15 @@ function ZA.Init()
 					hl.Name = "FrostHL"
 					hl.FillColor = Color3.fromRGB(140, 210, 255)
 					hl.OutlineColor = Color3.fromRGB(220, 245, 255)
-					hl.FillTransparency = 0.45
+					-- иней плавно нарастает и так же плавно сходит
+					hl.FillTransparency = 1
+					hl.OutlineTransparency = 1
 					hl.Parent = m
+					TweenService:Create(hl, TweenInfo.new(0.25), { FillTransparency = 0.45, OutlineTransparency = 0 }):Play()
 				elseif not frozen and hl then
-					hl:Destroy()
+					hl.Name = "FrostHL_Out"
+					TweenService:Create(hl, TweenInfo.new(0.3), { FillTransparency = 1, OutlineTransparency = 1 }):Play()
+					Debris:AddItem(hl, 0.32)
 				end
 			end
 		end

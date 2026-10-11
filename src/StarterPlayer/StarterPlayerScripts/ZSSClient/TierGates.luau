@@ -2,6 +2,7 @@
 -- Вдоль каждого обрыва стоит невидимая стена: если дронов меньше нужного — не пройти наверх.
 -- Спускаться можно всегда (стена выключается, если игрок уже выше неё).
 local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
 local player = Players.LocalPlayer
 
 local TierGates = {}
@@ -29,15 +30,17 @@ local function update()
 		if shown[gate] ~= open then
 			shown[gate] = open
 			local door = gate:FindFirstChild("Door")
+			-- ворота открываются плавно: дверь тает, лампы перетекают в зелёный
+			local ti = TweenInfo.new(0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 			if door then
-				door.Transparency = open and 1 or 0.35
+				TweenService:Create(door, ti, { Transparency = open and 1 or 0.35 }):Play()
 			end
 			for _, p in ipairs(gate:GetChildren()) do
 				if p.Name == "Lamp" then
-					p.Color = open and GREEN or RED
+					TweenService:Create(p, ti, { Color = open and GREEN or RED }):Play()
 					local l = p:FindFirstChildOfClass("PointLight")
 					if l then
-						l.Color = p.Color
+						TweenService:Create(l, ti, { Color = open and GREEN or RED }):Play()
 					end
 				end
 			end

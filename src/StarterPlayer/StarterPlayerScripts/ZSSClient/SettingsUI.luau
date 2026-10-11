@@ -56,7 +56,7 @@ local function applyAll()
 	FX.Particles = v.particles and 1 or 0.35
 	FX.ShakeEnabled = v.shake
 	FX.ShowDamage = v.showDamage
-	workspace.CurrentCamera.FieldOfView = v.fov
+	U.tween(workspace.CurrentCamera, 0.25, { FieldOfView = v.fov }) -- угол обзора меняется плавно
 	UIS.MouseDeltaSensitivity = v.sensitivity
 	U.Volume.master = v.master
 	U.Volume.sfx = v.sfx
@@ -116,8 +116,7 @@ local function toggle(page, order, key, iconText, title, desc)
 	track.Activated:Connect(function()
 		U.play(U.Sounds.tap, 0.5, S.Values[key] and 0.9 or 1.2)
 		-- кнопка «пружинит» в сторону переключения
-		knob.Size = UDim2.fromOffset(32, 22)
-		U.tween(knob, 0.3, { Size = UDim2.fromOffset(24, 24) }, Enum.EasingStyle.Elastic)
+		U.pulseSize(knob, UDim2.fromOffset(32, 22), UDim2.fromOffset(24, 24), 0.06, 0.35)
 		set(key, not S.Values[key])
 		if key == "shadows" or key == "effects" or key == "particles" then
 			S.Values.preset = "custom"
@@ -142,8 +141,8 @@ local function slider(page, order, key, iconText, title, desc, minV, maxV, step,
 	function w.sync()
 		local v = S.Values[key]
 		local a = math.clamp((v - minV) / (maxV - minV), 0, 1)
-		fill.Size = UDim2.fromScale(a, 1)
-		knob.Position = UDim2.fromScale(a, 0.5)
+		U.tween(fill, 0.1, { Size = UDim2.fromScale(a, 1) })
+		U.tween(knob, 0.1, { Position = UDim2.fromScale(a, 0.5) })
 		valueLbl.Text = fmt and fmt(v) or tostring(v)
 	end
 	local dragging = false
@@ -202,8 +201,7 @@ local function segmented(page, order, key, iconText, title, desc, options)
 	function w.sync()
 		for value, b in pairs(btns) do
 			local on = S.Values[key] == value
-			b.BackgroundColor3 = on and C(50, 150, 230) or C(16, 20, 26)
-			b.TextColor3 = on and C(255, 255, 255) or C(170, 180, 190)
+			U.tween(b, 0.15, { BackgroundColor3 = on and C(50, 150, 230) or C(16, 20, 26), TextColor3 = on and C(255, 255, 255) or C(170, 180, 190) })
 		end
 	end
 	table.insert(widgets, w)
@@ -229,16 +227,26 @@ local TABS = {
 	{ id = "codes", label = "Промокоды", icon = "lootCrate", color = C(255, 200, 60) },
 }
 
+local currentTab
 local function selectTab(id)
 	for _, t in ipairs(TABS) do
 		local on = t.id == id
-		pages[t.id].Visible = on
+		local page = pages[t.id]
+		if on and currentTab ~= id then
+			-- новая страница мягко въезжает справа
+			page.Position = UDim2.fromOffset(222 + 24, 80)
+			page.Visible = true
+			U.tween(page, 0.25, { Position = UDim2.fromOffset(222, 80) }, Enum.EasingStyle.Quart)
+		elseif not on then
+			page.Visible = false
+		end
 		local b = tabs[t.id]
 		U.tween(b.btn, 0.15, { BackgroundColor3 = on and C(36, 44, 56) or C(22, 26, 32) })
-		b.stroke.Color = on and t.color or C(45, 50, 58)
-		b.bar.Visible = on
-		b.label.TextColor3 = on and C(255, 255, 255) or C(160, 170, 180)
+		U.tween(b.stroke, 0.15, { Color = on and t.color or C(45, 50, 58) })
+		U.fadeVisible(b.bar, on, 0.15)
+		U.tween(b.label, 0.15, { TextColor3 = on and C(255, 255, 255) or C(160, 170, 180) })
 	end
+	currentTab = id
 end
 
 local function build()
@@ -402,7 +410,7 @@ local function build()
 end
 
 function S.Toggle()
-	if win.Visible then
+	if U.isOpen(win, scaleObj) then
 		S.Close()
 	else
 		if api.closeOthers then
@@ -417,7 +425,7 @@ end
 
 function S.Close()
 	if win then
-		win.Visible = false
+		api.closeWindow(win, scaleObj)
 	end
 end
 
@@ -453,7 +461,7 @@ function S.Init(a)
 			acc = 0
 			local cam = workspace.CurrentCamera
 			if cam and math.abs(cam.FieldOfView - S.Values.fov) > 0.5 and cam.CameraType == Enum.CameraType.Custom then
-				cam.FieldOfView = S.Values.fov
+				U.tween(cam, 0.3, { FieldOfView = S.Values.fov })
 			end
 		end
 	end)

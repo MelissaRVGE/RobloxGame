@@ -78,6 +78,15 @@ local function showDetails(entry)
 	local tier = Items.Tiers[it.tier]
 	det.empty.Visible = false
 	det.box.Visible = true
+	if det.shownId ~= it.id then
+		-- другой предмет: иконка мягко «выпрыгивает»
+		det.shownId = it.id
+		det.icon.ImageTransparency = 1
+		U.tween(det.icon, 0.25, { ImageTransparency = 0 })
+		local sc = det.icon:FindFirstChild("Pop") or new("UIScale", { Name = "Pop", Parent = det.icon })
+		sc.Scale = 0.7
+		U.tween(sc, 0.35, { Scale = 1 }, Enum.EasingStyle.Back)
+	end
 	det.icon.Image = Icons.items[it.id] or ""
 	det.glow.ImageColor3 = tier.color
 	det.name.Text = it.name
@@ -88,7 +97,7 @@ local function showDetails(entry)
 	det.value.Text = "Цена продажи: 🔋 " .. U.fmt(it.value)
 	det.use.Visible = it.use ~= nil
 	det.sellAll.Text = ("ПРОДАТЬ ВСЕ (🔋 %s)"):format(U.fmt(it.value * entry.n))
-	det.stroke.Color = tier.color
+	U.tween(det.stroke, 0.2, { Color = tier.color })
 end
 
 function BagUI.Refresh(d)
@@ -129,22 +138,26 @@ function BagUI.Refresh(d)
 		s.entry = e
 		if e then
 			local tier = Items.Tiers[e.item.tier]
+			if s.iconId ~= e.item.id then
+				s.iconId = e.item.id
+				s.icon.ImageTransparency = 1
+				U.tween(s.icon, 0.25, { ImageTransparency = 0 })
+			end
 			s.icon.Image = Icons.items[e.item.id] or ""
 			s.icon.Visible = true
 			s.count.Text = "x" .. e.n
-			s.stroke.Color = tier.color
-			s.stroke.Thickness = e.item.id == selected and 4 or 2
-			s.bg.BackgroundColor3 = U.darken(tier.color, 0.22)
+			U.tween(s.stroke, 0.18, { Color = tier.color }) -- толщину рамки задаёт цикл ниже
+			U.tween(s.bg, 0.18, { BackgroundColor3 = U.darken(tier.color, 0.22) })
 			s.shine.Visible = tier.order >= 4
 			if e.item.id == selected then
 				selEntry = e
 			end
 		else
 			s.icon.Visible = false
+			s.iconId = nil
 			s.count.Text = ""
-			s.stroke.Color = C(55, 62, 55)
-			s.stroke.Thickness = 1.5
-			s.bg.BackgroundColor3 = C(24, 28, 24)
+			U.tween(s.stroke, 0.18, { Color = C(55, 62, 55), Thickness = 1.5 })
+			U.tween(s.bg, 0.18, { BackgroundColor3 = C(24, 28, 24) })
 			s.shine.Visible = false
 		end
 	end
@@ -154,7 +167,7 @@ function BagUI.Refresh(d)
 	showDetails(selEntry)
 	for _, s in ipairs(slots) do
 		if s.entry then
-			s.stroke.Thickness = s.entry.item.id == selected and 4 or 2
+			U.tween(s.stroke, 0.18, { Thickness = s.entry.item.id == selected and 4 or 2 })
 		end
 	end
 end
@@ -204,7 +217,7 @@ local function buildWindow()
 		TextColor3 = C(255, 255, 255),
 		Parent = header,
 	}, function()
-		win.Visible = false
+		api.closeWindow(win, scaleObj)
 	end)
 	U.corner(10).Parent = close
 
@@ -287,8 +300,8 @@ local function buildWindow()
 end
 
 function BagUI.Toggle()
-	if win.Visible then
-		win.Visible = false
+	if U.isOpen(win, scaleObj) then
+		api.closeWindow(win, scaleObj)
 	else
 		if api.closeOthers then
 			api.closeOthers()
@@ -300,12 +313,12 @@ end
 
 function BagUI.Close()
 	if win then
-		win.Visible = false
+		api.closeWindow(win, scaleObj)
 	end
 end
 
 function BagUI.IsOpen()
-	return win and win.Visible
+	return U.isOpen(win, scaleObj)
 end
 
 -- ===== ЧАСЫ ДЕНЬ/НОЧЬ =====
@@ -384,22 +397,35 @@ end
 local function updateBossBar(dt)
 	local char = player.Character
 	local hrp = char and char:FindFirstChild("HumanoidRootPart")
-	if not bossField or not hrp then
-		bossBar.frame.Visible = false
-		return
+	local near = false
+	if bossField and hrp then
+		local c = bossField.center
+		near = Vector3.new(hrp.Position.X - c.X, 0, hrp.Position.Z - c.Z).Magnitude < bossField.size / 2 + 30
 	end
-	local c = bossField.center
-	local near = Vector3.new(hrp.Position.X - c.X, 0, hrp.Position.Z - c.Z).Magnitude < bossField.size / 2 + 30
-	bossBar.frame.Visible = near
+	-- полоска босса плавно выезжает / сворачивается
+	if near ~= bossBar.shown then
+		bossBar.shown = near
+		if near then
+			local sc = bossBar.scale
+			U.openPanel(bossBar.frame, sc, sc:GetAttribute("Animating") and sc:GetAttribute("BaseScale") or sc.Scale)
+		else
+			U.closePanel(bossBar.frame, bossBar.scale)
+		end
+	end
 	if not near then
 		return
+	end
+	-- заполнение догоняет реальное HP плавно, а не прыжком
+	local function fillTo(r)
+		local cur = bossBar.fill.Size.X.Scale
+		bossBar.fill.Size = UDim2.fromScale(cur + (r - cur) * math.min(1, (dt or 0.016) * 12), 1)
 	end
 	local zf = workspace:FindFirstChild("Zombies")
 	local boss = zf and zf:FindFirstChild("Boss_Colossus")
 	local hum = boss and boss:FindFirstChildOfClass("Humanoid")
 	if hum and hum.Health > 0 then
 		local r = math.clamp(hum.Health / hum.MaxHealth, 0, 1)
-		bossBar.fill.Size = UDim2.fromScale(r, 1)
+		fillTo(r)
 		bossBar.ghostRatio = math.max(r, bossBar.ghostRatio - dt * 0.15)
 		if bossBar.ghostRatio < r then
 			bossBar.ghostRatio = r
@@ -410,8 +436,9 @@ local function updateBossBar(dt)
 		bossBar.sub.Text = ""
 	else
 		local at = workspace:GetAttribute("ZSS_BossRespawn") or 0
-		bossBar.fill.Size = UDim2.fromScale(0, 1)
-		bossBar.ghost.Size = UDim2.fromScale(0, 1)
+		fillTo(0)
+		bossBar.ghostRatio = math.max(0, bossBar.ghostRatio - (dt or 0.016) * 0.6)
+		bossBar.ghost.Size = UDim2.fromScale(bossBar.ghostRatio, 1)
 		bossBar.name.Text = "☠ КОЛОСС ПОВЕРЖЕН"
 		bossBar.text.Text = at > 0 and ("Возродится через " .. fmtTime(at - workspace:GetServerTimeNow())) or ""
 		bossBar.sub.Text = ""
@@ -469,10 +496,10 @@ local function buildBuff()
 			-- подсказка по наведению
 			local tip = new("TextLabel", { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 0, -4), Size = UDim2.fromOffset(190, 40), BackgroundColor3 = C(18, 20, 26), BackgroundTransparency = 0.08, Font = Enum.Font.GothamBold, TextSize = 13, TextWrapped = true, Text = "", TextColor3 = C(255, 255, 255), Visible = false, ZIndex = 20, Parent = holder }, { U.corner(8), U.stroke(b.color, 1.5) })
 			holder.MouseEnter:Connect(function()
-				tip.Visible = true
+				U.fadeVisible(tip, true, 0.15)
 			end)
 			holder.MouseLeave:Connect(function()
-				tip.Visible = false
+				U.fadeVisible(tip, false, 0.15)
 			end)
 			buff.chips[b.id] = { frame = holder, scale = scale, glow = glow, icon = icon, shade = shade, edge = edge, stroke = stroke, sec = sec, mult = mult, pips = pips, tip = tip, def = b, stacks = 0, untilT = 0, bump = 0 }
 		end
@@ -487,10 +514,15 @@ local function updateBuff(dt)
 		local left = untilT - now
 		local stacks = left > 0 and (player:GetAttribute("ZSS_BuffN_" .. id) or 1) or 0
 		if left > 0 then
-			if not c.frame.Visible then
-				-- появление
+			if not c.frame.Visible or c.leaving then
+				-- появление: ячейка раздвигает соседей и выпрыгивает с пружинкой
+				if not c.frame.Visible then
+					c.scale.Scale = 0.3
+					c.frame.Size = UDim2.fromOffset(0, TILE + 18)
+				end
+				c.leaving = false
 				c.frame.Visible = true
-				c.scale.Scale = 0.3
+				U.tween(c.frame, 0.25, { Size = UDim2.fromOffset(TILE, TILE + 18) }, Enum.EasingStyle.Quart)
 				U.tween(c.scale, 0.35, { Scale = 1 }, Enum.EasingStyle.Back)
 			end
 			if c.untilT > 0 and (stacks > c.stacks or untilT > c.untilT + 0.5) then
@@ -508,8 +540,11 @@ local function updateBuff(dt)
 			c.sec.Text = left >= 10 and tostring(math.floor(left)) or ("%.1f"):format(left)
 			local m = 1 + b.per * stacks
 			c.mult.Text = Buffs.MultText(m)
-			for k, pip in ipairs(c.pips) do
-				pip.BackgroundTransparency = k <= stacks and 0 or 0.8
+			if c.pipStacks ~= stacks then
+				c.pipStacks = stacks
+				for k, pip in ipairs(c.pips) do
+					U.tween(pip, 0.2, { BackgroundTransparency = k <= stacks and 0 or 0.8 })
+				end
 			end
 			c.tip.Text = ("%s  %d/%d\n%s %s • %.1f сек"):format(b.name, stacks, Buffs.MaxStacks, b.desc, Buffs.MultText(m), left)
 			-- осталось мало времени — плитка мигает
@@ -521,10 +556,21 @@ local function updateBuff(dt)
 			end
 			c.glow.ImageTransparency = 0.75 - 0.45 * c.bump - (stacks >= Buffs.MaxStacks and 0.15 * (0.5 + 0.5 * math.sin(now * 4)) or 0)
 			c.glow.Rotation = now * 30
-			c.stroke.Color = stacks >= Buffs.MaxStacks and C(255, 230, 120) or b.color:Lerp(C(255, 255, 255), 0.35)
-		elseif c.frame.Visible then
-			c.frame.Visible = false
-			c.stacks, c.untilT, c.bump = 0, 0, 0
+			c.stroke.Color = c.stroke.Color:Lerp(stacks >= Buffs.MaxStacks and C(255, 230, 120) or b.color:Lerp(C(255, 255, 255), 0.35), math.min(1, (dt or 0.016) * 10))
+		elseif c.frame.Visible and not c.leaving then
+			-- исчезновение: плитка сжимается, соседи плавно сдвигаются
+			c.leaving = true
+			c.stacks, c.untilT, c.bump, c.pipStacks = 0, 0, 0, nil
+			U.tween(c.scale, 0.2, { Scale = 0 }, Enum.EasingStyle.Back, Enum.EasingDirection.In)
+			U.tween(c.frame, 0.25, { Size = UDim2.fromOffset(0, TILE + 18) }, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
+			local token = {}
+			c.leaveToken = token
+			task.delay(0.25, function()
+				if c.leaving and c.leaveToken == token then
+					c.leaving = false
+					c.frame.Visible = false
+				end
+			end)
 		end
 	end
 end
@@ -544,6 +590,16 @@ function BagUI.ShowBossReward(d)
 	local target = sc.Scale
 	sc.Scale = target * 0.3
 	U.tween(sc, 0.4, { Scale = target }, Enum.EasingStyle.Back)
+	sc:SetAttribute("BaseScale", target)
+	task.delay(0.41, function()
+		sc:SetAttribute("Animating", nil)
+	end)
+	local function dismiss()
+		U.closePanel(f, sc)
+		task.delay(0.25, function()
+			f:Destroy()
+		end)
+	end
 	new("ImageLabel", { BackgroundTransparency = 1, Image = Icons.boss, Size = UDim2.fromOffset(72, 72), Position = UDim2.new(0.5, -36, 0, -40), ZIndex = 41, Parent = f })
 	local t = new("TextLabel", { Position = UDim2.fromOffset(10, 36), Size = UDim2.new(1, -20, 0, 34), BackgroundTransparency = 1, Font = Enum.Font.GothamBlack, TextScaled = true, Text = "КОЛОСС ПОВЕРЖЕН!", TextColor3 = C(255, 255, 255), ZIndex = 41, Parent = f }, { U.textStroke(C(60, 0, 0), 2.5) })
 	new("UIGradient", { Color = ColorSequence.new(C(255, 240, 150), C(255, 120, 40)), Rotation = 90, Parent = t })
@@ -558,13 +614,13 @@ function BagUI.ShowBossReward(d)
 	reward(Icons.battery, "+" .. U.fmt(d.batteries), T.Battery)
 	new("TextLabel", { Position = UDim2.fromOffset(16, 150), Size = UDim2.new(1, -32, 0, 56), BackgroundTransparency = 1, Font = Enum.Font.GothamBold, TextWrapped = true, TextSize = 14, Text = (#(d.items or {}) > 0) and ("Находки: " .. table.concat(d.items, ", ")) or "Рюкзак переполнен — предметы не поместились", TextColor3 = C(255, 230, 200), ZIndex = 41, Parent = f })
 	local ok = api.button({ AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -12), Size = UDim2.fromOffset(160, 34), BackgroundColor3 = C(255, 190, 60), Font = Enum.Font.GothamBlack, TextSize = 16, Text = "ЗАБРАТЬ", TextColor3 = C(40, 20, 0), ZIndex = 42, Parent = f }, function()
-		f:Destroy()
+		dismiss()
 	end)
 	U.corner(10).Parent = ok
 	U.play(U.Sounds.pop, 0.8, 0.9)
 	task.delay(12, function()
 		if f.Parent then
-			f:Destroy()
+			dismiss()
 		end
 	end)
 end

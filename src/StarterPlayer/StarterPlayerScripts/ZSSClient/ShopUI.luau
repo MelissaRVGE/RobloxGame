@@ -211,7 +211,7 @@ local function selectItem(id)
 	detail.center = CFrame.new(bb.Position)
 	detail.rel = detail.center:Inverse() * detail.model:GetPivot()
 	for cid, c in pairs(cards) do
-		c.stroke.Thickness = cid == id and 4 or 2
+		U.tween(c.stroke, 0.15, { Thickness = cid == id and 4 or 2 })
 	end
 	refreshDetail()
 end
@@ -238,7 +238,7 @@ local function refreshCards()
 	end
 	for key, b in pairs(tabButtons) do
 		local on = key == tab
-		b.b.BackgroundColor3 = on and C(70, 90, 60) or C(30, 36, 30)
+		U.tween(b.b, 0.15, { BackgroundColor3 = on and C(70, 90, 60) or C(30, 36, 30) })
 		local eq = equippedId(key)
 		b.sub.Text = eq and Shop.ById[eq].name or "— пусто —"
 	end
@@ -251,8 +251,28 @@ local function refreshCards()
 end
 
 local function setTab(key)
+	local changed = tab ~= key or not win.Visible
 	tab = key
 	refreshCards()
+	if changed then
+		-- карточки новой вкладки появляются волной с лёгкой пружинкой
+		local list = {}
+		for _, c in pairs(cards) do
+			if c.card.Visible then
+				table.insert(list, c)
+			end
+		end
+		table.sort(list, function(a, b)
+			return a.card.LayoutOrder < b.card.LayoutOrder
+		end)
+		for i, c in ipairs(list) do
+			local sc = c.card:FindFirstChild("TabPop") or new("UIScale", { Name = "TabPop", Parent = c.card })
+			sc.Scale = 0.6
+			task.delay(math.min(i, 12) * 0.02, function()
+				U.tween(sc, 0.3, { Scale = 1 }, Enum.EasingStyle.Back)
+			end)
+		end
+	end
 	local first = Shop.BySlot[key][1]
 	local pick = first.id
 	local eq = equippedId(key)
@@ -364,7 +384,7 @@ local function build()
 		TextColor3 = C(255, 255, 255),
 		Parent = header,
 	}, function()
-		win.Visible = false
+		SUI.Close()
 	end)
 	U.corner(12).Parent = close
 
@@ -613,12 +633,12 @@ local function build()
 end
 
 function SUI.IsOpen()
-	return win and win.Visible
+	return U.isOpen(win, scaleObj)
 end
 
 function SUI.Close()
 	if win then
-		win.Visible = false
+		U.closePanel(win, scaleObj)
 	end
 end
 
@@ -628,9 +648,7 @@ function SUI.Open(startTab)
 	end
 	local vp = workspace.CurrentCamera.ViewportSize
 	local s = math.clamp(math.min(vp.X / 1280, vp.Y / 760), 0.55, 1.15)
-	win.Visible = true
-	scaleObj.Scale = s * 0.85
-	U.tween(scaleObj, 0.25, { Scale = s }, Enum.EasingStyle.Back)
+	U.openPanel(win, scaleObj, s)
 	U.play(U.Sounds.whoosh, 0.25, 1.6)
 	setTab(tab)
 end
@@ -656,7 +674,7 @@ function SUI.Init(toastFn)
 				detail.model:PivotTo(detail.center * CFrame.Angles(0, os.clock() * 0.9, 0) * detail.rel)
 			end
 			if not SUI.InZone() then
-				win.Visible = false
+				SUI.Close()
 			end
 		end
 	end)
