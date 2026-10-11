@@ -1968,7 +1968,9 @@ end
 -- поэтому теперь он стоит в мире прямо перед камерой, точно за окошком в окне гачи.
 -- Каждый кадр после обновления камеры дрон и тёмный задник под ним ставятся на луч камеры через центр
 -- окошка, на такую глубину, чтобы дрон занимал окошко. Винты и орбитальные шары крутятся, как в мире.
-local STAGE_SIZE = 0.6 -- диаметр дрона на сцене, стадов
+-- Дрон крошечный и стоит в паре десятых стада от камеры, а задник сразу за ним: так между камерой и задником
+-- не помещается ни стена, ни колонна, и декорации мира не просвечивают в окошко.
+local STAGE_SIZE = 0.1 -- диаметр дрона на сцене, стадов
 local STAGE_PITCH = math.rad(12)
 gacha.stage = {}
 
@@ -2073,8 +2075,9 @@ local function stageStep()
 		-- глубина, на которой дрон (по диагонали габаритов) занимает почти всю высоту окошка. Пока окно только раскрывается и окошко
 		-- маленькое, дрон пришлось бы ставить далеко и он торчал бы за края окна — тогда он скрыт.
 		z = STAGE_SIZE / (1.15 * frac * 2 * tanH)
-		show = z <= 6
-		z = math.max(z, 1.2)
+		show = z <= STAGE_SIZE * 10
+		-- передний край дрона не должен заходить за плоскость отсечения камеры (0.1 стада)
+		z = math.max(z, 0.1 + STAGE_SIZE * 0.7)
 	end
 	if show ~= st.shown then
 		st.shown = show
@@ -2094,8 +2097,9 @@ local function stageStep()
 	local ray = cam:ViewportPointToRay(ap.X + as.X / 2 + inset.X, ap.Y + as.Y / 2 + inset.Y)
 	local camCF = cam.CFrame
 	local look = camCF.LookVector
+	-- от самой камеры: начало луча лежит на плоскости отсечения, а не в камере
 	local function at(depth)
-		return ray.Origin + ray.Direction * (depth / ray.Direction:Dot(look))
+		return camCF.Position + ray.Direction * (depth / ray.Direction:Dot(look))
 	end
 	local rot = camCF.Rotation * CFrame.Angles(0, math.pi, 0)
 	-- дрон повёрнут к камере «лицом» и чуть сверху, медленно вращается и мягко парит
@@ -2126,9 +2130,9 @@ local function stageStep()
 			p.Color = Color3.new(pulse, 0.05 * pulse, 0.06 * pulse)
 		end
 	end
-	-- задник: чуть дальше дрона, с запасом закрывает всё окошко
-	local zb = z + STAGE_SIZE * 1.2
-	local h = frac * 2 * tanH * zb * 1.2
+	-- задник: сразу за дроном, с небольшим запасом закрывает окошко, но не вылезает за край окна гачи
+	local zb = z + STAGE_SIZE * 0.75
+	local h = frac * 2 * tanH * zb * 1.08
 	st.back.Size = Vector3.new(h * as.X / as.Y, h, 0.02)
 	st.back.CFrame = CFrame.new(at(zb)) * rot
 	st.lightAtt.Position = Vector3.new(0, h * 0.25, -(zb - z) - STAGE_SIZE * 0.8)
