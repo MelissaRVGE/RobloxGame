@@ -414,7 +414,7 @@ local function buildHUD()
 		{ key = "gacha", icon = "gacha", label = "Гача", color = C(190, 90, 255), hot = "G" },
 		{ key = "shop", icon = "shop", label = "Магазин", color = C(255, 190, 80), hot = "N" },
 		{ key = "map", icon = "teleport", label = "Карта", color = C(255, 90, 80), hot = "M" },
-		{ key = "bag", icon = "bag", label = "Рюкзак", color = C(80, 170, 255), hot = "B" },
+		{ key = "bag", icon = "bag", label = "Инвентарь", color = C(80, 170, 255), hot = "B" },
 		{ key = "convert", icon = "converter", label = "Переработка", color = C(120, 240, 110), hot = "R" },
 	}
 	hud.buttons = {}
@@ -2880,7 +2880,7 @@ function UI.Init()
 	Remotes.Notify.OnClientEvent:Connect(UI.Toast)
 	ShopUI.Init(UI.Toast)
 
-	-- горячие клавиши: Y — инвентарь, G — гача, N — магазин, B — рюкзак, M — карта, Esc — закрыть окна
+	-- горячие клавиши: Y — инвентарь, G — гача, N — магазин, B — инвентарь, M — карта, Esc — закрыть окна
 	game:GetService("UserInputService").InputBegan:Connect(function(input, processed)
 		if processed or GachaAnim.IsPlaying() then
 			return

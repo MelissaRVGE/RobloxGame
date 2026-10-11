@@ -1,17 +1,17 @@
--- Рюкзак (открываемое окно с находками), часы дня/ночи, полоска босса, бафф скорости, награда за босса
+-- Инвентарь (окно в InventoryUI), часы дня/ночи, полоска босса, бафф скорости, награда за босса
 local Players = game:GetService("Players")
 local RS = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local Shared = RS:WaitForChild("ZSS")
 local Config = require(Shared.Config)
-local Items = require(Shared.ItemsConfig)
 local Icons = require(Shared.Icons)
 local Buffs = require(Shared.BuffsConfig)
 local Remotes = Shared:WaitForChild("Remotes")
 local U = require(script.Parent.U)
 local State = require(script.Parent.State)
 local DayNight = require(script.Parent.DayNight)
+local Inventory = require(script.Parent.InventoryUI)
 
 local player = Players.LocalPlayer
 local new = U.new
@@ -20,11 +20,6 @@ local C = Color3.fromRGB
 
 local BagUI = {}
 local api
-local win, scaleObj
-local grid, slots = nil, {}
-local selected
-local det = {}
-local capBar, capText, lvlText, upBtn, kindsText, matsText
 local clock = {}
 local bossBar = {}
 local buff = {}
@@ -34,291 +29,21 @@ local function fmtTime(s)
 	return ("%d:%02d"):format(math.floor(s / 60), s % 60)
 end
 
-local function titleLabel(parent, text, size, pos, color, font)
-	return new("TextLabel", {
-		Position = pos,
-		Size = size,
-		BackgroundTransparency = 1,
-		Font = font or Enum.Font.GothamBlack,
-		Text = text,
-		TextScaled = true,
-		TextColor3 = color or T.Text,
-		TextXAlignment = Enum.TextXAlignment.Left,
-		Parent = parent,
-	}, { U.textStroke(C(0, 0, 0), 1.5) })
-end
-
--- ===== ОКНО РЮКЗАКА =====
-local function bagList(d)
-	local list = {}
-	for id, n in pairs(d.bag or {}) do
-		local it = Items.ById[id]
-		if it and n > 0 then
-			table.insert(list, { item = it, n = n })
-		end
-	end
-	table.sort(list, function(a, b)
-		local ta, tb = Items.Tiers[a.item.tier].order, Items.Tiers[b.item.tier].order
-		if ta ~= tb then
-			return ta > tb
-		end
-		return a.item.index < b.item.index
-	end)
-	return list
-end
-
-local function showDetails(entry)
-	selected = entry and entry.item.id or nil
-	if not entry then
-		det.empty.Visible = true
-		det.box.Visible = false
-		return
-	end
-	local it = entry.item
-	local tier = Items.Tiers[it.tier]
-	det.empty.Visible = false
-	det.box.Visible = true
-	if det.shownId ~= it.id then
-		-- другой предмет: иконка мягко «выпрыгивает»
-		det.shownId = it.id
-		det.icon.ImageTransparency = 1
-		U.tween(det.icon, 0.25, { ImageTransparency = 0 })
-		local sc = det.icon:FindFirstChild("Pop") or new("UIScale", { Name = "Pop", Parent = det.icon })
-		sc.Scale = 0.7
-		U.tween(sc, 0.35, { Scale = 1 }, Enum.EasingStyle.Back)
-	end
-	det.icon.Image = Icons.items[it.id] or ""
-	det.glow.ImageColor3 = tier.color
-	det.name.Text = it.name
-	det.name.TextColor3 = tier.color:Lerp(C(255, 255, 255), 0.25)
-	det.tier.Text = tier.name:upper() .. "  •  x" .. entry.n
-	det.tier.TextColor3 = tier.color
-	det.desc.Text = it.desc
-	det.value.Text = "Цена продажи: 🔋 " .. U.fmt(it.value)
-	det.use.Visible = it.use ~= nil
-	det.sellAll.Text = ("ПРОДАТЬ ВСЕ (🔋 %s)"):format(U.fmt(it.value * entry.n))
-	U.tween(det.stroke, 0.2, { Color = tier.color })
-end
-
+-- ===== ОКНО ИНВЕНТАРЯ (персонаж, снаряжение, характеристики, находки) — см. InventoryUI =====
 function BagUI.Refresh(d)
-	d = d or State.data
-	if not d or not win then
-		return
-	end
-	local ratio = math.clamp(d.scrap / math.max(d.capacity, 1), 0, 1)
-	U.tween(capBar, 0.25, { Size = UDim2.fromScale(math.max(ratio, 0.02), 1) })
-	capText.Text = ("Лом: %s / %s"):format(U.fmt(d.scrap), U.fmt(d.capacity))
-	lvlText.Text = ("УРОВЕНЬ РЮКЗАКА: %d / %d"):format(d.bagLevel, Config.MaxBagLevel)
-	if d.bagCost then
-		local mats = Config.BagMats[d.bagLevel]
-		local okMats = true
-		local parts = {}
-		for id, need in pairs(mats or {}) do
-			local have = d.bag and d.bag[id] or 0
-			if have < need then
-				okMats = false
-			end
-			table.insert(parts, ("%s %d/%d"):format(Items.ById[id] and Items.ById[id].name or id, have, need))
-		end
-		upBtn.Text = ("⬆ УЛУЧШИТЬ — 🔋 %s"):format(U.fmt(d.bagCost))
-		upBtn.BackgroundColor3 = (d.batteries >= d.bagCost and okMats) and T.Accent or C(70, 80, 70)
-		if matsText then
-			matsText.Text = #parts > 0 and ("🧰 " .. table.concat(parts, "  •  ")) or ""
-			matsText.TextColor3 = okMats and C(170, 255, 140) or C(255, 170, 150)
-		end
-	else
-		upBtn.Text = "МАКСИМАЛЬНЫЙ УРОВЕНЬ"
-		upBtn.BackgroundColor3 = C(70, 80, 70)
-	end
-	local list = bagList(d)
-	kindsText.Text = ("ПРЕДМЕТЫ: %d / %d слотов"):format(#list, Items.BagSlots)
-	local selEntry
-	for i, s in ipairs(slots) do
-		local e = list[i]
-		s.entry = e
-		if e then
-			local tier = Items.Tiers[e.item.tier]
-			if s.iconId ~= e.item.id then
-				s.iconId = e.item.id
-				s.icon.ImageTransparency = 1
-				U.tween(s.icon, 0.25, { ImageTransparency = 0 })
-			end
-			s.icon.Image = Icons.items[e.item.id] or ""
-			s.icon.Visible = true
-			s.count.Text = "x" .. e.n
-			U.tween(s.stroke, 0.18, { Color = tier.color }) -- толщину рамки задаёт цикл ниже
-			U.tween(s.bg, 0.18, { BackgroundColor3 = U.darken(tier.color, 0.22) })
-			s.shine.Visible = tier.order >= 4
-			if e.item.id == selected then
-				selEntry = e
-			end
-		else
-			s.icon.Visible = false
-			s.iconId = nil
-			s.count.Text = ""
-			U.tween(s.stroke, 0.18, { Color = C(55, 62, 55), Thickness = 1.5 })
-			U.tween(s.bg, 0.18, { BackgroundColor3 = C(24, 28, 24) })
-			s.shine.Visible = false
-		end
-	end
-	if not selEntry then
-		selEntry = list[1]
-	end
-	showDetails(selEntry)
-	for _, s in ipairs(slots) do
-		if s.entry then
-			U.tween(s.stroke, 0.18, { Thickness = s.entry.item.id == selected and 4 or 2 })
-		end
-	end
-end
-
-local function act(action)
-	if not selected then
-		return
-	end
-	local ok, res = pcall(function()
-		return Remotes.BagAction:InvokeServer(action, selected)
-	end)
-	if ok and res then
-		if res.ok then
-			api.toast(res.msg or "Готово", "good")
-			U.play(U.Sounds.pop, 0.5, 1.4)
-		else
-			api.toast(res.err or "Не получилось", "bad")
-		end
-	end
-end
-
-local function buildWindow()
-	win = new("Frame", {
-		Name = "Backpack",
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromScale(0.5, 0.5),
-		Size = UDim2.fromOffset(820, 520),
-		BackgroundColor3 = T.Bg,
-		Visible = false,
-		ZIndex = 20,
-		Parent = api.gui,
-	}, { U.corner(18), U.stroke(C(80, 170, 255), 3), U.grad(C(255, 255, 255), C(160, 170, 175), 90) })
-	scaleObj = api.addScale(win)
-	local header = new("Frame", { Size = UDim2.new(1, 0, 0, 62), BackgroundColor3 = C(24, 40, 60), Parent = win }, { U.corner(18), U.grad(C(255, 255, 255), C(150, 170, 200), 90) })
-	new("ImageLabel", { BackgroundTransparency = 1, Image = Icons.bag, Size = UDim2.fromOffset(48, 48), Position = UDim2.fromOffset(12, 7), Parent = header })
-	local title = titleLabel(header, "РЮКЗАК", UDim2.new(0, 240, 0, 34), UDim2.fromOffset(70, 6), C(255, 255, 255))
-	new("UIGradient", { Color = ColorSequence.new(C(190, 230, 255), C(80, 170, 255)), Rotation = 90, Parent = title })
-	kindsText = titleLabel(header, "", UDim2.new(0, 300, 0, 16), UDim2.fromOffset(72, 40), T.Muted, Enum.Font.GothamBold)
-	local close = api.button({
-		AnchorPoint = Vector2.new(1, 0.5),
-		Position = UDim2.new(1, -12, 0.5, 0),
-		Size = UDim2.fromOffset(42, 42),
-		BackgroundColor3 = T.Danger,
-		Font = Enum.Font.GothamBlack,
-		Text = "X",
-		TextSize = 20,
-		TextColor3 = C(255, 255, 255),
-		Parent = header,
-	}, function()
-		api.closeWindow(win, scaleObj)
-	end)
-	U.corner(10).Parent = close
-
-	-- левая колонка: лом + подробности
-	local left = new("Frame", { Position = UDim2.fromOffset(14, 74), Size = UDim2.fromOffset(300, 432), BackgroundColor3 = T.Panel, Parent = win }, { U.corner(14), U.stroke(C(60, 70, 60), 1.5) })
-	lvlText = titleLabel(left, "", UDim2.new(1, -24, 0, 18), UDim2.fromOffset(12, 10), C(150, 210, 255))
-	local capBg = new("Frame", { Position = UDim2.fromOffset(12, 34), Size = UDim2.new(1, -24, 0, 30), BackgroundColor3 = C(10, 12, 10), Parent = left }, { U.corner(9), U.stroke(C(70, 80, 70), 1.5) })
-	capBar = new("Frame", { Size = UDim2.fromScale(0.3, 1), BackgroundColor3 = C(255, 255, 255), Parent = capBg }, { U.corner(9), U.grad(C(170, 255, 90), C(70, 160, 30), 90) })
-	capText = new("TextLabel", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Font = Enum.Font.GothamBlack, TextSize = 16, TextColor3 = C(255, 255, 255), ZIndex = 3, Parent = capBg }, { U.textStroke(C(0, 0, 0), 1.6) })
-	upBtn = api.button({
-		Position = UDim2.fromOffset(12, 72),
-		Size = UDim2.new(1, -24, 0, 36),
-		BackgroundColor3 = T.Accent,
-		Font = Enum.Font.GothamBlack,
-		TextSize = 15,
-		TextColor3 = C(20, 30, 10),
-		Text = "",
-		Parent = left,
-	}, function()
-		Remotes.UpgradeBag:FireServer()
-	end)
-	U.corner(10).Parent = upBtn
-	matsText = new("TextLabel", { Position = UDim2.fromOffset(12, 110), Size = UDim2.new(1, -24, 0, 30), BackgroundTransparency = 1, Font = Enum.Font.GothamBold, TextSize = 12, TextWrapped = true, TextColor3 = T.Muted, Text = "", Parent = left })
-
-	local box = new("Frame", { Position = UDim2.fromOffset(12, 144), Size = UDim2.new(1, -24, 1, -156), BackgroundColor3 = C(20, 24, 20), Parent = left }, { U.corner(12) })
-	det.stroke = U.stroke(C(80, 90, 80), 2)
-	det.stroke.Parent = box
-	det.empty = new("TextLabel", {
-		Size = UDim2.fromScale(1, 1),
-		BackgroundTransparency = 1,
-		Font = Enum.Font.GothamBold,
-		TextWrapped = true,
-		TextSize = 15,
-		TextColor3 = T.Muted,
-		Text = "Рюкзак пуст.\n\nСобирай лом и убивай зомби — иногда в кучах попадаются редкие находки. Ночью их вдвое больше!",
-		Parent = box,
-	}, { U.pad(14) })
-	det.box = new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Visible = false, Parent = box })
-	det.glow = new("ImageLabel", { BackgroundTransparency = 1, Image = "rbxasset://textures/particles/sparkles_main.dds", Size = UDim2.fromOffset(130, 130), Position = UDim2.new(0.5, -65, 0, -6), ImageTransparency = 0.3, Parent = det.box })
-	det.icon = new("ImageLabel", { BackgroundTransparency = 1, Size = UDim2.fromOffset(96, 96), Position = UDim2.new(0.5, -48, 0, 10), ZIndex = 3, Parent = det.box })
-	det.name = new("TextLabel", { Position = UDim2.fromOffset(8, 110), Size = UDim2.new(1, -16, 0, 26), BackgroundTransparency = 1, Font = Enum.Font.GothamBlack, TextScaled = true, Parent = det.box }, { U.textStroke(C(0, 0, 0), 1.8) })
-	det.tier = new("TextLabel", { Position = UDim2.fromOffset(8, 136), Size = UDim2.new(1, -16, 0, 16), BackgroundTransparency = 1, Font = Enum.Font.GothamBlack, TextSize = 13, Parent = det.box })
-	det.desc = new("TextLabel", { Position = UDim2.fromOffset(10, 156), Size = UDim2.new(1, -20, 0, 48), BackgroundTransparency = 1, Font = Enum.Font.Gotham, TextWrapped = true, TextSize = 13, TextColor3 = T.Text, TextYAlignment = Enum.TextYAlignment.Top, Parent = det.box })
-	det.value = new("TextLabel", { Position = UDim2.fromOffset(10, 204), Size = UDim2.new(1, -20, 0, 16), BackgroundTransparency = 1, Font = Enum.Font.GothamBold, TextSize = 13, TextColor3 = T.Battery, Parent = det.box })
-	local function actBtn(text, y, color, tcolor, action)
-		local b = api.button({ Position = UDim2.new(0, 10, 1, y), Size = UDim2.new(1, -20, 0, 30), BackgroundColor3 = color, Font = Enum.Font.GothamBlack, TextSize = 14, TextColor3 = tcolor, Text = text, Parent = det.box }, function()
-			act(action)
-		end)
-		U.corner(8).Parent = b
-		return b
-	end
-	det.use = actBtn("✔ ИСПОЛЬЗОВАТЬ", -104, C(80, 200, 255), C(10, 25, 40), "use")
-	det.sell = actBtn("ПРОДАТЬ 1", -70, T.Hazard, C(40, 25, 0), "sell")
-	det.sellAll = actBtn("ПРОДАТЬ ВСЕ", -36, C(235, 120, 40), C(40, 15, 0), "sellall")
-
-	-- сетка предметов 5x4
-	grid = new("Frame", { Position = UDim2.fromOffset(328, 74), Size = UDim2.fromOffset(478, 432), BackgroundColor3 = T.Panel, Parent = win }, {
-		U.corner(14),
-		U.stroke(C(60, 70, 60), 1.5),
-		U.pad(10),
-		new("UIGridLayout", { CellSize = UDim2.fromOffset(84, 96), CellPadding = UDim2.fromOffset(8, 8), SortOrder = Enum.SortOrder.LayoutOrder }),
-	})
-	for i = 1, Items.BagSlots do
-		local s = {}
-		s.bg = api.button({ BackgroundColor3 = C(24, 28, 24), Text = "", LayoutOrder = i, Parent = grid }, function()
-			if s.entry then
-				selected = s.entry.item.id
-				BagUI.Refresh()
-			end
-		end)
-		U.corner(12).Parent = s.bg
-		s.stroke = U.stroke(C(55, 62, 55), 1.5)
-		s.stroke.Parent = s.bg
-		new("UIGradient", { Rotation = 90, Color = ColorSequence.new(C(255, 255, 255), C(130, 130, 130)), Parent = s.bg })
-		s.shine = new("ImageLabel", { BackgroundTransparency = 1, Image = "rbxasset://textures/particles/sparkles_main.dds", Size = UDim2.fromScale(1, 1), ImageTransparency = 0.5, Visible = false, Parent = s.bg })
-		s.icon = new("ImageLabel", { BackgroundTransparency = 1, Size = UDim2.fromOffset(64, 64), Position = UDim2.new(0.5, -32, 0, 8), Visible = false, ZIndex = 3, Parent = s.bg })
-		s.count = new("TextLabel", { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -6, 1, -4), Size = UDim2.fromOffset(60, 18), BackgroundTransparency = 1, Font = Enum.Font.GothamBlack, TextSize = 16, TextColor3 = C(255, 255, 255), TextXAlignment = Enum.TextXAlignment.Right, ZIndex = 4, Parent = s.bg }, { U.textStroke(C(0, 0, 0), 1.6) })
-		slots[i] = s
-	end
+	Inventory.Refresh(d)
 end
 
 function BagUI.Toggle()
-	if U.isOpen(win, scaleObj) then
-		api.closeWindow(win, scaleObj)
-	else
-		if api.closeOthers then
-			api.closeOthers()
-		end
-		BagUI.Refresh()
-		api.openWindow(win, scaleObj)
-	end
+	Inventory.Toggle()
 end
 
 function BagUI.Close()
-	if win then
-		api.closeWindow(win, scaleObj)
-	end
+	Inventory.Close()
 end
 
 function BagUI.IsOpen()
-	return U.isOpen(win, scaleObj)
+	return Inventory.IsOpen()
 end
 
 -- ===== ЧАСЫ ДЕНЬ/НОЧЬ =====
@@ -644,15 +369,10 @@ end
 
 function BagUI.Init(a)
 	api = a
-	buildWindow()
+	Inventory.Init(a)
 	-- часы дня/ночи убраны из HUD (цикл работает, ночь видно по освещению)
 	buildBossBar()
 	buildBuff()
-	State.Changed:Connect(function(d)
-		if win.Visible then
-			BagUI.Refresh(d)
-		end
-	end)
 	RunService.RenderStepped:Connect(function(dt)
 		updateBossBar(dt)
 		updateBuff(dt)
