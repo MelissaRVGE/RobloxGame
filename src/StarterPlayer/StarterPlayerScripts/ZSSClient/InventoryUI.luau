@@ -429,7 +429,8 @@ end
 local STAGE_H = 0.2
 local STAGE_PITCH = math.rad(7)
 local ARM_RAISE = math.rad(80) -- правая рука с оружием поднята вперёд, как в игре
-local stage = { yaw = math.rad(-18), vel = 0, idle = 0 }
+local stage = { yaw = math.rad(-18), vel = 0, idle = 0, zoom = 1, zoomT = 1, kMax = 2.6 }
+local ZOOM_MAX = 2.6
 local slotsUI = {}
 local hole = {}
 
@@ -504,6 +505,8 @@ local function clearStage()
 	stage.parts, stage.entries, stage.cfs = nil, nil, nil
 end
 
+-- Задник сцены: живая «студия» за персонажем на SurfaceGui. Всё анимируется в stageStep.
+local BACK_W, BACK_H = 420, 780
 local function buildStageBack()
 	if stage.back then
 		return
@@ -522,52 +525,122 @@ local function buildStageBack()
 		Face = Enum.NormalId.Front,
 		LightInfluence = 0,
 		SizingMode = Enum.SurfaceGuiSizingMode.FixedSize,
-		CanvasSize = Vector2.new(420, 780),
+		CanvasSize = Vector2.new(BACK_W, BACK_H),
+		ClipsDescendants = true,
 		Parent = stage.back,
 	})
-	new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = C(255, 255, 255), BorderSizePixel = 0, Parent = sg }, {
-		U.grad(C(22, 30, 44), C(8, 10, 16), 90),
+	local fx = {}
+	stage.fx = fx
+	-- основа: глубокий тёмный градиент
+	new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = C(255, 255, 255), BorderSizePixel = 0, ZIndex = 1, Parent = sg }, {
+		new("UIGradient", { Rotation = 90, Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, C(16, 20, 34)), ColorSequenceKeypoint.new(0.55, C(10, 12, 22)), ColorSequenceKeypoint.new(1, C(4, 5, 9)) }) }),
 	})
-	-- лучи прожектора сверху
+	-- северное сияние: большие мягкие пятна цвета снаряжения медленно плывут и дышат
+	fx.aurora = {}
+	for k, a in ipairs({ { 0.3, 0.3, 560, 0.55 }, { 0.72, 0.42, 520, 0.6 }, { 0.5, 0.58, 640, 0.5 }, { 0.2, 0.7, 420, 0.7 } }) do
+		local img = new("ImageLabel", {
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(a[1], a[2]),
+			Size = UDim2.fromOffset(a[3], a[3]),
+			BackgroundTransparency = 1,
+			Image = Icons.glow,
+			ImageTransparency = a[4],
+			ZIndex = 2,
+			Parent = sg,
+		})
+		table.insert(fx.aurora, { img = img, x = a[1], y = a[2], tr = a[4], sp = 0.13 + k * 0.045, ph = k * 1.7, hue = k % 2 == 0 })
+	end
+	-- шестигранная сетка, проявляется к центру и медленно ползёт вверх
+	fx.hexWrap = new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, ClipsDescendants = true, ZIndex = 3, Parent = sg })
+	fx.hex = new("ImageLabel", {
+		Size = UDim2.new(1, 0, 1, 64),
+		BackgroundTransparency = 1,
+		Image = Icons.hexCell,
+		ScaleType = Enum.ScaleType.Tile,
+		TileSize = UDim2.fromOffset(44, 50),
+		ImageTransparency = 0.86,
+		ZIndex = 3,
+		Parent = fx.hexWrap,
+	})
+	fx.hexMask = new("UIGradient", {
+		Rotation = 90,
+		Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.3, 0.35), NumberSequenceKeypoint.new(0.62, 0.5), NumberSequenceKeypoint.new(0.8, 1), NumberSequenceKeypoint.new(1, 1) }),
+		Parent = fx.hex,
+	})
+	-- лучи прожекторов сверху
 	stage.rays = {}
 	for k = 1, 5 do
 		local r = new("Frame", {
 			AnchorPoint = Vector2.new(0.5, 0),
-			Position = UDim2.new(0.5, 0, 0, -40),
-			Size = UDim2.fromOffset(46 + k * 10, 900),
+			Position = UDim2.new(0.5, (k - 3) * 30, 0, -60),
+			Size = UDim2.fromOffset(40 + k * 9, 920),
 			BackgroundColor3 = C(255, 255, 255),
-			BackgroundTransparency = 0.9,
+			BackgroundTransparency = 0.88,
 			BorderSizePixel = 0,
-			ZIndex = 2,
+			ZIndex = 4,
 			Parent = sg,
-		}, { new("UIGradient", { Rotation = 90, Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.2), NumberSequenceKeypoint.new(0.75, 1), NumberSequenceKeypoint.new(1, 1) }) }) })
-		table.insert(stage.rays, { f = r, base = (k - 3) * 9, speed = 0.35 + k * 0.07, phase = k * 1.3 })
+		}, { new("UIGradient", { Rotation = 90, Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.1), NumberSequenceKeypoint.new(0.7, 1), NumberSequenceKeypoint.new(1, 1) }) }) })
+		table.insert(stage.rays, { f = r, base = (k - 3) * 8, speed = 0.3 + k * 0.06, phase = k * 1.3 })
 	end
-	-- мягкое свечение цвета лучшего снаряжения за спиной
-	stage.glow = {}
+	-- светящийся ореол за спиной: два кольца с бегущим бликом крутятся навстречу друг другу
+	fx.rings = {}
+	for k, rr in ipairs({ { 300, 5, 0.25, 1 }, { 250, 2, 0.45, -1.6 }, { 352, 1.5, 0.6, 0.7 } }) do
+		local ring = new("Frame", {
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(0.5, 0.4),
+			Size = UDim2.fromOffset(rr[1], rr[1]),
+			BackgroundTransparency = 1,
+			ZIndex = 5,
+			Parent = sg,
+		}, { U.round() })
+		local st = new("UIStroke", { Thickness = rr[2], Transparency = rr[3], Color = C(255, 255, 255), Parent = ring })
+		local g = new("UIGradient", {
+			Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(0.35, 0.85), NumberSequenceKeypoint.new(0.5, 1), NumberSequenceKeypoint.new(0.65, 0.85), NumberSequenceKeypoint.new(1, 0) }),
+			Parent = st,
+		})
+		table.insert(fx.rings, { f = ring, st = st, g = g, sp = rr[4] * 40, tr = rr[3] })
+	end
+	-- мягкое свечение за спиной
+	fx.halo = new("ImageLabel", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.42), Size = UDim2.fromOffset(440, 440), BackgroundTransparency = 1, Image = Icons.glow, ImageTransparency = 0.35, ZIndex = 4, Parent = sg })
+	-- пол: перспективная сетка, линии бегут к зрителю
+	local floorY = 0.8
+	fx.floor = new("Frame", { Position = UDim2.fromScale(0, floorY), Size = UDim2.fromScale(1, 1 - floorY), BackgroundColor3 = C(255, 255, 255), BorderSizePixel = 0, ClipsDescendants = true, ZIndex = 6, Parent = sg }, {
+		new("UIGradient", { Rotation = 90, Color = ColorSequence.new(C(14, 18, 30), C(4, 5, 9)), Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.6), NumberSequenceKeypoint.new(0.25, 0.05), NumberSequenceKeypoint.new(1, 0) }) }),
+	})
+	fx.hlines = {}
 	for k = 1, 9 do
-		local dd = 120 + k * 30
-		table.insert(stage.glow, new("Frame", {
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.fromScale(0.5, 0.46),
-			Size = UDim2.fromOffset(dd, dd),
-			BackgroundTransparency = 0.955,
-			BorderSizePixel = 0,
-			ZIndex = 12 - k,
-			Parent = sg,
-		}, { U.round() }))
+		local l = new("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.new(1, 0, 0, 2), BackgroundColor3 = C(255, 255, 255), BorderSizePixel = 0, ZIndex = 7, Parent = fx.floor }, {
+			new("UIGradient", { Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5, 0.1), NumberSequenceKeypoint.new(1, 1) }) }),
+		})
+		table.insert(fx.hlines, l)
 	end
-	-- светлое пятно на «полу»
-	for k = 1, 6 do
-		table.insert(stage.glow, new("Frame", {
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.fromScale(0.5, 0.86),
-			Size = UDim2.fromOffset(110 + k * 34, 24 + k * 9),
-			BackgroundTransparency = 0.93,
-			BorderSizePixel = 0,
-			ZIndex = 14,
-			Parent = sg,
-		}, { U.round() }))
+	fx.vlines = {}
+	for k = -6, 6 do
+		-- GUI вращается вокруг своего центра, поэтому центр линии — в точке схода на горизонте
+		local l = new("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0), Size = UDim2.new(0, 2, 4.4, 0), Rotation = -k * 9.5, BackgroundColor3 = C(255, 255, 255), BackgroundTransparency = 0.45 + math.abs(k) * 0.05, BorderSizePixel = 0, ZIndex = 7, Parent = fx.floor }, {
+			new("UIGradient", { Rotation = 90, Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5, 0.9), NumberSequenceKeypoint.new(0.75, 0.3), NumberSequenceKeypoint.new(1, 0.1) }) }),
+		})
+		table.insert(fx.vlines, l)
+	end
+	-- линия горизонта со световой полосой
+	fx.horizon = new("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, floorY), Size = UDim2.new(1, 0, 0, 3), BackgroundColor3 = C(255, 255, 255), BorderSizePixel = 0, ZIndex = 8, Parent = sg }, {
+		new("UIGradient", { Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5, 0), NumberSequenceKeypoint.new(1, 1) }) }),
+	})
+	fx.horizonGlow = new("ImageLabel", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, floorY), Size = UDim2.fromOffset(520, 90), BackgroundTransparency = 1, Image = Icons.glow, ImageTransparency = 0.45, ZIndex = 8, Parent = sg })
+	-- пятно света на полу под ногами
+	fx.spot = new("ImageLabel", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.86), Size = UDim2.fromOffset(360, 110), BackgroundTransparency = 1, Image = Icons.glow, ImageColor3 = C(255, 255, 255), ImageTransparency = 0.6, ZIndex = 9, Parent = sg })
+	-- искры-боке: медленно поднимаются, мерцают
+	fx.bokeh = {}
+	for k = 1, 16 do
+		local sz = 6 + (k * 7) % 16
+		local img = new("ImageLabel", { AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.fromOffset(sz * 2, sz * 2), BackgroundTransparency = 1, Image = Icons.glow, ImageTransparency = 1, ZIndex = 10, Parent = sg })
+		table.insert(fx.bokeh, { img = img, x = ((k * 53) % 100) / 100, t0 = -k * 0.7, dur = 6 + (k % 5) * 1.3, sway = 0.02 + (k % 3) * 0.015 })
+	end
+	-- виньетка по краям
+	for _, v in ipairs({ { 0, 0, 1, 0.16, 90, false }, { 0, 0.84, 1, 0.16, -90, false }, { 0, 0, 0.2, 1, 0, true }, { 0.8, 0, 0.2, 1, 180, true } }) do
+		new("Frame", { Position = UDim2.fromScale(v[1], v[2]), Size = UDim2.fromScale(v[3], v[4]), BackgroundColor3 = C(0, 0, 0), BorderSizePixel = 0, ZIndex = 12, Parent = sg }, {
+			new("UIGradient", { Rotation = v[5], Transparency = NumberSequence.new(0.15, 1) }),
+		})
 	end
 	stage.keyAtt = new("Attachment", { Parent = stage.back })
 	stage.key = new("PointLight", { Brightness = 1.4, Range = 1, Shadows = false, Color = C(255, 244, 230), Parent = stage.keyAtt })
@@ -575,6 +648,85 @@ local function buildStageBack()
 	stage.fill = new("PointLight", { Brightness = 0.9, Range = 1, Shadows = false, Color = C(200, 215, 255), Parent = stage.fillAtt })
 	stage.rimAtt = new("Attachment", { Parent = stage.back })
 	stage.rim = new("PointLight", { Brightness = 1.2, Range = 1, Shadows = false, Parent = stage.rimAtt })
+end
+
+-- цвет сцены плавно перетекает к цвету лучшего снаряжения
+local function tintStage(col, t)
+	local fx = stage.fx
+	if not fx then
+		return
+	end
+	t = t or 0.6
+	local h, s, v = col:ToHSV()
+	local alt = Color3.fromHSV((h + 0.09) % 1, math.min(1, s * 0.9 + 0.1), math.max(v, 0.75))
+	for _, a in ipairs(fx.aurora) do
+		U.tween(a.img, t, { ImageColor3 = a.hue and alt or col })
+	end
+	for _, r in ipairs(fx.rings) do
+		U.tween(r.st, t, { Color = col:Lerp(C(255, 255, 255), 0.35) })
+	end
+	for _, l in ipairs(fx.hlines) do
+		U.tween(l, t, { BackgroundColor3 = col })
+	end
+	for _, l in ipairs(fx.vlines) do
+		U.tween(l, t, { BackgroundColor3 = col })
+	end
+	for _, b in ipairs(fx.bokeh) do
+		U.tween(b.img, t, { ImageColor3 = col:Lerp(C(255, 255, 255), 0.45) })
+	end
+	U.tween(fx.hex, t, { ImageColor3 = col:Lerp(C(255, 255, 255), 0.3) })
+	U.tween(fx.halo, t, { ImageColor3 = col })
+	U.tween(fx.horizon, t, { BackgroundColor3 = col:Lerp(C(255, 255, 255), 0.4) })
+	U.tween(fx.horizonGlow, t, { ImageColor3 = col })
+	for _, r in ipairs(stage.rays) do
+		U.tween(r.f, t, { BackgroundColor3 = col:Lerp(C(255, 255, 255), 0.75) })
+	end
+end
+
+-- анимация задника, каждый кадр
+local function animateStageBack(t)
+	local fx = stage.fx
+	if not fx then
+		return
+	end
+	for _, a in ipairs(fx.aurora) do
+		a.img.Position = UDim2.fromScale(a.x + math.sin(t * a.sp + a.ph) * 0.12, a.y + math.cos(t * a.sp * 0.8 + a.ph) * 0.07)
+		a.img.ImageTransparency = a.tr + 0.12 * math.sin(t * a.sp * 2.1 + a.ph)
+	end
+	fx.hex.Position = UDim2.fromOffset(0, -((t * 9) % 50))
+	for _, r in ipairs(stage.rays) do
+		r.f.Rotation = r.base + math.sin(t * r.speed + r.phase) * 7
+		r.f.BackgroundTransparency = 0.9 + 0.04 * math.sin(t * r.speed * 1.7 + r.phase)
+	end
+	for _, r in ipairs(fx.rings) do
+		r.g.Rotation = (t * r.sp) % 360
+		r.st.Transparency = r.tr + 0.1 * math.sin(t * 1.3 + r.sp)
+	end
+	local pulse = 0.5 + 0.5 * math.sin(t * 1.4)
+	fx.halo.ImageTransparency = 0.42 + 0.12 * pulse
+	fx.halo.Size = UDim2.fromOffset(420 + 30 * pulse, 420 + 30 * pulse)
+	-- горизонтальные линии пола: шаг растёт к зрителю, ряд непрерывно едет вниз
+	local n = #fx.hlines
+	local shift = (t * 0.35) % 1
+	for i, l in ipairs(fx.hlines) do
+		local p = ((i - 1) + shift) / n
+		local y = p * p
+		l.Position = UDim2.fromScale(0.5, y)
+		l.BackgroundTransparency = 0.25 + 0.65 * (1 - p)
+		l.Size = UDim2.new(1, 0, 0, 1 + math.floor(p * 2.5))
+	end
+	fx.horizon.BackgroundTransparency = 0.15 + 0.2 * (1 - pulse)
+	fx.spot.ImageTransparency = 0.55 + 0.1 * pulse
+	for _, b in ipairs(fx.bokeh) do
+		local p = (t - b.t0) / b.dur
+		if p >= 1 or p < 0 then
+			b.t0 = t + math.random() * 1.2
+			b.x = 0.08 + math.random() * 0.84
+			p = 0
+		end
+		b.img.Position = UDim2.fromScale(b.x + math.sin(p * 5 + b.dur) * b.sway, 0.92 - p * 0.85)
+		b.img.ImageTransparency = 0.35 + 0.65 * math.abs(p * 2 - 1) ^ 1.5
+	end
 end
 
 local function stageColor()
@@ -739,15 +891,24 @@ local function rebuildStage()
 		end
 	end
 	stage.top, stage.low, stage.rad = top, low, rad
+	stage.ext = {}
+	for i, p in ipairs(parts) do
+		if p.Transparency < 1 then
+			stage.ext[i] = p.Size.Magnitude / 2
+		end
+	end
+
 	stage.parts = parts
 	stage.entries = entries
 	stage.cfs = table.create(#parts)
 	stage.shown = false
-	for _, g in ipairs(stage.glow) do
-		g.BackgroundColor3 = col
-	end
+	tintStage(col, stage.tinted and 0.6 or 0)
+	stage.tinted = true
 	stage.rim.Color = col
 	U.tween(hole.border, 0.35, { Color = col })
+	for _, st in ipairs(hole.zoomStrokes or {}) do
+		U.tween(st, 0.35, { Color = col })
+	end
 	for _, b in ipairs(hole.brackets) do
 		U.tween(b, 0.35, { BackgroundColor3 = col })
 	end
@@ -774,6 +935,45 @@ local function queueRebuild(delay)
 	end)
 end
 
+-- точка фокуса по высоте модели: при приближении окошко не уезжает выше макушки и ниже подставки
+local function clampFocus(y, halfVis)
+	local v = (halfVis or stage.halfVis or 1) * 0.9
+	local lo, hi = stage.low + v, stage.top - v
+	if lo >= hi then
+		return (stage.top + stage.low) / 2 -- всё помещается целиком: по центру
+	end
+	return math.clamp(y, lo, hi)
+end
+
+-- приближение: k — целевой масштаб, af — точка окошка, которая остаётся на месте (-0.5 низ … 0.5 верх)
+local function setZoom(k, af)
+	if not stage.top then
+		return
+	end
+	local k0 = stage.zoomT
+	k = math.clamp(k, 1, stage.kMax or ZOOM_MAX)
+	local hv = stage.halfVis or 0
+	local cur = stage.focus or (stage.top + stage.low) / 2
+	if af then
+		local yc = cur + af * 2 * hv
+		stage.focusT = yc - af * 2 * hv * stage.zoom / k
+	elseif k0 < 1.05 and k > k0 then
+		-- первое приближение кнопкой — к лицу и груди
+		stage.focusT = stage.top - (stage.top - stage.low) * 0.3
+	end
+	stage.zoomT = k
+	stage.idle = 0
+	if hole.zoomPill then
+		local on = k > 1.04
+		U.tween(hole.zoomPill, 0.25, { BackgroundTransparency = on and 0.25 or 1 })
+		U.tween(hole.zoomLabel, 0.25, { TextTransparency = on and 0 or 1 })
+	end
+	if not stage.hinted then
+		stage.hinted = true
+		U.tween(hole.hint, 0.4, { TextTransparency = 1 })
+	end
+end
+
 local function stageStep(dt)
 	local cam = workspace.CurrentCamera
 	local h = hole.frame
@@ -790,8 +990,16 @@ local function stageStep(dt)
 		local tw = 0.92 * (as.X / vpY) * tanH
 		local zH = (stage.top - stage.low) / (2 * th) + stage.rad * 0.3
 		local zW = stage.rad * math.sqrt(1 + 1 / (tw * tw))
-		z = math.max(zH, zW)
-		z = math.max(z, 0.1 + stage.rad + 0.01)
+		local zFit = math.max(zH, zW)
+		-- приближение: сцена подъезжает к камере; ближний край не должен задеть плоскость отсечения камеры,
+		-- а всё, что выходит за окошко, прячется за непрозрачной панелью вокруг него
+		local zMin = 0.1 + stage.rad + 0.012
+		stage.kMax = math.clamp(zFit / zMin, 1, ZOOM_MAX)
+		stage.zoomT = math.clamp(stage.zoomT, 1, stage.kMax)
+		local a = 1 - math.exp(-(dt or 0.016) * 9)
+		stage.zoom += (stage.zoomT - stage.zoom) * a
+		z = math.max(zFit / stage.zoom, zMin)
+		stage.halfVis = z * frac * tanH
 		-- пока окно раскрывается, окошко маленькое — сцену прячем, чтобы она не торчала за краями
 		local base = scaleObj:GetAttribute("BaseScale") or scaleObj.Scale
 		show = as.Y >= HOLE.h * base * fitScale.Scale * 0.6
@@ -833,18 +1041,45 @@ local function stageStep(dt)
 	-- сцена смотрит прямо на камеру (вдоль луча через окошко), а не параллельно экрану
 	local rot = CFrame.lookAt(Vector3.zero, camCF.Position - center, up)
 	local bob = math.sin(t * 1.6) * STAGE_H * 0.006
-	-- центр персонажа — в центре окошка; поворот вокруг вертикальной оси через ступни
-	local feet = CFrame.new(center - up * ((stage.top + stage.low) / 2) + up * bob) * rot * CFrame.Angles(-STAGE_PITCH, 0, 0) * CFrame.Angles(0, stage.yaw, 0)
+	-- в центре окошка — точка фокуса (при приближении её можно двигать), поворот вокруг оси через ступни
+	local mid = (stage.top + stage.low) / 2
+	stage.focusT = clampFocus(stage.focusT or mid, stage.halfVis * stage.zoom / stage.zoomT)
+	stage.focus = clampFocus((stage.focus or mid) + (stage.focusT - (stage.focus or mid)) * (1 - math.exp(-dt * 9)))
+	local feet = CFrame.new(center - up * stage.focus + up * bob) * rot * CFrame.Angles(-STAGE_PITCH, 0, 0) * CFrame.Angles(0, stage.yaw, 0)
 	for i, off in ipairs(stage.entries) do
 		stage.cfs[i] = feet * off
 	end
 	workspace:BulkMoveTo(stage.parts, stage.cfs, Enum.BulkMoveMode.FireCFrameChanged)
+	-- при приближении детали, которые на экране вылезли бы за пределы окна (там уже нет панели,
+	-- которая их закрывает), плавно гаснут — снаружи окна персонажа не видно никогда
+	local guard = stage.zoom > 1.01 or stage.guarding
+	stage.guarding = stage.zoom > 1.01
+	if guard then
+		local wp, ws = body.AbsolutePosition + inset, body.AbsoluteSize
+		local x0, y0, x1, y1 = wp.X + 8, wp.Y + 8, wp.X + ws.X - 8, wp.Y + ws.Y - 8
+		local pxPer = cam.ViewportSize.Y / 2 / tanH
+		local fade = 1 - math.exp(-dt * 14)
+		for i, p in ipairs(stage.parts) do
+			local r = stage.ext[i]
+			if r then
+				local sp = cam:WorldToViewportPoint(stage.cfs[i].Position)
+				local rp = r / math.max(sp.Z, 1e-3) * pxPer
+				local out = stage.zoom > 1.01 and (sp.X - rp < x0 or sp.X + rp > x1 or sp.Y - rp < y0 or sp.Y + rp > y1)
+				local cur = p.LocalTransparencyModifier
+				local goal = out and 1 or 0
+				if cur ~= goal then
+					p.LocalTransparencyModifier = math.abs(goal - cur) < 0.02 and goal or cur + (goal - cur) * fade
+					stage.guarding = true
+				end
+			end
+		end
+	end
 	if stage.ring then
 		stage.ring.Transparency = 0.15 + 0.2 * (0.5 + 0.5 * math.sin(t * 2.4))
 	end
 	-- задник сразу за персонажем
 	local zb = z + stage.rad + STAGE_H * 0.08
-	local hb = frac * 2 * tanH * zb * 1.1
+	local hb = frac * 2 * tanH * zb * 1.1 * (1 + 0.06 * (stage.zoom - 1))
 	stage.back.Size = Vector3.new(hb * as.X / as.Y, hb, 0.02)
 	stage.back.CFrame = CFrame.new(at(zb)) * rot
 	-- ключевой свет спереди-сверху, контровой — сзади цветом снаряжения
@@ -855,8 +1090,9 @@ local function stageStep(dt)
 	stage.fill.Range = STAGE_H * 2.4
 	stage.rimAtt.Position = Vector3.new(STAGE_H * 0.2, STAGE_H * 0.25, -STAGE_H * 0.05)
 	stage.rim.Range = STAGE_H * 1.3
-	for _, r in ipairs(stage.rays) do
-		r.f.Rotation = r.base + math.sin(t * r.speed + r.phase) * 7
+	animateStageBack(t)
+	if hole.zoomLabel then
+		hole.zoomLabel.Text = ("x%.1f"):format(stage.zoom)
 	end
 end
 
@@ -1669,12 +1905,19 @@ local function buildCharacterPanel(left)
 			table.insert(hole.brackets, b)
 		end
 	end
-	hole.hint = label(hole.frame, { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -6), Size = UDim2.new(1, -10, 0, 14), Text = "Тяни мышью — повернуть", Font = Enum.Font.GothamBold, TextSize = 11, TextColor3 = C(200, 215, 230), TextTransparency = 0.2, ZIndex = 6 }, 1)
+	hole.hint = label(hole.frame, { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -6), Size = UDim2.new(1, -10, 0, 14), Text = UIS.TouchEnabled and not UIS.MouseEnabled and "Тяни — повернуть  •  Щипок — приблизить" or "Тяни — повернуть  •  Колёсико — приблизить", Font = Enum.Font.GothamBold, TextSize = 11, TextColor3 = C(200, 215, 230), TextTransparency = 0.2, ZIndex = 6 }, 1)
 	-- вращение персонажа мышью или пальцем
 	hole.frame.InputBegan:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
 			stage.dragging = true
 			stage.lastX = input.Position.X
+			stage.lastY = input.Position.Y
+			-- двойной щелчок — вернуть общий план
+			local now = os.clock()
+			if stage.lastClick and now - stage.lastClick < 0.35 and stage.zoomT > 1.04 then
+				setZoom(1)
+			end
+			stage.lastClick = now
 			stage.idle = 0
 			if not stage.hinted then
 				stage.hinted = true
@@ -1684,13 +1927,83 @@ local function buildCharacterPanel(left)
 	end)
 	UIS.InputChanged:Connect(function(input)
 		if stage.dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+			if stage.pinching then
+				return
+			end
 			local dx = input.Position.X - (stage.lastX or input.Position.X)
+			local dy = input.Position.Y - (stage.lastY or input.Position.Y)
 			stage.lastX = input.Position.X
+			stage.lastY = input.Position.Y
 			local dYaw = dx * 0.015
 			stage.yaw += dYaw
 			stage.vel = stage.vel * 0.5 + dYaw * 30
+			-- приближенного персонажа можно двигать вверх-вниз
+			if stage.zoomT > 1.04 and stage.halfVis and stage.focusT then
+				stage.focusT += dy / math.max(hole.frame.AbsoluteSize.Y, 1) * 2 * stage.halfVis
+			end
 		end
 	end)
+	-- колёсико: приближение к точке под курсором
+	hole.frame.InputChanged:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseWheel then
+			local ap, as = hole.frame.AbsolutePosition, hole.frame.AbsoluteSize
+			local af = 0.5 - (input.Position.Y - ap.Y) / math.max(as.Y, 1)
+			setZoom(stage.zoomT * (1.2 ^ input.Position.Z), math.clamp(af, -0.5, 0.5))
+		end
+	end)
+	-- щипок двумя пальцами на телефоне
+	local pinchBase
+	UIS.TouchPinch:Connect(function(positions, scale, _, state)
+		if not (win and win.Visible) then
+			return
+		end
+		if state == Enum.UserInputState.Begin then
+			local ap, as = hole.frame.AbsolutePosition, hole.frame.AbsoluteSize
+			local p = positions[1]
+			pinchBase = nil
+			if p and p.X >= ap.X and p.X <= ap.X + as.X and p.Y >= ap.Y and p.Y <= ap.Y + as.Y then
+				pinchBase = stage.zoomT
+				stage.pinching = true
+			end
+		elseif pinchBase and state == Enum.UserInputState.Change then
+			setZoom(pinchBase * scale)
+		elseif state == Enum.UserInputState.End or state == Enum.UserInputState.Cancel then
+			pinchBase = nil
+			stage.pinching = false
+		end
+	end)
+	-- кнопки приближения и индикатор масштаба
+	local function zoomBtn(y, text, f)
+		local b = new("TextButton", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -8, 0, y), Size = UDim2.fromOffset(28, 28), BackgroundColor3 = C(14, 18, 26), BackgroundTransparency = 0.25, AutoButtonColor = false, Font = Enum.Font.GothamBlack, Text = text, TextSize = 18, TextColor3 = C(230, 238, 250), ZIndex = 8, Parent = hole.frame }, { U.round() })
+		local st = U.stroke(C(120, 170, 255), 1.5, 0.4)
+		st.Parent = b
+		table.insert(hole.zoomStrokes, st)
+		local sc = new("UIScale", { Parent = b })
+		b.MouseEnter:Connect(function()
+			U.tween(sc, 0.15, { Scale = 1.12 })
+			U.tween(b, 0.15, { BackgroundTransparency = 0.05 })
+		end)
+		b.MouseLeave:Connect(function()
+			U.tween(sc, 0.15, { Scale = 1 })
+			U.tween(b, 0.15, { BackgroundTransparency = 0.25 })
+		end)
+		b.MouseButton1Click:Connect(function()
+			sc.Scale = 0.9
+			U.tween(sc, 0.2, { Scale = 1 }, Enum.EasingStyle.Back)
+			U.play(U.Sounds.tap, 0.3, 1.3)
+			f()
+		end)
+		return b
+	end
+	hole.zoomStrokes = {}
+	zoomBtn(8, "+", function()
+		setZoom(stage.zoomT * 1.4)
+	end)
+	zoomBtn(40, "–", function()
+		setZoom(stage.zoomT / 1.4)
+	end)
+	hole.zoomPill = new("Frame", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -8, 0, 74), Size = UDim2.fromOffset(28, 16), BackgroundColor3 = C(14, 18, 26), BackgroundTransparency = 1, ZIndex = 8, Parent = hole.frame }, { U.round() })
+	hole.zoomLabel = label(hole.zoomPill, { Size = UDim2.fromScale(1, 1), Text = "x1.0", TextSize = 10, TextColor3 = C(200, 215, 235), TextTransparency = 1, ZIndex = 9 })
 	UIS.InputEnded:Connect(function(input)
 		if stage.dragging and (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) then
 			stage.dragging = false
@@ -1906,6 +2219,12 @@ function Inv.Open()
 		api.closeOthers()
 	end
 	Inv.Refresh()
+	-- каждое открытие — с общего плана
+	stage.zoom, stage.zoomT, stage.focus, stage.focusT = 1, 1, nil, nil
+	if hole.zoomPill then
+		hole.zoomPill.BackgroundTransparency = 1
+		hole.zoomLabel.TextTransparency = 1
+	end
 	if stage.dirty or not stage.model then
 		stage.dirty = false
 		rebuildStage()
