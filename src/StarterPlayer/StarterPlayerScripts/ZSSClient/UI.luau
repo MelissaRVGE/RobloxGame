@@ -2747,7 +2747,7 @@ local function zoneTick()
 			local d = State.data
 			local ok = not d or d.equippedTotal >= zone.req
 			if zone.boss then
-				showBanner("☠ " .. zone.name, ok and "Босс на 1 000 000 HP • за победу — гемы и редкие находки" or ("Нужно %d дронов в рое!"):format(zone.req), ok and C(255, 120, 80) or T.Danger)
+				showBanner("☠ " .. zone.name, ok and ("Босс на %s HP • за победу — гемы и редкие находки"):format(U.fmt(zone.zombies.hp)) or ("Нужно %d дронов в рое!"):format(zone.req), ok and C(255, 120, 80) or T.Danger)
 			else
 			showBanner("☣ " .. zone.name, ok and ("Лом x%s  •  Зомби: %s"):format(tostring(zone.mult), zone.zombies.name) or ("Нужно %d дронов в рое!"):format(zone.req), ok and T.Accent or T.Danger)
 			end

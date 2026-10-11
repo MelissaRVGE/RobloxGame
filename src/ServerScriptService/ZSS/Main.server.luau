@@ -100,6 +100,31 @@ Players.PlayerRemoving:Connect(function(player)
 	Data.Release(player)
 end)
 
+-- ===== НАГРАДА ЗА ВРЕМЯ В ИГРЕ =====
+-- как раздатчики в BSS: каждые PlaytimeReward.interval секунд онлайн — немного гемов.
+-- Накопленное время хранится в профиле, поэтому неполный интервал не сгорает при выходе.
+task.spawn(function()
+	local PR = Config.PlaytimeReward
+	if not PR then
+		return
+	end
+	local STEP = 10
+	while true do
+		task.wait(STEP)
+		for _, player in ipairs(Players:GetPlayers()) do
+			local p = Data.Get(player)
+			if p then
+				p.playAcc = (p.playAcc or 0) + STEP
+				if p.playAcc >= PR.interval then
+					p.playAcc -= PR.interval
+					Data.AddGems(player, PR.gems)
+					notify(player, ("💎 +%d за время в игре! Следующие — через %d мин"):format(PR.gems, math.floor(PR.interval / 60)), "good")
+				end
+			end
+		end
+	end
+end)
+
 -- ===== УДАЛЁННЫЕ ВЫЗОВЫ =====
 Remotes.GetData.OnServerInvoke = function(player)
 	local t0 = os.clock()

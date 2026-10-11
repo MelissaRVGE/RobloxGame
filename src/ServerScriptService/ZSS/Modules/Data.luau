@@ -45,6 +45,7 @@ local function defaultProfile()
 		bossKills = 0,
 		totalBatteries = 0, -- сколько батарей заработано за всё время (для лидерборда)
 		settings = {}, -- настройки игрока из меню
+		playAcc = 0, -- секунды онлайн до следующей награды за время в игре
 	}
 end
 

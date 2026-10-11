@@ -1,4 +1,4 @@
--- Босс «Колосс»: 1 000 000 HP, удары и ударная волна, восстанавливается, если игроки ушли
+-- Босс «Колосс»: здоровье из Config (Логово Колосса), удары и ударная волна, восстанавливается, если игроки ушли
 local Players = game:GetService("Players")
 local RS = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
