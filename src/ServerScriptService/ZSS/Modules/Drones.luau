@@ -195,7 +195,7 @@ A.recycle = function(c)
 		return false
 	end
 	local amount = Data.TakeScrap(p, p.scrap * 0.2)
-	local gain = math.floor(amount * 1.1)
+	local gain = math.floor(amount * 1.1 * (c.player:GetAttribute("ZSS_ConvMult") or 1))
 	Data.AddBatteries(c.player, gain)
 	Remotes.Popup:FireClient(c.player, c.hrp.Position + Vector3.new(0, 5, 0), "🔋 +" .. gain, "battery")
 	fx("recycle", { owner = c.player.UserId, key = c.d.key })

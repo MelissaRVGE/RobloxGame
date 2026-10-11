@@ -19,6 +19,9 @@ local VBASE = {
 	ZSSG_W_Circuit = M.SmoothPlastic, ZSSG_W_Bone = M.Limestone, ZSSG_W_Titanium = M.Metal, ZSSG_W_Crystal = M.Ice,
 	ZSSG_W_Magma = M.CrackedLava, ZSSG_W_Hazmat = M.Rubber, ZSSG_W_Steel = M.Metal, ZSSG_W_LeatherBlack = M.Leather,
 	ZSSG_W_Leather = M.Leather, ZSSG_W_Plate = M.DiamondPlate, ZSSG_W_Carbon = M.SmoothPlastic, ZSSG_W_Wood = M.Wood,
+	-- ткани рюкзаков
+	ZSSG_B_Nylon = M.Fabric, ZSSG_B_Patchwork = M.Fabric, ZSSG_B_Molle = M.Fabric,
+	ZSSG_B_Fur = M.Fabric, ZSSG_B_Quilted = M.Fabric,
 }
 
 -- Улучшенные PBR-текстуры снаряжения (MaterialService, ZSSG_W_*). Старые остаются как запасные.
@@ -825,9 +828,86 @@ local function armorHigh(m, t, box)
 	end
 end
 
+-- качественные 3D-модели брони (ReplicatedStorage.ZSS.ArmorMeshes/armorN, один MeshPart).
+-- Используются собственные оси меша: грудь смотрит в -Z, Yaw (градусы) доворачивает меш, если он сгенерирован боком.
+-- SX / SY / SZ — размер относительно торса по осям (меш растягивается, чтобы обернуть торс),
+-- Up — сдвиг вверх (доля высоты торса), Back — сдвиг назад (доля глубины торса).
+-- общая палитра комплекта уровня (по шлему): поддоспешник под 3D-бронёй, рукава перчаток и голенища ботинок.
+-- { цвет, MaterialVariant или nil, материал без варианта }
+-- Поддоспешник облегает торс, чтобы в просветах брони была ткань/кольчуга, а не рубашка игрока.
+local SET_COLORS = {
+	{ C(196, 180, 128), "ZSS_I_Burlap" }, -- строительная каска: светлый брезент
+	{ C(140, 24, 28), "ZSS_I_Leather" }, -- мотошлем: красная кожа
+	{ C(92, 98, 72), "ZSS_D_Camo" }, -- военная каска: камуфляж
+	{ C(76, 84, 56), "ZSS_I_Kevlar" }, -- противогаз: оливковый брезент
+	{ C(46, 44, 48), "ZSSG_W_Steel" }, -- «Жнец»: воронёное железо
+	{ C(46, 70, 150), "ZSSG_B_Quilted" }, -- «Бастион»: синяя ткань, как гребень шлема
+	{ C(110, 26, 24), "ZSSG_W_DragonScale" },
+	{ C(84, 58, 40), "ZSS_I_Leather" },
+	{ C(226, 216, 160), nil, M.Rubber }, -- химзащита: светлая резина
+	{ C(150, 200, 240), "ZSSG_W_Crystal" },
+	{ C(52, 36, 30), "ZSSG_W_Magma" },
+	{ C(28, 22, 38), "ZSSG_W_Obsidian" },
+	{ C(30, 48, 110), "ZSSG_W_Circuit" }, -- нано: тёмно-синий
+	{ C(128, 20, 30), "ZSSG_B_Quilted" },
+	{ C(232, 236, 242), nil, M.SmoothPlastic }, -- «Омега»: белый глянец
+}
+
+local function armorMesh(m, t, box)
+	local z = game:GetService("ReplicatedStorage"):FindFirstChild("ZSS")
+	local lib = z and z:FindFirstChild("ArmorMeshes")
+	local tpl = lib and lib:FindFirstChild("armor" .. t)
+	local src = tpl and tpl:FindFirstChildWhichIsA("BasePart", true)
+	if not src then
+		return false
+	end
+	local w, h, d = box.X, box.Y, box.Z
+	local yaw = math.rad(tpl:GetAttribute("Yaw") or 0)
+	local size = Vector3.new(w * (tpl:GetAttribute("SX") or 1.5), h * (tpl:GetAttribute("SY") or 1.2), d * (tpl:GetAttribute("SZ") or 2.3))
+	if math.abs(math.cos(yaw)) < 0.5 then
+		size = Vector3.new(size.Z, size.Y, size.X)
+	end
+	local under = SET_COLORS[t]
+	if under and tpl:GetAttribute("Under") ~= false then
+		P(m, { name = "Under", size = Vector3.new(w * 1.04, h * 0.98, d * 1.08), color = under[1], v = under[2], mat = under[3] })
+		-- у R15 верхний торс ниже ширины; пояс закрывает LowerTorso, чтобы броня не обрывалась над поясом
+		if h < w * 0.9 then
+			P(m, { name = "Belt", size = Vector3.new(w * 1.06, h * 0.3, d * 1.12), cf = CFrame.new(0, -h * 0.62, 0), color = under[1], v = under[2], mat = under[3] })
+		end
+	end
+	local p = src:Clone()
+	p.Size = size
+	p.CFrame = CFrame.new(0, h * (tpl:GetAttribute("Up") or -0.04), d * (tpl:GetAttribute("Back") or 0)) * CFrame.Angles(0, yaw, 0)
+	p.Anchored = true
+	p.CanCollide = false
+	p.CanQuery = false
+	p.CanTouch = false
+	p.Massless = true
+	p.CastShadow = false
+	p.Name = "Vest"
+	p.Parent = m
+	local st = HI[t] or ARMOR[t]
+	if st and st.glow then
+		local l = Instance.new("PointLight")
+		l.Color = st.glow
+		l.Range = 7
+		l.Brightness = 1.2
+		l.Parent = p
+	end
+	return true
+end
+
 function IB.Armor(item, box)
 	box = box or Vector3.new(2, 1.6, 1)
 	local t = item.tier
+	do
+		local m = newModel(item.id)
+		root(m)
+		if armorMesh(m, t, box) then
+			return m
+		end
+		m:Destroy()
+	end
 	if t >= 6 and HI[t] then
 		local m = newModel(item.id)
 		root(m)
@@ -959,18 +1039,29 @@ local function helmetMesh(m, t, hs)
 	end
 	local c = tpl:Clone()
 	c:ScaleTo(c:GetScale() * hs * (tpl:GetAttribute("Fit") or 1.4) / 2)
-	c:PivotTo(CFrame.new(0, hs * (tpl:GetAttribute("Up") or 0.15), 0))
+	-- у сгенерированного меша лицевая сторона смотрит по его собственной оси -Z, а pivot шаблона
+	-- бывает повёрнут, поэтому одиночную деталь ставим по её локальным осям (+ поправка Yaw)
+	local at = CFrame.new(0, hs * (tpl:GetAttribute("Up") or 0.15), 0) * CFrame.Angles(0, math.rad(tpl:GetAttribute("Yaw") or 0), 0)
+	local parts = {}
 	for _, p in ipairs(c:GetDescendants()) do
 		if p:IsA("BasePart") then
-			p.Anchored = true
-			p.CanCollide = false
-			p.CanQuery = false
-			p.CanTouch = false
-			p.Massless = true
-			p.CastShadow = false
-			p.Name = "Shell"
-			p.Parent = m
+			table.insert(parts, p)
 		end
+	end
+	if #parts == 1 then
+		parts[1].CFrame = at
+	else
+		c:PivotTo(at)
+	end
+	for _, p in ipairs(parts) do
+		p.Anchored = true
+		p.CanCollide = false
+		p.CanQuery = false
+		p.CanTouch = false
+		p.Massless = true
+		p.CastShadow = false
+		p.Name = "Shell"
+		p.Parent = m
 	end
 	c:Destroy()
 	-- закрытый шлем: голова прячется, внутри тёмная подложка (чтобы сквозь прорези не было видно квадратной головы)
@@ -1077,8 +1168,67 @@ local function gloveHigh(m, t, box)
 	end
 end
 
-function IB.Glove(item, box)
+-- 3D-перчатки и ботинки (ReplicatedStorage.ZSS.GloveMeshes/glovesN, BootMeshes/bootsN).
+-- Меш натягивается на кисть (стопу) и часть предплечья (голени): box — кисть или стопа,
+-- reach — сколько захватить выше неё. Лицевая сторона меша смотрит по его собственной оси -Z;
+-- атрибуты шаблона SX/SY/SZ, Up, Fwd, Yaw — поправки размера, сдвига и поворота (по умолчанию — def).
+-- Блочная рука толще меша, поэтому под ним рукав/голенище в цвет снаряжения (sleeve = { color, variant }).
+local function limbMesh(m, libName, key, box, reach, glow, sleeve, def)
+	local z = game:GetService("ReplicatedStorage"):FindFirstChild("ZSS")
+	local lib = z and z:FindFirstChild(libName)
+	local tpl = lib and lib:FindFirstChild(key)
+	local src = tpl and tpl:FindFirstChildWhichIsA("BasePart", true)
+	if not src then
+		return false
+	end
+	local hgt = box.Y + reach
+	if sleeve and tpl:GetAttribute("Sleeve") ~= false then
+		P(m, { name = "Sleeve", size = Vector3.new(box.X * 1.06, hgt, box.Z * 1.06), cf = CFrame.new(0, (hgt - box.Y) / 2, 0), color = sleeve[1], v = sleeve[2], mat = sleeve[3] })
+	end
+	local yaw = math.rad(tpl:GetAttribute("Yaw") or 0)
+	local size = Vector3.new(box.X * (tpl:GetAttribute("SX") or def.X), hgt * (tpl:GetAttribute("SY") or def.Y), box.Z * (tpl:GetAttribute("SZ") or def.Z))
+	if math.abs(math.cos(yaw)) < 0.5 then
+		size = Vector3.new(size.Z, size.Y, size.X)
+	end
+	local p = src:Clone()
+	p.Size = size
+	p.CFrame = CFrame.new(0, (hgt - box.Y) / 2 + hgt * (tpl:GetAttribute("Up") or 0), -box.Z * (tpl:GetAttribute("Fwd") or 0)) * CFrame.Angles(0, yaw, 0)
+	p.Anchored = true
+	p.CanCollide = false
+	p.CanQuery = false
+	p.CanTouch = false
+	p.Massless = true
+	p.CastShadow = false
+	p.Name = "Shell"
+	for _, c in ipairs(p:GetChildren()) do
+		c:Destroy()
+	end
+	p.Parent = m
+	if glow then
+		local l = Instance.new("PointLight")
+		l.Color = glow
+		l.Range = 4
+		l.Brightness = 0.8
+		l.Parent = p
+	end
+	return true
+end
+
+-- перчатка шире руки, но не настолько, чтобы влезать в торс; ботинки не должны задевать друг друга
+local GLOVE_FIT = Vector3.new(1.45, 1.08, 1.7)
+local BOOT_FIT = Vector3.new(1.15, 1.04, 1.5)
+
+function IB.Glove(item, box, reach)
 	box = box or Vector3.new(0.6, 0.5, 0.6)
+	do
+		local m = newModel(item.id)
+		root(m)
+		local st = HI[item.tier] or GLOVES[item.tier]
+		if limbMesh(m, "GloveMeshes", item.id, box, reach or box.Y * 1.6, st and st.glow, SET_COLORS[item.tier] or (st and { st.main, st.v }), GLOVE_FIT) then
+			return m
+		end
+		m:Destroy()
+	end
 	if item.tier >= 6 and HI[item.tier] then
 		local m = newModel(item.id)
 		root(m)
@@ -1139,8 +1289,17 @@ local function bootHigh(m, t, box)
 	end
 end
 
-function IB.Boot(item, box)
+function IB.Boot(item, box, reach)
 	box = box or Vector3.new(0.6, 0.4, 0.8)
+	do
+		local m = newModel(item.id)
+		root(m)
+		local st = HI[item.tier] or BOOTS[item.tier]
+		if limbMesh(m, "BootMeshes", item.id, box, reach or box.Y * 1.5, st and st.glow, SET_COLORS[item.tier] or (st and { st.main, st.v }), BOOT_FIT) then
+			return m
+		end
+		m:Destroy()
+	end
 	if item.tier >= 6 and HI[item.tier] then
 		local m = newModel(item.id)
 		root(m)
@@ -1175,6 +1334,399 @@ function IB.Boot(item, box)
 	return m
 end
 
+-- ===================== РЮКЗАКИ =====================
+-- Невидимый Root в центре торса, рюкзак строится на спине (+Z), лямки идут через плечи на грудь (-Z).
+-- armored = поверх брони (рюкзак и лямки чуть дальше от тела).
+local BLACK = C(0, 0, 0)
+local BP = {
+	bp_old = { main = C(200, 60, 50), v = "ZSSG_B_Nylon", pocket = C(40, 70, 150), pocketV = "ZSSG_B_Nylon", strap = C(35, 35, 40), strapV = "ZSSG_B_Molle", round = true },
+	bp_sack = { main = C(185, 160, 120), v = "ZSS_I_Burlap", strap = C(140, 110, 70), strapV = "ZSS_I_Burlap", nopocket = true, round = true, bw = 0.7, bh = 0.8 },
+	bp_denim = { main = C(80, 110, 170), v = "ZSSG_B_Patchwork", pocket = C(50, 75, 130), pocketV = "ZSS_I_Denim", strap = C(120, 80, 50), strapV = "ZSSG_W_Leather", round = true },
+	bp_hiker = { main = C(230, 120, 40), v = "ZSSG_B_Nylon", pocket = C(60, 70, 80), pocketV = "ZSSG_B_Nylon", strap = C(40, 45, 50), strapV = "ZSSG_B_Molle", bh = 1.0, by = 0.06, side = true, chest = true },
+	bp_scrapper = { main = C(120, 95, 70), v = "ZSSG_W_Leather", pocket = C(200, 150, 110), pocketV = "ZSS_D_Rust", strap = C(40, 35, 30), strapV = "ZSSG_W_LeatherBlack", trim = C(240, 190, 30), trimV = "ZSS_D_Hazard", glow = C(120, 255, 80) },
+	bp_raid = { main = C(120, 130, 85), v = "ZSS_D_Camo", pocket = C(95, 105, 70), pocketV = "ZSS_D_Camo", strap = C(55, 60, 45), strapV = "ZSSG_B_Molle", side = true, chest = true, flap = true },
+	bp_tactical = { main = C(70, 75, 62), v = "ZSSG_B_Molle", pocket = C(58, 62, 52), pocketV = "ZSSG_B_Molle", strap = C(35, 38, 32), strapV = "ZSSG_B_Molle", side = true, chest = true, flap = true },
+	bp_hazmat = { main = C(240, 200, 40), v = "ZSSG_W_Hazmat", strap = C(40, 40, 44), strapV = "ZSS_I_Tread", trim = C(40, 40, 44), trimV = "ZSS_I_Tread", nopocket = true, glow = C(130, 255, 80), bd = 0.5 },
+	bp_reactor = { main = C(95, 100, 115), v = "ZSS_D_SciFi", pocket = C(50, 52, 60), pocketV = "ZSSG_W_Carbon", strap = C(40, 40, 45), strapV = "ZSSG_W_Carbon", trim = C(50, 52, 60), trimV = "ZSSG_W_Carbon", glow = C(80, 220, 255), nopocket = true },
+	bp_bone = { main = C(120, 90, 65), v = "ZSSG_B_Fur", strap = C(70, 50, 40), strapV = "ZSSG_W_Leather", nopocket = true, bh = 0.95, bd = 0.7, round = true, bone = C(238, 228, 205) },
+	bp_dragon = { main = C(170, 35, 35), v = "ZSSG_W_DragonScale", pocket = C(130, 25, 25), pocketV = "ZSSG_W_DragonScale", strap = C(255, 200, 110), strapV = "ZSSG_W_GoldEngraved", trim = C(255, 200, 110), trimV = "ZSSG_W_GoldEngraved", glow = C(255, 120, 40), round = true },
+	bp_crystal = { main = C(95, 105, 135), v = "ZSSG_W_Titanium", strap = C(60, 65, 85), strapV = "ZSS_I_DarkPlate", trim = C(60, 65, 85), trimV = "ZSS_I_DarkPlate", glow = C(120, 220, 255), nopocket = true },
+	bp_magma = { main = C(70, 45, 35), v = "ZSSG_W_Magma", strap = C(30, 25, 30), strapV = "ZSSG_W_Obsidian", trim = C(30, 25, 30), trimV = "ZSSG_W_Obsidian", glow = C(255, 110, 20), nopocket = true, bd = 0.66 },
+	bp_obsidian = { main = C(40, 34, 52), v = "ZSSG_W_Obsidian", strap = C(30, 26, 38), strapV = "ZSSG_W_Obsidian", trim = C(25, 22, 30), trimV = "ZSSG_W_Obsidian", glow = C(190, 90, 255), nopocket = true, round = true, chest = true },
+	bp_nano = { main = C(40, 50, 62), v = "ZSSG_W_Circuit", pocket = C(28, 34, 44), pocketV = "ZSSG_W_Carbon", strap = C(28, 34, 44), strapV = "ZSSG_W_Carbon", trim = C(28, 34, 44), trimV = "ZSSG_W_Carbon", glow = C(80, 255, 230) },
+	bp_royal = { main = C(255, 205, 90), v = "ZSSG_W_GoldEngraved", strap = C(150, 20, 35), strapV = "ZSSG_B_Quilted", trim = C(150, 20, 35), trimV = "ZSSG_B_Quilted", nopocket = true, round = true, gem = C(255, 40, 70) },
+	bp_omega = { main = C(205, 215, 235), v = "ZSSG_W_Titanium", strap = C(55, 62, 82), strapV = "ZSSG_W_Circuit", trim = C(55, 62, 82), trimV = "ZSSG_W_Circuit", glow = C(80, 255, 230), nopocket = true, chest = true },
+}
+IB.BackpackStyles = BP
+
+local function bpLight(part, color, range)
+	local l = Instance.new("PointLight")
+	l.Color = color
+	l.Range = range or 6
+	l.Brightness = 1
+	l.Parent = part
+end
+
+-- диск, обращённый к спине (ось цилиндра вдоль Z)
+local function disc(m, o)
+	o.shape = Cyl
+	o.size = Vector3.new(o.th or 0.08, o.dia, o.dia)
+	o.cf = o.cf * CFrame.Angles(0, R90, 0)
+	return P(m, o)
+end
+
+local BX = {}
+
+BX.bp_old = function(m, st, g)
+	-- брелок сбоку
+	local x = g.bw / 2 + 0.05
+	P(m, { shape = Cyl, size = Vector3.new(0.04, 0.22, 0.22), cf = CFrame.new(x, g.top - g.bh * 0.1, g.cz), color = C(200, 200, 205), mat = M.Metal })
+	local charm = P(m, { name = "Charm", shape = Ball, size = Vector3.one * 0.22, cf = CFrame.new(x + 0.02, g.top - g.bh * 0.3, g.cz), color = C(255, 220, 60), mat = M.Neon })
+	bpLight(charm, C(255, 220, 60), 3)
+end
+
+BX.bp_sack = function(m, st, g)
+	-- горловина, стянутая верёвкой
+	local neckY = g.top + g.bd * 0.45
+	P(m, { name = "Neck", shape = Cyl, size = Vector3.new(g.bh * 0.25, g.bd * 0.5, g.bd * 0.5), cf = CFrame.new(0, neckY, g.cz) * CFrame.Angles(0, 0, R90), color = st.main:Lerp(BLACK, 0.1), v = st.v })
+	P(m, { name = "Rope", shape = Cyl, size = Vector3.new(0.08, g.bd * 0.56, g.bd * 0.56), cf = CFrame.new(0, neckY - g.bh * 0.05, g.cz) * CFrame.Angles(0, 0, R90), color = C(110, 80, 50), v = "ZSSG_W_Leather" })
+	for _, sx in ipairs({ -1, 1 }) do
+		P(m, { name = "Rope", size = Vector3.new(0.06, g.bh * 0.4, 0.06), cf = CFrame.new(sx * 0.1, neckY - g.bh * 0.25, g.back + 0.02) * CFrame.Angles(0, 0, sx * 0.25), color = C(110, 80, 50), v = "ZSSG_W_Leather" })
+	end
+	-- заплатка
+	P(m, { size = Vector3.new(g.bw * 0.28, g.bh * 0.22, 0.04), cf = CFrame.new(-g.bw * 0.15, g.cy - g.bh * 0.15, g.back + 0.01) * CFrame.Angles(0, 0, 0.15), color = C(120, 95, 70), v = "ZSS_I_Burlap" })
+end
+
+BX.bp_denim = function(m, st, g)
+	local patches = { { C(220, 50, 50), -0.22, 0.2 }, { C(255, 210, 40), 0.24, 0.26 }, { C(80, 200, 90), 0.2, -0.05 } }
+	for i, pt in ipairs(patches) do
+		disc(m, { th = 0.05, dia = g.bw * 0.2, cf = CFrame.new(g.bw * pt[2], g.cy + g.bh * pt[3], g.back + 0.02), color = pt[1], mat = M.Fabric })
+		if i == 2 then
+			P(m, { size = Vector3.new(g.bw * 0.08, g.bw * 0.08, 0.04), cf = CFrame.new(g.bw * pt[2], g.cy + g.bh * pt[3], g.back + 0.05) * CFrame.Angles(0, 0, math.rad(45)), color = C(220, 50, 50), mat = M.SmoothPlastic })
+		end
+	end
+	-- значки
+	for k = 0, 2 do
+		disc(m, { th = 0.04, dia = 0.14, cf = CFrame.new(-g.bw * 0.3 + k * 0.17, g.cy + g.bh * 0.36, g.back + 0.03), color = ({ C(255, 255, 255), C(255, 120, 200), C(120, 200, 255) })[k + 1], mat = M.SmoothPlastic, refl = 0.2 })
+	end
+end
+
+BX.bp_hiker = function(m, st, g)
+	-- спальник сверху
+	local roll = P(m, { name = "Bedroll", shape = Cyl, size = Vector3.new(g.bw * 1.15, g.bd * 0.7, g.bd * 0.7), cf = CFrame.new(0, g.top + g.bd * 0.32, g.cz), color = C(60, 115, 75), v = "ZSSG_B_Quilted" })
+	for _, sx in ipairs({ -1, 1 }) do
+		P(m, { shape = Cyl, size = Vector3.new(0.08, g.bd * 0.74, g.bd * 0.74), cf = roll.CFrame * CFrame.new(sx * g.bw * 0.35, 0, 0), color = C(30, 30, 30), v = "ZSSG_B_Molle" })
+		-- алюминиевая рама
+		P(m, { shape = Cyl, size = Vector3.new(g.bh * 1.05, 0.08, 0.08), cf = CFrame.new(sx * g.bw * 0.48, g.cy, g.cz - g.bd * 0.42) * CFrame.Angles(0, 0, R90), color = C(200, 205, 215), mat = M.Metal, refl = 0.2 })
+	end
+	-- фляга
+	local fx = g.bw / 2 + g.bw * 0.18
+	P(m, { shape = Cyl, size = Vector3.new(g.bh * 0.32, 0.26, 0.26), cf = CFrame.new(fx, g.cy + g.bh * 0.12, g.cz) * CFrame.Angles(0, 0, R90), color = C(150, 160, 150), v = "ZSSG_W_Steel" })
+	P(m, { shape = Cyl, size = Vector3.new(0.06, 0.14, 0.14), cf = CFrame.new(fx, g.cy + g.bh * 0.3, g.cz) * CFrame.Angles(0, 0, R90), color = C(30, 30, 30), mat = M.Rubber })
+end
+
+BX.bp_scrapper = function(m, st, g)
+	-- шестерня сбоку
+	local gx = g.bw / 2 + 0.06
+	local cog = P(m, { name = "Cog", shape = Cyl, size = Vector3.new(0.12, g.bh * 0.5, g.bh * 0.5), cf = CFrame.new(gx, g.cy + g.bh * 0.1, g.cz), color = C(170, 140, 100), v = "ZSS_D_Rust" })
+	for k = 0, 7 do
+		local a = k / 8 * math.pi * 2
+		P(m, { size = Vector3.new(0.12, 0.12, 0.12), cf = cog.CFrame * CFrame.new(0, math.cos(a) * g.bh * 0.27, math.sin(a) * g.bh * 0.27), color = C(170, 140, 100), v = "ZSS_D_Rust" })
+	end
+	-- труба переработчика
+	local pipe = P(m, { shape = Cyl, size = Vector3.new(g.bh * 0.45, 0.24, 0.24), cf = CFrame.new(-g.bw * 0.28, g.top + g.bh * 0.15, g.cz) * CFrame.Angles(0, 0, R90), color = C(90, 90, 95), v = "ZSSG_W_Steel" })
+	local ring = P(m, { shape = Cyl, size = Vector3.new(0.08, 0.28, 0.28), cf = pipe.CFrame * CFrame.new(g.bh * 0.2, 0, 0), color = st.glow, mat = M.Neon })
+	emit(ring, st.glow, nil, 6, 0.15, 2, 0.5, Vector3.new(0, 3, 0))
+	-- знак переработки на кармане
+	for k = 0, 2 do
+		local a = k / 3 * math.pi * 2
+		P(m, { size = Vector3.new(0.05, g.bw * 0.16, 0.04), cf = CFrame.new(g.pocketX, g.pocketY, g.pocketZ + 0.02) * CFrame.Angles(0, 0, a) * CFrame.new(0, -g.bw * 0.05, 0) * CFrame.Angles(0, 0, R90), color = st.glow, mat = M.Neon })
+	end
+	bpLight(ring, st.glow, 5)
+end
+
+BX.bp_raid = function(m, st, g)
+	for k = -1, 1 do
+		P(m, { name = "Pouch", size = Vector3.new(g.bw * 0.26, g.bh * 0.22, g.bd * 0.22), cf = CFrame.new(k * g.bw * 0.3, g.cy + g.bh * 0.12, g.back + g.bd * 0.1), color = st.pocket, v = st.pocketV })
+		disc(m, { th = 0.04, dia = 0.08, cf = CFrame.new(k * g.bw * 0.3, g.cy + g.bh * 0.2, g.back + g.bd * 0.22), color = C(30, 30, 30), mat = M.SmoothPlastic })
+	end
+	-- коврик снизу
+	P(m, { shape = Cyl, size = Vector3.new(g.bw * 1.05, g.bd * 0.55, g.bd * 0.55), cf = CFrame.new(0, g.cy - g.bh / 2 - g.bd * 0.2, g.cz + g.bd * 0.05), color = C(45, 55, 45), v = "ZSS_I_Tread" })
+end
+
+BX.bp_tactical = function(m, st, g)
+	-- рация с антенной
+	local rx = -g.bw / 2 - g.bw * 0.08
+	P(m, { name = "Radio", size = Vector3.new(0.22, g.bh * 0.32, 0.3), cf = CFrame.new(rx, g.cy + g.bh * 0.25, g.cz), color = C(40, 40, 40), v = "ZSSG_W_Carbon" })
+	P(m, { shape = Cyl, size = Vector3.new(g.bh * 0.9, 0.05, 0.05), cf = CFrame.new(rx, g.top + g.bh * 0.35, g.cz) * CFrame.Angles(0, 0, R90), color = C(25, 25, 25), mat = M.Rubber })
+	local tip = P(m, { shape = Ball, size = Vector3.one * 0.12, cf = CFrame.new(rx, g.top + g.bh * 0.8, g.cz), color = C(255, 40, 40), mat = M.Neon })
+	bpLight(tip, C(255, 40, 40), 3)
+	-- нашивка с черепом
+	P(m, { size = Vector3.new(g.bw * 0.34, g.bh * 0.18, 0.04), cf = CFrame.new(0, g.cy + g.bh * 0.08, g.back + 0.02), color = C(30, 32, 28), mat = M.Fabric })
+	P(m, { shape = Ball, size = Vector3.new(g.bh * 0.12, g.bh * 0.12, 0.05), cf = CFrame.new(0, g.cy + g.bh * 0.09, g.back + 0.04), color = C(220, 220, 210), mat = M.SmoothPlastic })
+end
+
+BX.bp_hazmat = function(m, st, g)
+	-- стеклянный бак со слизью
+	local tz = g.back + g.bd * 0.35
+	local tank = P(m, { name = "Tank", shape = Cyl, size = Vector3.new(g.bh * 0.85, g.bw * 0.5, g.bw * 0.5), cf = CFrame.new(0, g.cy, tz) * CFrame.Angles(0, 0, R90), color = C(220, 255, 220), mat = M.Glass, tr = 0.45, refl = 0.2 })
+	local slime = P(m, { name = "Slime", shape = Cyl, size = Vector3.new(g.bh * 0.6, g.bw * 0.42, g.bw * 0.42), cf = CFrame.new(0, g.cy - g.bh * 0.1, tz) * CFrame.Angles(0, 0, R90), color = st.glow, mat = M.Neon, tr = 0.15 })
+	for _, sy in ipairs({ -1, 1 }) do
+		P(m, { shape = Cyl, size = Vector3.new(0.14, g.bw * 0.56, g.bw * 0.56), cf = CFrame.new(0, g.cy + sy * g.bh * 0.44, tz) * CFrame.Angles(0, 0, R90), color = C(70, 70, 75), v = "ZSSG_W_Steel" })
+	end
+	emit(slime, st.glow, nil, 5, 0.12, 0.8, 1, Vector3.new(0, 1.5, 0))
+	bpLight(slime, st.glow, 7)
+	-- полосы опасности
+	for k = -2, 2 do
+		P(m, { size = Vector3.new(0.06, g.bh * 0.9, g.bd * 1.02), cf = CFrame.new(k * g.bw * 0.2, g.cy, g.cz) * CFrame.Angles(0, 0, 0.5), color = C(30, 30, 30), mat = M.SmoothPlastic })
+	end
+end
+
+BX.bp_reactor = function(m, st, g)
+	local core = disc(m, { name = "Core", th = 0.12, dia = g.bw * 0.5, cf = CFrame.new(0, g.cy + g.bh * 0.05, g.back + 0.06), color = st.glow, mat = M.Neon })
+	disc(m, { th = 0.1, dia = g.bw * 0.66, cf = CFrame.new(0, g.cy + g.bh * 0.05, g.back + 0.03), color = st.trim, v = st.trimV })
+	disc(m, { th = 0.14, dia = g.bw * 0.2, cf = CFrame.new(0, g.cy + g.bh * 0.05, g.back + 0.1), color = C(230, 255, 255), mat = M.Neon })
+	bpLight(core, st.glow, 9)
+	for _, sx in ipairs({ -1, 1 }) do
+		local ex = P(m, { name = "Exhaust", shape = Cyl, size = Vector3.new(g.bh * 0.5, 0.26, 0.26), cf = CFrame.new(sx * g.bw * 0.32, g.top + g.bh * 0.12, g.cz - g.bd * 0.1) * CFrame.Angles(0, 0, R90), color = C(40, 40, 45), v = "ZSSG_W_Carbon" })
+		emit(ex, st.glow, nil, 8, 0.25, 2, 0.4, Vector3.new(0, 3, 0))
+		P(m, { size = Vector3.new(0.05, g.bh * 0.7, 0.05), cf = CFrame.new(sx * g.bw * 0.45, g.cy, g.back + 0.02), color = st.glow, mat = M.Neon })
+	end
+end
+
+BX.bp_bone = function(m, st, g)
+	-- рёбра поверх шкуры
+	for k = 0, 3 do
+		local y = g.cy + g.bh * (0.3 - k * 0.2)
+		for _, sx in ipairs({ -1, 1 }) do
+			P(m, { size = Vector3.new(g.bw * 0.5, g.bh * 0.06, 0.1), cf = CFrame.new(sx * g.bw * 0.24, y, g.back + 0.03) * CFrame.Angles(0, -sx * 0.35, sx * 0.2), color = st.bone, v = "ZSSG_W_Bone" })
+		end
+	end
+	P(m, { size = Vector3.new(g.bw * 0.1, g.bh * 0.9, 0.14), cf = CFrame.new(0, g.cy, g.back + 0.05), color = st.bone, v = "ZSSG_W_Bone" })
+	-- череп сверху
+	local sk = P(m, { name = "Skull", shape = Ball, size = Vector3.new(g.bw * 0.42, g.bw * 0.38, g.bw * 0.42), cf = CFrame.new(0, g.top + g.bd * 0.35, g.cz + g.bd * 0.1), color = st.bone, v = "ZSSG_W_Bone" })
+	for _, sx in ipairs({ -1, 1 }) do
+		P(m, { shape = Ball, size = Vector3.one * g.bw * 0.08, cf = sk.CFrame * CFrame.new(sx * g.bw * 0.09, 0, g.bw * 0.18), color = C(255, 50, 30), mat = M.Neon })
+		P(m, { class = "WedgePart", name = "Horn", size = Vector3.new(g.bw * 0.08, g.bw * 0.35, g.bw * 0.14), cf = sk.CFrame * CFrame.new(sx * g.bw * 0.22, g.bw * 0.2, 0) * CFrame.Angles(0, 0, -sx * 0.6), color = C(90, 70, 55), v = "ZSSG_W_Leather" })
+	end
+end
+
+BX.bp_dragon = function(m, st, g)
+	-- шипы вдоль хребта
+	for k = 0, 4 do
+		P(m, { class = "WedgePart", name = "Spike", size = Vector3.new(0.08, g.bh * 0.16, g.bd * 0.3), cf = CFrame.new(0, g.cy + g.bh * (0.45 - k * 0.22), g.back + g.bd * 0.12) * CFrame.Angles(0, R90, 0), color = C(245, 235, 210), v = "ZSSG_W_Bone" })
+	end
+	-- сложенные крылья
+	for _, sx in ipairs({ -1, 1 }) do
+		for k = 0, 2 do
+			P(m, { name = "Wing", size = Vector3.new(0.06, g.bh * (0.95 - k * 0.2), g.bd * 0.8), cf = CFrame.new(sx * (g.bw / 2 + 0.05 + k * 0.04), g.cy + g.bh * 0.2 - k * g.bh * 0.08, g.cz + g.bd * 0.1) * CFrame.Angles(-0.5 - k * 0.15, sx * 0.15, 0), color = C(120 - k * 20, 20, 25), v = "ZSSG_W_DragonScale" })
+		end
+	end
+	local gem = P(m, { name = "Gem", size = Vector3.new(g.bw * 0.16, g.bw * 0.16, 0.12), cf = CFrame.new(0, g.cy - g.bh * 0.05, g.pocketZ + 0.06) * CFrame.Angles(0, 0, math.rad(45)), color = st.glow, mat = M.Neon })
+	emit(gem, ColorSequence.new(C(255, 220, 120), C(255, 60, 20)), FIRE_TEX, 5, 0.25, 1, 0.5, Vector3.new(0, 3, 0))
+	bpLight(gem, st.glow, 6)
+end
+
+BX.bp_crystal = function(m, st, g)
+	local list = { { -0.3, 0.55, 0.3 }, { 0, 0.75, 0 }, { 0.28, 0.6, -0.25 }, { -0.12, 0.45, 0.6 }, { 0.15, 0.4, -0.6 } }
+	for i, c in ipairs(list) do
+		P(m, { name = "Crystal", size = Vector3.new(g.bw * 0.13, g.bh * c[2], g.bw * 0.13), cf = CFrame.new(g.bw * c[1], g.top + g.bh * c[2] * 0.35, g.cz + (i % 2 == 0 and 0.05 or -0.05)) * CFrame.Angles(0, math.rad(45), c[3] * 0.6), color = C(170, 230, 255), v = "ZSSG_W_Crystal", tr = 0.1 })
+	end
+	for k = 0, 2 do
+		P(m, { name = "Crystal", size = Vector3.new(g.bw * 0.1, g.bw * 0.1, g.bd * 0.5), cf = CFrame.new((k - 1) * g.bw * 0.28, g.cy - g.bh * 0.1 + (k % 2) * g.bh * 0.2, g.back + g.bd * 0.15) * CFrame.Angles(0, 0, math.rad(45)), color = C(170, 230, 255), v = "ZSSG_W_Crystal", tr = 0.1 })
+	end
+	local core = P(m, { size = Vector3.new(g.bw * 0.22, g.bw * 0.22, 0.08), cf = CFrame.new(0, g.cy + g.bh * 0.2, g.back + 0.03) * CFrame.Angles(0, 0, math.rad(45)), color = st.glow, mat = M.Neon })
+	emit(core, st.glow, nil, 6, 0.2, 1, 0.6)
+	bpLight(core, st.glow, 8)
+end
+
+BX.bp_magma = function(m, st, g)
+	local crack = P(m, { size = Vector3.new(0.07, g.bh * 0.8, 0.04), cf = CFrame.new(0, g.cy, g.back + 0.01), color = st.glow, mat = M.Neon })
+	for k = 0, 3 do
+		local sx = k % 2 == 0 and -1 or 1
+		P(m, { size = Vector3.new(g.bw * 0.32, 0.06, 0.04), cf = CFrame.new(sx * g.bw * 0.14, g.cy + g.bh * (0.28 - k * 0.18), g.back + 0.01) * CFrame.Angles(0, 0, sx * 0.45), color = st.glow, mat = M.Neon })
+	end
+	bpLight(crack, st.glow, 8)
+	-- труба плавильни
+	local pipe = P(m, { shape = Cyl, size = Vector3.new(g.bh * 0.55, 0.32, 0.32), cf = CFrame.new(g.bw * 0.26, g.top + g.bh * 0.2, g.cz - g.bd * 0.1) * CFrame.Angles(0, 0, R90), color = C(30, 25, 30), v = "ZSSG_W_Obsidian" })
+	local mouth = P(m, { shape = Cyl, size = Vector3.new(0.06, 0.3, 0.3), cf = pipe.CFrame * CFrame.new(g.bh * 0.28, 0, 0), color = st.glow, mat = M.Neon })
+	emit(mouth, ColorSequence.new(C(255, 220, 120), C(255, 60, 20)), FIRE_TEX, 14, 0.45, 2.5, 0.5, Vector3.new(0, 5, 0))
+end
+
+BX.bp_obsidian = function(m, st, g)
+	-- светящиеся швы сундука
+	for _, sy in ipairs({ -0.42, 0.42 }) do
+		P(m, { size = Vector3.new(g.bw * 1.03, 0.05, g.bd * 1.03), cf = CFrame.new(0, g.cy + g.bh * sy, g.cz), color = st.glow, mat = M.Neon })
+	end
+	for _, sx in ipairs({ -0.48, 0.48 }) do
+		P(m, { size = Vector3.new(0.05, g.bh * 0.85, g.bd * 1.03), cf = CFrame.new(g.bw * sx, g.cy, g.cz), color = st.glow, mat = M.Neon })
+	end
+	-- кольцо рун за спиной (из отдельных сегментов, чтобы сундук был виден сквозь него)
+	local rc = CFrame.new(0, g.cy + g.bh * 0.05, g.back + 0.2)
+	local r = g.bh * 0.55
+	local rune
+	for k = 0, 11 do
+		local a = k / 12 * math.pi * 2
+		local seg = P(m, { name = "Rune", size = Vector3.new(r * 0.42, 0.06, 0.04), cf = rc * CFrame.Angles(0, 0, a) * CFrame.new(0, r, 0), color = st.glow, mat = M.Neon, tr = k % 3 == 0 and 0 or 0.3 })
+		rune = rune or seg
+	end
+	-- глиф в центре
+	P(m, { size = Vector3.new(0.06, g.bh * 0.4, 0.04), cf = CFrame.new(0, g.cy + g.bh * 0.05, g.back + 0.02), color = st.glow, mat = M.Neon })
+	P(m, { size = Vector3.new(g.bw * 0.2, g.bw * 0.2, 0.04), cf = CFrame.new(0, g.cy + g.bh * 0.05, g.back + 0.02) * CFrame.Angles(0, 0, math.rad(45)), color = st.glow, mat = M.Neon, tr = 0.4 })
+	emit(rune, st.glow, nil, 8, 0.18, 0.8, 0.8)
+	bpLight(rune, st.glow, 8)
+end
+
+BX.bp_nano = function(m, st, g)
+	for k = 0, 3 do
+		P(m, { size = Vector3.new(g.bw * (0.3 + (k % 2) * 0.3), 0.04, 0.03), cf = CFrame.new((k % 2 == 0 and -0.15 or 0.05) * g.bw, g.cy + g.bh * (0.35 - k * 0.2), g.back + 0.01), color = st.glow, mat = M.Neon })
+		P(m, { size = Vector3.new(0.04, g.bh * 0.18, 0.03), cf = CFrame.new((k - 1.5) * g.bw * 0.25, g.cy + g.bh * (0.25 - (k % 2) * 0.3), g.back + 0.01), color = st.glow, mat = M.Neon })
+	end
+	-- голограмма над рюкзаком
+	local holo = P(m, { name = "Holo", shape = Cyl, size = Vector3.new(0.04, g.bw * 0.7, g.bw * 0.7), cf = CFrame.new(0, g.top + g.bh * 0.15, g.cz) * CFrame.Angles(0, 0, R90), color = st.glow, mat = M.Neon, tr = 0.5 })
+	P(m, { size = Vector3.one * g.bw * 0.16, cf = CFrame.new(0, g.top + g.bh * 0.38, g.cz) * CFrame.Angles(math.rad(45), math.rad(45), 0), color = st.glow, mat = M.Neon, tr = 0.35 })
+	emit(holo, st.glow, nil, 6, 0.1, 0.6, 0.8, Vector3.new(0, 1, 0))
+	bpLight(holo, st.glow, 7)
+end
+
+BX.bp_royal = function(m, st, g)
+	-- рубины по углам и корона-эмблема
+	for _, sx in ipairs({ -1, 1 }) do
+		for _, sy in ipairs({ -1, 1 }) do
+			P(m, { shape = Ball, size = Vector3.one * g.bw * 0.1, cf = CFrame.new(sx * g.bw * 0.38, g.cy + sy * g.bh * 0.32, g.back + 0.03), color = st.gem, mat = M.Glass, refl = 0.4 })
+		end
+	end
+	local cy = g.cy + g.bh * 0.02
+	P(m, { size = Vector3.new(g.bw * 0.4, g.bh * 0.12, 0.08), cf = CFrame.new(0, cy - g.bh * 0.08, g.back + 0.04), color = C(255, 215, 110), v = "ZSSG_W_GoldEngraved" })
+	for k = -1, 1 do
+		P(m, { class = "WedgePart", size = Vector3.new(0.08, g.bh * (k == 0 and 0.2 or 0.14), g.bw * 0.1), cf = CFrame.new(k * g.bw * 0.15, cy + g.bh * 0.04, g.back + 0.04) * CFrame.Angles(0, R90, 0), color = C(255, 215, 110), v = "ZSSG_W_GoldEngraved" })
+	end
+	local ruby = P(m, { name = "Gem", size = Vector3.new(g.bw * 0.12, g.bw * 0.12, 0.1), cf = CFrame.new(0, cy - g.bh * 0.08, g.back + 0.09) * CFrame.Angles(0, 0, math.rad(45)), color = st.gem, mat = M.Glass, refl = 0.4 })
+	bpLight(ruby, st.gem, 4)
+	emit(ruby, C(255, 230, 150), nil, 3, 0.15, 0.5, 0.6)
+end
+
+BX.bp_omega = function(m, st, g)
+	-- портал в карманное измерение
+	local portal = disc(m, { name = "Portal", th = 0.06, dia = g.bh * 0.75, cf = CFrame.new(0, g.cy + g.bh * 0.05, g.back + 0.04), color = C(170, 80, 255), mat = M.Neon })
+	disc(m, { th = 0.08, dia = g.bh * 0.5, cf = CFrame.new(0, g.cy + g.bh * 0.05, g.back + 0.05), color = C(10, 0, 25), mat = M.SmoothPlastic })
+	disc(m, { th = 0.1, dia = g.bh * 0.2, cf = CFrame.new(0, g.cy + g.bh * 0.05, g.back + 0.06), color = st.glow, mat = M.Neon })
+	emit(portal, ColorSequence.new(st.glow, C(170, 80, 255)), nil, 10, 0.2, 1, 0.6)
+	bpLight(portal, C(170, 80, 255), 9)
+	-- энергетические крылья
+	for _, sx in ipairs({ -1, 1 }) do
+		for k = 0, 3 do
+			local f = P(m, { name = "Wing", size = Vector3.new(g.bw * (0.9 - k * 0.15), 0.06, g.bd * 0.3), cf = CFrame.new(sx * g.bw * (0.45 + k * 0.06), g.cy + g.bh * (0.35 - k * 0.22), g.cz) * CFrame.Angles(0, 0, sx * (0.55 - k * 0.15)) * CFrame.new(sx * g.bw * 0.4, 0, 0), color = st.glow, mat = M.Neon, tr = 0.25 + k * 0.1 })
+			if k == 0 then
+				emit(f, st.glow, nil, 6, 0.2, 1, 0.6)
+			end
+		end
+	end
+end
+
+-- лямки через плечи на грудь (видны спереди)
+local function bpStraps(m, st, w, h, zb, zf)
+	for _, sx in ipairs({ -1, 1 }) do
+		local x = sx * w * 0.25
+		P(m, { name = "Strap", size = Vector3.new(w * 0.13, h * 0.8, 0.06), cf = CFrame.new(x, -h * 0.02, zf - 0.03), color = st.strap, v = st.strapV })
+		P(m, { name = "Strap", size = Vector3.new(w * 0.13, 0.08, zb - zf + 0.06), cf = CFrame.new(x, h * 0.5 + 0.04, (zb + zf) / 2), color = st.strap, v = st.strapV })
+		P(m, { name = "Buckle", size = Vector3.new(w * 0.15, 0.1, 0.05), cf = CFrame.new(x, -h * 0.3, zf - 0.07), color = C(190, 190, 195), mat = M.Metal })
+	end
+	if st.chest then
+		P(m, { name = "ChestStrap", size = Vector3.new(w * 0.52, 0.08, 0.05), cf = CFrame.new(0, h * 0.18, zf - 0.07), color = st.strap, v = st.strapV })
+	end
+end
+
+-- качественные 3D-модели рюкзаков (ReplicatedStorage.ZSS.BackpackMeshes/<id>):
+-- шаблон с центром габаритов в начале координат, сторона к спине игрока смотрит в -Z.
+-- Fit / Height — предельные ширина и высота относительно торса, Up — сдвиг вверх (доля высоты торса),
+-- Sink — какая доля глубины модели (лямки сзади) уходит в спину.
+local function backpackMesh(m, id, st, w, h, zb)
+	local z = game:GetService("ReplicatedStorage"):FindFirstChild("ZSS")
+	local lib = z and z:FindFirstChild("BackpackMeshes")
+	local tpl = lib and lib:FindFirstChild(id)
+	if not tpl then
+		return false
+	end
+	local c = tpl:Clone()
+	local _, size = c:GetBoundingBox()
+	local k = math.min(w * (tpl:GetAttribute("Fit") or 0.9) / size.X, h * (tpl:GetAttribute("Height") or 1.0) / size.Y)
+	c:ScaleTo(c:GetScale() * k)
+	local _, sz = c:GetBoundingBox()
+	c:PivotTo(CFrame.new(0, h * (tpl:GetAttribute("Up") or 0), zb + sz.Z * (0.5 - (tpl:GetAttribute("Sink") or 0.06))))
+	local first
+	for _, p in ipairs(c:GetDescendants()) do
+		if p:IsA("BasePart") then
+			p.Anchored = true
+			p.CanCollide = false
+			p.CanQuery = false
+			p.CanTouch = false
+			p.Massless = true
+			p.CastShadow = false
+			p.Name = "Bag"
+			p.Parent = m
+			first = first or p
+		end
+	end
+	c:Destroy()
+	if first and (st.glow or st.gem) then
+		bpLight(first, st.glow or st.gem, 7)
+	end
+	return first ~= nil
+end
+
+function IB.Backpack(item, box, armored)
+	box = box or Vector3.new(2, 1.6, 1)
+	local st = BP[item.id] or BP.bp_old
+	local m = newModel(item.id)
+	root(m)
+	local w, h, d = box.X, box.Y, box.Z
+	local zb = armored and d * 0.85 or d * 0.52 -- спина (или 3D-броня на спине)
+	local zf = -(armored and d * 0.7 or d * 0.53) -- грудь
+	if backpackMesh(m, item.id, st, w, h, zb) then
+		bpStraps(m, st, w, h, zb, zf)
+		return m
+	end
+	local g = { bw = w * (st.bw or 0.8), bh = h * (st.bh or 0.86), bd = d * (st.bd or 0.6) }
+	g.cy = h * (st.by or -0.04)
+	g.cz = zb + g.bd / 2
+	g.back = zb + g.bd
+	g.top = g.cy + g.bh / 2
+	-- корпус
+	P(m, { name = "Bag", size = Vector3.new(g.bw, g.bh, g.bd), cf = CFrame.new(0, g.cy, g.cz), color = st.main, v = st.v })
+	if st.round then
+		P(m, { name = "Lid", shape = Cyl, size = Vector3.new(g.bw, g.bd, g.bd), cf = CFrame.new(0, g.top, g.cz), color = st.main, v = st.v })
+	end
+	-- окантовка дна
+	P(m, { name = "Base", size = Vector3.new(g.bw * 1.03, g.bh * 0.08, g.bd * 1.04), cf = CFrame.new(0, g.cy - g.bh * 0.46, g.cz), color = st.trim or st.strap, v = st.trimV or st.strapV })
+	-- клапан
+	if st.flap then
+		P(m, { name = "Flap", size = Vector3.new(g.bw * 1.02, g.bh * 0.3, 0.08), cf = CFrame.new(0, g.cy + g.bh * 0.34, g.back + 0.04), color = st.pocket or st.main, v = st.pocketV or st.v })
+		for _, sx in ipairs({ -1, 1 }) do
+			P(m, { size = Vector3.new(0.12, 0.08, 0.06), cf = CFrame.new(sx * g.bw * 0.25, g.cy + g.bh * 0.2, g.back + 0.09), color = C(30, 30, 30), mat = M.SmoothPlastic })
+		end
+	end
+	-- передний карман с молнией
+	g.pocketX, g.pocketY, g.pocketZ = 0, g.cy - g.bh * 0.18, g.back + g.bd * 0.15
+	if not st.nopocket then
+		P(m, { name = "Pocket", size = Vector3.new(g.bw * 0.72, g.bh * 0.4, g.bd * 0.3), cf = CFrame.new(0, g.pocketY, g.back + g.bd * 0.15 - 0.01), color = st.pocket or st.main, v = st.pocketV or st.v })
+		P(m, { name = "Zip", size = Vector3.new(g.bw * 0.66, 0.04, 0.03), cf = CFrame.new(0, g.pocketY + g.bh * 0.12, g.back + g.bd * 0.3), color = C(40, 40, 40), mat = M.Metal })
+		P(m, { size = Vector3.new(0.06, 0.14, 0.04), cf = CFrame.new(g.bw * 0.22, g.pocketY + g.bh * 0.08, g.back + g.bd * 0.31), color = C(200, 200, 205), mat = M.Metal })
+		g.pocketZ = g.back + g.bd * 0.3
+	end
+	-- боковые карманы
+	if st.side then
+		for _, sx in ipairs({ -1, 1 }) do
+			P(m, { name = "SidePocket", size = Vector3.new(g.bw * 0.16, g.bh * 0.42, g.bd * 0.7), cf = CFrame.new(sx * (g.bw / 2 + g.bw * 0.07), g.cy - g.bh * 0.2, g.cz), color = st.pocket or st.main, v = st.pocketV or st.v })
+		end
+	end
+	bpStraps(m, st, w, h, zb, zf)
+	if BX[item.id] then
+		BX[item.id](m, st, g)
+	end
+	return m
+end
+
 -- Модель для превью (перчатки/ботинки парой, шлем с головой-манекеном)
 function IB.Consumable(item)
 	local m = newModel(item.id)
@@ -1203,6 +1755,44 @@ function IB.Consumable(item)
 	return m
 end
 
+-- карточка магазина: сама 3D-модель в своих пропорциях, без поддоспешника и рукавов.
+-- Возвращает MeshPart в начале координат (лицом к -Z) и его ширину, или nil, если шаблона нет.
+local function previewMesh(m, libName, key, torso)
+	local z = game:GetService("ReplicatedStorage"):FindFirstChild("ZSS")
+	local lib = z and z:FindFirstChild(libName)
+	local tpl = lib and lib:FindFirstChild(key)
+	local src = tpl and tpl:FindFirstChildWhichIsA("BasePart", true)
+	if not src then
+		return nil
+	end
+	local yaw = math.rad(tpl:GetAttribute("Yaw") or 0)
+	local side = math.abs(math.cos(yaw)) < 0.5
+	local w, h, d = src.Size.X, src.Size.Y, src.Size.Z
+	if side then
+		w, d = d, w
+	end
+	if torso then
+		-- часть жилетов сгенерирована узкой и глубокой; в карточке приводим к пропорциям торса
+		w = math.max(w, h * 0.85)
+		d = math.min(d, w * 0.8)
+	end
+	local p = src:Clone()
+	for _, c in ipairs(p:GetChildren()) do
+		c:Destroy()
+	end
+	p.Size = side and Vector3.new(d, h, w) or Vector3.new(w, h, d)
+	p.CFrame = CFrame.Angles(0, yaw, 0)
+	p.Anchored = true
+	p.CanCollide = false
+	p.CanQuery = false
+	p.CanTouch = false
+	p.Massless = true
+	p.CastShadow = false
+	p.Name = "Shell"
+	p.Parent = m
+	return p, w
+end
+
 function IB.Preview(item)
 	if item.slot == "consumable" then
 		return IB.Consumable(item)
@@ -1212,7 +1802,17 @@ function IB.Preview(item)
 		m:PivotTo(CFrame.Angles(0, 0, math.rad(-35)) * m:GetPivot())
 		return m
 	elseif item.slot == "armor" then
-		local m = IB.Armor(item)
+		local m = newModel(item.id)
+		root(m)
+		if previewMesh(m, "ArmorMeshes", "armor" .. item.tier, true) then
+			return m
+		end
+		m:Destroy()
+		return IB.Armor(item)
+	elseif item.slot == "backpack" then
+		-- рюкзак повёрнут к камере передним карманом
+		local m = IB.Backpack(item)
+		m:PivotTo(CFrame.Angles(0, math.pi, 0))
 		return m
 	elseif item.slot == "helmet" then
 		local m = IB.Helmet(item)
@@ -1222,6 +1822,15 @@ function IB.Preview(item)
 		return m
 	else
 		local holder = newModel(item.id)
+		local lib = item.slot == "gloves" and "GloveMeshes" or "BootMeshes"
+		local left, w = previewMesh(holder, lib, item.id)
+		if left then
+			root(holder)
+			local right = previewMesh(holder, lib, item.id)
+			left.CFrame = CFrame.new(-w * 0.62, 0, 0) * CFrame.Angles(0, -0.25, 0) * left.CFrame
+			right.CFrame = CFrame.new(w * 0.62, 0, 0) * CFrame.Angles(0, 0.25, 0) * right.CFrame
+			return holder
+		end
 		for _, sx in ipairs({ -1, 1 }) do
 			local one = item.slot == "gloves" and IB.Glove(item) or IB.Boot(item)
 			one:PivotTo(CFrame.new(sx * 0.55, 0, 0) * CFrame.Angles(0, sx * 0.25, 0))

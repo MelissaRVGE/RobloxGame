@@ -14,6 +14,7 @@ function Equipment.Reconcile(p)
 	p.items = p.items or {}
 	p.items[Shop.DefaultWeapon] = true
 	p.items[Shop.DefaultTool] = true
+	p.items[Shop.DefaultBackpack] = true
 	p.gear = p.gear or {}
 	for slot, id in pairs(p.gear) do
 		local it = Shop.ById[id]
@@ -27,7 +28,11 @@ function Equipment.Reconcile(p)
 	end
 	p.gear.weapon = p.gear.weapon or Shop.DefaultWeapon
 	p.gear.tool = p.gear.tool or Shop.DefaultTool
+	p.gear.backpack = p.gear.backpack or Shop.DefaultBackpack
 end
+
+-- слоты, которые нельзя снять (только заменить другим предметом)
+local FIXED = { weapon = true, tool = true, backpack = true }
 
 local function bodyParts(char)
 	local r15 = char:FindFirstChild("UpperTorso") ~= nil
@@ -66,6 +71,27 @@ local function attach(folder, model, part, offset)
 	w.C0 = offset
 	w.Parent = root
 	model.Parent = folder
+end
+
+-- сгенерированные 3D-модели не всегда рисуются внутри модели с Humanoid, поэтому броня и рюкзак
+-- лежат в отдельной папке Workspace и приварены к торсу
+local worn = {}
+
+local function dropWorn(player)
+	for _, m in ipairs(worn[player] or {}) do
+		m:Destroy()
+	end
+	worn[player] = nil
+end
+
+local function wornFolder()
+	local f = workspace:FindFirstChild("ZSS_WornBackpacks")
+	if not f then
+		f = Instance.new("Folder")
+		f.Name = "ZSS_WornBackpacks"
+		f.Parent = workspace
+	end
+	return f
 end
 
 local function setHatsHidden(char, hidden)
@@ -201,14 +227,45 @@ function Equipment.Apply(player)
 	if folder then
 		folder:Destroy()
 	end
+	dropWorn(player)
 	folder = Instance.new("Folder")
 	folder.Name = "ZSS_Gear"
 	folder.Parent = char
 
 	local g = p.gear
+	local torsoBox = bp.r15 and bp.torso.Size or Vector3.new(2, 2, 1)
+	local list = {}
 	if g.armor then
-		local box = bp.r15 and bp.torso.Size or Vector3.new(2, 2, 1)
-		attach(folder, IB.Armor(Shop.ById[g.armor], box), bp.torso, CFrame.new())
+		local am = IB.Armor(Shop.ById[g.armor], torsoBox)
+		if g.backpack then
+			-- под рюкзаком прячем то, что у брони висит на спине (ранец, баллоны, выхлоп)
+			for _, d in ipairs(am:GetChildren()) do
+				if d:IsA("BasePart") and d.Name ~= "Wing" and d.Name ~= "Cape" and d.Position.Z > torsoBox.Z * 0.7 then
+					d:Destroy()
+				end
+			end
+		end
+		am.Name = "Armor_" .. player.UserId
+		attach(wornFolder(), am, bp.torso, CFrame.new())
+		table.insert(list, am)
+	end
+	if g.backpack and Shop.ById[g.backpack] then
+		local bag = IB.Backpack(Shop.ById[g.backpack], torsoBox, g.armor ~= nil)
+		bag.Name = "Backpack_" .. player.UserId
+		attach(wornFolder(), bag, bp.torso, CFrame.new())
+		table.insert(list, bag)
+	end
+	if #list > 0 then
+		worn[player] = list
+		local conn
+		conn = char.AncestryChanged:Connect(function()
+			if not char:IsDescendantOf(workspace) then
+				conn:Disconnect()
+				if worn[player] == list then
+					dropWorn(player)
+				end
+			end
+		end)
 	end
 	local hideHead = false
 	if g.helmet then
@@ -223,7 +280,10 @@ function Equipment.Apply(player)
 		for _, hand in ipairs({ bp.lhand, bp.rhand }) do
 			if hand then
 				local box = bp.r15 and hand.Size or Vector3.new(1, 0.6, 1)
-				attach(folder, IB.Glove(Shop.ById[g.gloves], box), hand, bp.r15 and CFrame.new() or CFrame.new(0, -0.7, 0))
+				-- перчатка закрывает кисть и большую часть предплечья
+				local arm = bp.r15 and char:FindFirstChild((hand.Name:gsub("Hand", "LowerArm")))
+				local reach = arm and arm.Size.Y * 0.8 or 0.7
+				attach(folder, IB.Glove(Shop.ById[g.gloves], box, reach), hand, bp.r15 and CFrame.new() or CFrame.new(0, -0.7, 0))
 			end
 		end
 	end
@@ -231,7 +291,10 @@ function Equipment.Apply(player)
 		for _, foot in ipairs({ bp.lfoot, bp.rfoot }) do
 			if foot then
 				local box = bp.r15 and foot.Size or Vector3.new(1, 0.6, 1.1)
-				attach(folder, IB.Boot(Shop.ById[g.boots], box), foot, bp.r15 and CFrame.new() or CFrame.new(0, -0.72, -0.05))
+				-- ботинок закрывает стопу и нижнюю часть голени
+				local leg = bp.r15 and char:FindFirstChild((foot.Name:gsub("Foot", "LowerLeg")))
+				local reach = leg and leg.Size.Y * 0.6 or 0.5
+				attach(folder, IB.Boot(Shop.ById[g.boots], box, reach), foot, bp.r15 and CFrame.new() or CFrame.new(0, -0.72, -0.05))
 			end
 		end
 	end
@@ -251,6 +314,9 @@ function Equipment.Apply(player)
 	end
 	char:SetAttribute("ZSS_DmgMult", 1 - t.def)
 	player:SetAttribute("ZSS_ScrapMult", 1 + t.scrap + (perks.scrap or 0))
+	-- бонусы переработки от рюкзака (читают Переработчик и способность дрона «Переработка»)
+	player:SetAttribute("ZSS_ConvMult", 1 + t.conv)
+	player:SetAttribute("ZSS_ConvSpeed", 1 + t.cspeed)
 
 	giveWeapon(player, p)
 end
@@ -313,7 +379,7 @@ function Equipment.Equip(player, id)
 	if not p or not item or not p.items[id] then
 		return
 	end
-	if p.gear[item.slot] == id and item.slot ~= "weapon" and item.slot ~= "tool" then
+	if p.gear[item.slot] == id and not FIXED[item.slot] then
 		p.gear[item.slot] = nil -- повторное нажатие снимает
 	else
 		p.gear[item.slot] = id
@@ -406,6 +472,7 @@ end
 
 function Equipment.Init(dataModule, dronesModule, fieldsModule, zombiesModule)
 	Data, Drones, Fields, Zombies = dataModule, dronesModule, fieldsModule, zombiesModule
+	game:GetService("Players").PlayerRemoving:Connect(dropWorn)
 end
 
 return Equipment

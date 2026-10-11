@@ -53,7 +53,9 @@ local function setVp(vp, item, yaw, pitch)
 		end
 	end
 	local m = IB.Preview(item)
-	Builder.SetupViewport(vp, m, yaw or math.rad(30), pitch or math.rad(15), 1.0)
+	-- броня, перчатки и ботинки вытянуты по высоте: подводим камеру ближе, чтобы модель заполняла карточку
+	local wear = item.slot == "armor" or item.slot == "gloves" or item.slot == "boots"
+	Builder.SetupViewport(vp, m, yaw or math.rad(30), pitch or math.rad(15), wear and 0.85 or 1.0)
 	return m
 end
 
@@ -98,8 +100,14 @@ local STAT_LABELS = {
 	jump = { "⇑ Прыжок", "" },
 	heal = { "❤ Лечение", "" },
 	energy = { "⚡ Заряд роя", "%" },
+	cap = { "🎒 Вместимость", "%" },
+	conv = { "♻ Батарей с переработки", "%" },
+	cspeed = { "⏩ Скорость переработки", "%" },
 }
-local STAT_ORDER = { "dmg", "radius", "gather", "cd", "hp", "def", "scrap", "speed", "jump", "heal", "energy" }
+local STAT_ORDER = { "dmg", "radius", "gather", "cd", "hp", "def", "scrap", "speed", "jump", "heal", "energy", "cap", "conv", "cspeed" }
+local PCT = { def = true, scrap = true, energy = true, cap = true, conv = true, cspeed = true }
+-- слоты, которые нельзя снять (только заменить)
+local FIXED = { weapon = true, tool = true, backpack = true }
 
 local function consumCount(id)
 	local d = State.data
@@ -107,7 +115,7 @@ local function consumCount(id)
 end
 
 local function fmtStat(k, v)
-	if k == "def" or k == "scrap" or k == "energy" then
+	if PCT[k] then
 		return ("+%d%%"):format(math.floor(v * 100 + 0.5))
 	elseif k == "cd" then
 		return ("%.2fс"):format(v)
@@ -130,7 +138,7 @@ local function statsText(item)
 				local diff = v - cv
 				local better = (k == "cd") and diff < 0 or (k ~= "cd" and diff > 0)
 				if math.abs(diff) > 1e-6 then
-					local ds = (k == "def" or k == "scrap") and ("%+d%%"):format(math.floor(diff * 100 + 0.5)) or (k == "cd" and ("%+.2f"):format(diff) or ("%+g"):format(diff))
+					local ds = PCT[k] and ("%+d%%"):format(math.floor(diff * 100 + 0.5)) or (k == "cd" and ("%+.2f"):format(diff) or ("%+g"):format(diff))
 					line ..= (' <font color="%s">(%s)</font>'):format(better and "#8CFF5A" or "#FF6A5A", ds)
 				end
 			end
@@ -190,8 +198,8 @@ local function refreshDetail()
 		local can = d and d.batteries >= item.price and matsOk
 		detail.action.Text = (#mats > 0 and "СКРАФТИТЬ • 🔋 %s" or "КУПИТЬ • 🔋 %s"):format(U.fmt(item.price))
 		detail.action.BackgroundColor3 = can and C(60, 150, 40) or C(70, 70, 70)
-	elseif isEq and (item.slot == "weapon" or item.slot == "tool") then
-		detail.action.Text = "✔ В ХОТБАРЕ"
+	elseif isEq and FIXED[item.slot] then
+		detail.action.Text = item.slot == "backpack" and "✔ НА СПИНЕ" or "✔ В ХОТБАРЕ"
 		detail.action.BackgroundColor3 = C(50, 60, 50)
 	elseif isEq then
 		detail.action.Text = "СНЯТЬ"
@@ -245,7 +253,7 @@ local function refreshCards()
 	local d = State.data
 	if d then
 		local t = Shop.Totals(d.gear)
-		detail.totals.Text = ("❤ %d HP   🛡 %d%%\n» +%d скор.   ⚙ +%d%% лома"):format(100 + t.hp, math.floor(t.def * 100 + 0.5), t.speed, math.floor(t.scrap * 100 + 0.5))
+		detail.totals.Text = ("❤ %d HP   🛡 %d%%\n» +%d скор.   ⚙ +%d%% лома\n🎒 +%d%%   ♻ +%d%% батарей"):format(100 + t.hp, math.floor(t.def * 100 + 0.5), t.speed, math.floor(t.scrap * 100 + 0.5), math.floor(t.cap * 100 + 0.5), math.floor(t.conv * 100 + 0.5))
 		detail.balance.Text = "🔋 " .. U.fmt(d.batteries)
 	end
 end
@@ -325,7 +333,7 @@ local function onAction()
 			Toast(res and res.err or "Ошибка покупки", "bad")
 		end
 	else
-		if equippedId(item.slot) == item.id and (item.slot == "weapon" or item.slot == "tool") then
+		if equippedId(item.slot) == item.id and FIXED[item.slot] then
 			return
 		end
 		Remotes.ShopEquip:FireServer(item.id)
@@ -337,7 +345,7 @@ local function build()
 	win = new("Frame", {
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromScale(0.5, 0.52),
-		Size = UDim2.fromOffset(980, 600),
+		Size = UDim2.fromOffset(980, 640),
 		BackgroundColor3 = C(22, 18, 14),
 		Visible = false,
 		Parent = gui,
@@ -391,13 +399,13 @@ local function build()
 	-- вкладки
 	local tabs = new("Frame", {
 		Position = UDim2.fromOffset(14, 74),
-		Size = UDim2.fromOffset(170, 360),
+		Size = UDim2.fromOffset(170, 400),
 		BackgroundTransparency = 1,
 		Parent = win,
-	}, { new("UIListLayout", { Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder }) })
+	}, { new("UIListLayout", { Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder }) })
 	for i, s in ipairs(Shop.Slots) do
 		local b = btn({
-			Size = UDim2.fromOffset(170, 55),
+			Size = UDim2.fromOffset(170, 46),
 			BackgroundColor3 = C(30, 36, 30),
 			Text = "",
 			LayoutOrder = i,
@@ -408,19 +416,19 @@ local function build()
 		U.corner(12).Parent = b
 		U.stroke(T.Hazard, 1.5, 0.4).Parent = b
 		new("TextLabel", {
-			Position = UDim2.fromOffset(10, 4),
-			Size = UDim2.new(1, -16, 0, 26),
+			Position = UDim2.fromOffset(10, 2),
+			Size = UDim2.new(1, -16, 0, 24),
 			BackgroundTransparency = 1,
 			Font = Enum.Font.GothamBlack,
 			Text = s.icon .. " " .. s.name,
-			TextSize = 19,
+			TextSize = 18,
 			TextColor3 = C(255, 230, 180),
 			TextXAlignment = Enum.TextXAlignment.Left,
 			Parent = b,
 		}, { U.textStroke(C(0, 0, 0), 1.5) })
 		local sub = new("TextLabel", {
-			Position = UDim2.fromOffset(12, 32),
-			Size = UDim2.new(1, -18, 0, 18),
+			Position = UDim2.fromOffset(12, 26),
+			Size = UDim2.new(1, -18, 0, 16),
 			BackgroundTransparency = 1,
 			Font = Enum.Font.GothamBold,
 			Text = "",

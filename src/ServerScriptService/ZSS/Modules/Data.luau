@@ -5,6 +5,7 @@ local RunService = game:GetService("RunService")
 local RS = game:GetService("ReplicatedStorage")
 
 local Config = require(RS.ZSS.Config)
+local Shop = require(RS.ZSS.ShopConfig)
 local Remotes = RS.ZSS.Remotes
 
 local Data = {}
@@ -124,8 +125,11 @@ function Data.Get(player)
 	return Data.Profiles[player]
 end
 
+-- вместимость = уровень рюкзака × бонус надетой модели рюкзака
 function Data.Capacity(p)
-	return Config.BagCapacity(p.bagLevel)
+	local bp = p.gear and Shop.ById[p.gear.backpack or ""]
+	local cap = bp and bp.stats.cap or 0
+	return math.floor(Config.BagCapacity(p.bagLevel) * (1 + cap))
 end
 
 function Data.MarkDirty(player)
