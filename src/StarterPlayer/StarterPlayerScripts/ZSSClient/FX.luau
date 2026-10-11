@@ -166,6 +166,10 @@ function FX.Popup(pos, text, color, big, icon)
 		end)
 	end
 	local st = lbl:FindFirstChildOfClass("UIStroke")
+	-- цифра «выпрыгивает» с пружинкой, а не появляется сразу полного размера
+	local ts = lbl.TextSize
+	lbl.TextSize = math.floor(ts * 0.4)
+	tw(lbl, 0.22, { TextSize = ts }, Enum.EasingStyle.Back)
 	tw(bb, 1.2, { StudsOffset = Vector3.new(math.random(-10, 10) / 10, 4, 0) })
 	task.delay(0.6, function()
 		tw(lbl, 0.6, { TextTransparency = 1 })
@@ -193,6 +197,8 @@ function FX.Text3D(pos, text, color)
 		TextColor3 = color,
 		Parent = bb,
 	}, { U.textStroke(C(0, 0, 0), 2) })
+	lbl.TextTransparency = 1
+	tw(lbl, 0.25, { TextTransparency = 0 })
 	tw(bb, 1.8, { StudsOffset = Vector3.new(0, 5, 0) })
 	task.delay(1.1, function()
 		tw(lbl, 0.7, { TextTransparency = 1 })
@@ -353,8 +359,10 @@ H.aura = function(d)
 		return
 	end
 	local hl = Instance.new("Highlight")
-	hl.FillTransparency = 0.75
-	hl.OutlineTransparency = 0
+	-- аура плавно разгорается и так же плавно гаснет
+	hl.FillTransparency = 1
+	hl.OutlineTransparency = 1
+	tw(hl, 0.3, { FillTransparency = 0.75, OutlineTransparency = 0 })
 	hl.FillColor = d.color or C(255, 255, 255)
 	hl.OutlineColor = d.color or C(255, 255, 255)
 	hl.DepthMode = Enum.HighlightDepthMode.Occluded
@@ -365,7 +373,12 @@ H.aura = function(d)
 		local t = os.clock() - t0
 		if t > d.duration or not hl.Parent then
 			conn:Disconnect()
-			hl:Destroy()
+			if hl.Parent then
+				tw(hl, 0.35, { FillTransparency = 1, OutlineTransparency = 1 })
+				task.delay(0.36, function()
+					hl:Destroy()
+				end)
+			end
 			return
 		end
 		if d.rainbow then
@@ -798,7 +811,9 @@ function FX.Init(renderer)
 		if shakeAmp > 0.01 then
 			local cam = workspace.CurrentCamera
 			local a = shakeAmp
-			cam.CFrame = cam.CFrame * CFrame.Angles(math.rad((math.random() - 0.5) * a * 2), math.rad((math.random() - 0.5) * a * 2), 0)
+			-- плавная тряска на шуме Перлина вместо случайных скачков каждый кадр
+			local t = os.clock() * 18
+			cam.CFrame = cam.CFrame * CFrame.Angles(math.rad(math.noise(t, 0.3) * a * 1.6), math.rad(math.noise(0.7, t) * a * 1.6), 0)
 			shakeAmp = shakeAmp * math.exp(-dt * 5)
 		else
 			shakeAmp = 0

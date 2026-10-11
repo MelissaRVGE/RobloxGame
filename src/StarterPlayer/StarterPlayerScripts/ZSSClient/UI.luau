@@ -107,18 +107,47 @@ local function button(props, onClick)
 end
 
 local function openWindow(win, scaleObj)
-	win.Visible = true
-	scaleObj:SetAttribute("Animating", true)
-	scaleObj.Scale = respScale * 0.85
-	U.tween(scaleObj, 0.25, { Scale = respScale }, Enum.EasingStyle.Back)
-	task.delay(0.26, function()
-		scaleObj:SetAttribute("Animating", nil)
-	end)
+	U.openPanel(win, scaleObj, respScale)
 	U.play(U.Sounds.open, 0.35, 1.25)
+end
+
+-- плавное закрытие окна (сжимается и исчезает)
+local function closeWindow(win, scaleObj)
+	U.closePanel(win, scaleObj or (win and win:FindFirstChildOfClass("UIScale")))
 end
 
 -- ===== УВЕДОМЛЕНИЯ =====
 local toastHolder
+local toastSeq = 0
+-- уведомление растворяется, затем схлопывается по высоте, и остальные плавно подтягиваются
+local function dismissToast(f, t)
+	if not f.Parent or f:GetAttribute("Leaving") then
+		return
+	end
+	f:SetAttribute("Leaving", true)
+	local card = f:FindFirstChildOfClass("Frame")
+	if card then
+		local lbl = card:FindFirstChildOfClass("TextLabel")
+		local sc = card:FindFirstChildOfClass("UIScale")
+		U.tween(card, t, { BackgroundTransparency = 1 })
+		if lbl then
+			U.tween(lbl, t, { TextTransparency = 1 })
+		end
+		if sc then
+			U.tween(sc, t, { Scale = 0.92 })
+		end
+		U.tween(card:FindFirstChildOfClass("UIStroke"), t, { Transparency = 1 })
+	end
+	task.delay(t, function()
+		if not f.Parent then
+			return
+		end
+		U.tween(f, 0.2, { Size = UDim2.fromOffset(480, 0) }, Enum.EasingStyle.Quad, Enum.EasingDirection.In).Completed:Connect(function()
+			f:Destroy()
+		end)
+	end)
+end
+
 function UI.Toast(text, kind)
 	if UI.ToastsEnabled == false and (kind == nil or kind == "info" or kind == "good" or kind == "speed" or kind == "night") then
 		return
@@ -141,12 +170,23 @@ function UI.Toast(text, kind)
 	else
 		color = T.Hazard
 	end
+	-- появляется плавно: строка раздвигается по высоте (остальные съезжают), фон и текст проявляются
+	-- f — прозрачная «строка» списка (высота 0 → 46, включая отступ), card — сама плашка
 	local f = new("Frame", {
-		Size = UDim2.fromOffset(480, 40),
-		BackgroundColor3 = T.Bg,
-		BackgroundTransparency = 0.1,
+		Size = UDim2.fromOffset(480, 0),
+		BackgroundTransparency = 1,
+		LayoutOrder = toastSeq,
 		Parent = toastHolder,
-	}, { U.corner(10), U.stroke(color, 2) })
+	})
+	toastSeq += 1
+	local card = new("Frame", {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.new(1, 0, 0, 40),
+		BackgroundColor3 = T.Bg,
+		BackgroundTransparency = 1,
+		Parent = f,
+	}, { U.corner(10), U.stroke(color, 2, 1) })
 	local lbl = new("TextLabel", {
 		Size = UDim2.new(1, -20, 1, 0),
 		Position = UDim2.fromOffset(10, 0),
@@ -155,39 +195,37 @@ function UI.Toast(text, kind)
 		Text = text,
 		TextSize = 17,
 		TextColor3 = T.Text,
+		TextTransparency = 1,
 		TextWrapped = true,
-		Parent = f,
+		Parent = card,
 	})
+	local fsc = new("UIScale", { Scale = 0.85, Parent = card })
+	U.tween(f, 0.28, { Size = UDim2.fromOffset(480, 46) }, Enum.EasingStyle.Quart)
+	U.tween(card, 0.28, { BackgroundTransparency = 0.1 })
+	U.tween(lbl, 0.28, { TextTransparency = 0 })
+	U.tween(card:FindFirstChildOfClass("UIStroke"), 0.28, { Transparency = 0 })
+	U.tween(fsc, 0.38, { Scale = 1 }, Enum.EasingStyle.Back)
 	if kind == "Mythic" then
-		rainbowify(f:FindFirstChildOfClass("UIStroke"))
+		rainbowify(card:FindFirstChildOfClass("UIStroke"))
 	end
 	if kind == "bad" then
 		U.play(U.Sounds.tick, 0.4, 0.6)
 	end
 	task.delay(3.2, function()
-		if not f.Parent then
-			return -- уже вытеснено новым уведомлением
-		end
-		U.tween(f, 0.3, { BackgroundTransparency = 1 })
-		U.tween(lbl, 0.3, { TextTransparency = 1 })
-		U.tween(f:FindFirstChildOfClass("UIStroke"), 0.3, { Transparency = 1 })
-		task.wait(0.32)
-		f:Destroy()
+		dismissToast(f, 0.3)
 	end)
-	local list = toastHolder:GetChildren()
-	local count = 0
-	for _, c in ipairs(list) do
-		if c:IsA("Frame") then
-			count += 1
+	-- больше 4 уведомлений: самое старое быстро уходит (тоже плавно)
+	local live = {}
+	for _, c in ipairs(toastHolder:GetChildren()) do
+		if c:IsA("Frame") and not c:GetAttribute("Leaving") then
+			table.insert(live, c)
 		end
 	end
-	if count > 4 then
-		for _, c in ipairs(list) do
-			if c:IsA("Frame") and c ~= f then
-				c:Destroy()
-				break
-			end
-		end
+	if #live > 4 then
+		table.sort(live, function(a, b)
+			return a.LayoutOrder < b.LayoutOrder
+		end)
+		dismissToast(live[1], 0.18)
 	end
 end
 
@@ -341,7 +379,7 @@ local function buildHUD()
 	end)
 	U.corner(8).Parent = hud.chargeBtn
 	hud.chargeBtn:GetPropertyChangedSignal("Visible"):Connect(function()
-		UI.FitRail()
+		UI.FitRail(true)
 	end)
 	hud.displayBat = 0
 
@@ -475,13 +513,18 @@ local function buildHUD()
 		end)
 		-- нажатие: кнопка вдавливается в торец, иконка подпрыгивает, расходятся кольцо и искры
 		b.Activated:Connect(function()
-			b.Position = UDim2.fromOffset(0, EDGE - 1)
-			U.tween(b, 0.28, { Position = UDim2.fromOffset(0, fx.hover and -2 or 0) }, Enum.EasingStyle.Back)
+			U.tween(b, 0.06, { Position = UDim2.fromOffset(0, EDGE - 1) }).Completed:Connect(function(state)
+				if state == Enum.PlaybackState.Completed then
+					U.tween(b, 0.28, { Position = UDim2.fromOffset(0, fx.hover and -2 or 0) }, Enum.EasingStyle.Back)
+				end
+			end)
 			fx.jump = os.clock()
 			fx.nextSheen = 0
-			glow.ImageTransparency = 0
-			glow.Size = UDim2.fromOffset(40, 40)
-			U.tween(glow, 0.5, { Size = UDim2.fromOffset(fx.hover and 92 or 78, fx.hover and 92 or 78), ImageTransparency = fx.hover and 0.15 or 0.45 })
+			U.tween(glow, 0.07, { ImageTransparency = 0, Size = UDim2.fromOffset(40, 40) }).Completed:Connect(function(state)
+				if state == Enum.PlaybackState.Completed then
+					U.tween(glow, 0.45, { Size = UDim2.fromOffset(fx.hover and 92 or 78, fx.hover and 92 or 78), ImageTransparency = fx.hover and 0.15 or 0.45 })
+				end
+			end)
 			local ring = new("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0, 30), Size = UDim2.fromOffset(26, 26), BackgroundTransparency = 1, ZIndex = 6, Parent = b }, { U.round() })
 			local rs = U.stroke(it.color:Lerp(C(255, 255, 255), 0.3), 4)
 			rs.Parent = ring
@@ -565,7 +608,8 @@ local function buildHUD()
 			h.ring.ImageTransparency = 0.55 + rp * 0.45
 			h.ring.ImageColor3 = low and C(255, 120, 60) or C(255, 170, 180)
 			if h.hit > 0 then
-				h.icon.Rotation = (math.random() - 0.5) * 24 * h.hit
+				-- плавное затухающее покачивание вместо случайной дрожи
+				h.icon.Rotation = math.sin(os.clock() * 38) * 13 * h.hit
 				h.icon.ImageColor3 = C(255, 255, 255):Lerp(C(255, 120, 120), h.hit)
 				h.hit = math.max(0, h.hit - dt * 3)
 			else
@@ -666,7 +710,7 @@ local function buildHUD()
 		Size = UDim2.fromOffset(480, 230),
 		BackgroundTransparency = 1,
 		Parent = gui,
-	}, { new("UIListLayout", { Padding = UDim.new(0, 6), HorizontalAlignment = Enum.HorizontalAlignment.Center, SortOrder = Enum.SortOrder.LayoutOrder }) })
+	}, { new("UIListLayout", { Padding = UDim.new(0, 0), HorizontalAlignment = Enum.HorizontalAlignment.Center, SortOrder = Enum.SortOrder.LayoutOrder }) })
 	addScale(toastHolder)
 
 	-- ===== баннер зоны =====
@@ -678,7 +722,7 @@ local function buildHUD()
 		Visible = false,
 		Parent = gui,
 	})
-	addScale(hud.banner)
+	hud.bannerScale = addScale(hud.banner)
 	hud.bannerTitle = new("TextLabel", {
 		Size = UDim2.new(1, 0, 0, 62),
 		BackgroundTransparency = 1,
@@ -700,13 +744,13 @@ end
 
 local EDGE_PAD = 4
 -- вкладки слева всегда начинаются под панелью ресурсов и ужимаются, если не влезают по высоте
-function UI.FitRail()
+function UI.FitRail(animate)
 	if not hud.rail or layoutMode == "mobile" then
 		return
 	end
 	local ps = respScale
 	local top = hud.panel.Position.Y.Offset + 150 * ps + 12
-	if hud.chargeBtn and hud.chargeBtn.Visible then
+	if hud.chargeBtn and hud.chargeBtn.Visible and not hud.chargeBtn:GetAttribute("FadingOut") then
 		top += 40 * ps
 	end
 	local rows = math.ceil(#hud.railFx / 3)
@@ -714,9 +758,17 @@ function UI.FitRail()
 	local avail = (gui and gui.AbsoluteSize.Y or 700) - top - 12
 	-- ширина сетки равна ширине панели валюты (352), кнопки по центру
 	hud.rail.Size = UDim2.fromOffset(352, need)
-	hud.rail.Position = UDim2.fromOffset(hud.panel.Position.X.Offset, top)
-	hud.railScale.Scale = math.clamp(avail / need, 0.45, ps)
-	QuestUI.PlaceTracker(top + (need + EDGE_PAD) * hud.railScale.Scale + 10)
+	local pos = UDim2.fromOffset(hud.panel.Position.X.Offset, top)
+	local sc = math.clamp(avail / need, 0.45, ps)
+	if animate then
+		-- появилась/исчезла кнопка «Зарядить» — вкладки и задания плавно съезжают
+		U.tween(hud.rail, 0.3, { Position = pos }, Enum.EasingStyle.Quart)
+		U.tween(hud.railScale, 0.3, { Scale = sc }, Enum.EasingStyle.Quart)
+	else
+		hud.rail.Position = pos
+		hud.railScale.Scale = sc
+	end
+	QuestUI.PlaceTracker(top + (need + EDGE_PAD) * sc + 10, animate)
 end
 
 -- раскладка под устройство
@@ -787,8 +839,14 @@ function UI.UpdateEnergyHUD()
 		return
 	end
 	local total, avg, tired, docked = energyStats()
+	local was = hud.energyLow
 	hud.energyLow = tired > 0 and docked == 0
-	hud.chargeBtn.Visible = hud.energyLow
+	if hud.energyLow ~= was then
+		U.fadeVisible(hud.chargeBtn, hud.energyLow, 0.25)
+		if not hud.energyLow then
+			UI.FitRail(true) -- кнопка уходит — вкладки поднимаются одновременно с её исчезновением
+		end
+	end
 	if hud.energyLow then
 		hud.chargeBtn.Text = ("⚡ Разряжено дронов: %d  •  ЗАРЯДИТЬ"):format(tired)
 	end
@@ -796,30 +854,34 @@ end
 
 local function updateHUD(d)
 	if hud.gems then
-		hud.gems.Text = U.fmt(d.gems or 0)
+		U.countTo(hud.gems, d.gems or 0)
 	end
 	local ratio = math.clamp(d.scrap / math.max(d.capacity, 1), 0, 1)
 	U.tween(hud.fill, 0.25, { Size = UDim2.fromScale(math.max(ratio, 0.02), 1) })
 	local full = d.scrap >= d.capacity
 	hud.full = full
 	if full then
-		hud.scrap.Text = "РЮКЗАК ПОЛОН — к Переработчику!"
-		hud.fillGrad.Color = ColorSequence.new(C(255, 190, 60), C(220, 90, 20))
+		U.countTo(hud.scrap, d.scrap, function()
+			return "РЮКЗАК ПОЛОН — к Переработчику!"
+		end)
+		U.gradTo(hud.fillGrad, C(255, 190, 60), C(220, 90, 20))
 	else
-		hud.scrap.Text = ("Рюкзак: %s / %s"):format(U.fmt(d.scrap), U.fmt(d.capacity))
-		hud.fillGrad.Color = ColorSequence.new(C(170, 255, 90), C(70, 160, 30))
+		local cap = d.capacity
+		U.countTo(hud.scrap, d.scrap, function(v)
+			return ("Рюкзак: %s / %s"):format(U.fmt(v), U.fmt(cap))
+		end, 0.25)
+		U.gradTo(hud.fillGrad, C(170, 255, 90), C(70, 160, 30))
 	end
 	-- ячейки ресурсов: пульс иконки при пополнении
 	for id, e in pairs(hud.res or {}) do
 		local n = d.res and d.res[id] or 0
-		e.val.Text = U.fmt(n)
+		U.countTo(e.val, n)
 		local has = n > 0
-		e.icon.ImageTransparency = has and 0 or 0.65
-		e.val.TextTransparency = has and 0 or 0.5
-		e.stroke.Transparency = has and 0.1 or 0.6
+		U.tween(e.icon, 0.3, { ImageTransparency = has and 0 or 0.65 })
+		U.tween(e.val, 0.3, { TextTransparency = has and 0 or 0.5 })
+		U.tween(e.stroke, 0.3, { Transparency = has and 0.1 or 0.6 })
 		if n > e.last then
-			e.icon.Size = UDim2.fromOffset(36, 36)
-			U.tween(e.icon, 0.3, { Size = UDim2.fromOffset(28, 28) }, Enum.EasingStyle.Back)
+			U.pulseSize(e.icon, UDim2.fromOffset(36, 36), UDim2.fromOffset(28, 28))
 		end
 		e.last = n
 	end
@@ -830,7 +892,7 @@ local function updateHUD(d)
 			kinds += 1
 		end
 	end
-	bag.sub.Visible = kinds > 0
+	U.fadeVisible(bag.sub, kinds > 0)
 	bag.sub.Text = ("%d/%d"):format(kinds, ItemsCfg.BagSlots)
 	local dr = hud.buttons.drones
 	dr.sub.Visible = true
@@ -854,19 +916,24 @@ local function watchHealth(char)
 				hud.heart.hit = 1
 			elseif hum.Health > lastHp + 0.5 then
 				-- лечение: зелёная вспышка свечения
-				hud.heart.glow.ImageColor3 = C(120, 255, 140)
-				task.delay(0.5, function()
-					hud.heart.glow.ImageColor3 = C(255, 60, 70)
+				local glow = hud.heart.glow
+				U.tween(glow, 0.15, { ImageColor3 = C(120, 255, 140) }).Completed:Connect(function(state)
+					if state == Enum.PlaybackState.Completed then
+						U.tween(glow, 0.5, { ImageColor3 = C(255, 60, 70) })
+					end
 				end)
 			end
 		end
 		lastHp = hum.Health
 		U.tween(hud.hpBar.fill, 0.2, { Size = UDim2.fromScale(math.max(r, 0.02), 1) })
-		hud.hpBar.text.Text = ("Здоровье: %d / %d"):format(math.max(0, math.ceil(hum.Health)), hum.MaxHealth)
+		local maxHp = hum.MaxHealth
+		U.countTo(hud.hpBar.text, math.max(0, math.ceil(hum.Health)), function(v)
+			return ("Здоровье: %d / %d"):format(math.ceil(v), maxHp)
+		end, 0.25)
 		if r < 0.3 then
-			hud.hpBar.grad.Color = ColorSequence.new(C(255, 200, 80), C(220, 40, 20))
+			U.gradTo(hud.hpBar.grad, C(255, 200, 80), C(220, 40, 20))
 		else
-			hud.hpBar.grad.Color = ColorSequence.new(C(255, 110, 110), C(190, 20, 30))
+			U.gradTo(hud.hpBar.grad, C(255, 110, 110), C(190, 20, 30))
 		end
 		hud.hpLow = r < 0.3
 	end
@@ -925,9 +992,8 @@ function UI.RefreshHotbar()
 			e.count.Text = ""
 			e.tool = t
 			local selected = t ~= nil and t == held
-			e.stroke.Color = selected and T.Accent or (id and ShopCfg.Grades[ShopCfg.ById[id].grade].color or C(70, 80, 70))
-			e.stroke.Thickness = selected and 4 or 2
-			e.slot.BackgroundColor3 = selected and C(40, 70, 30) or C(22, 26, 22)
+			U.tween(e.stroke, 0.18, { Color = selected and T.Accent or (id and ShopCfg.Grades[ShopCfg.ById[id].grade].color or C(70, 80, 70)), Thickness = selected and 4 or 2 })
+			U.tween(e.slot, 0.18, { BackgroundColor3 = selected and C(40, 70, 30) or C(22, 26, 22) })
 		else
 			local cid = ShopCfg.HotbarConsumables[i - ShopCfg.HotbarWeapons]
 			local item = ShopCfg.ById[cid]
@@ -936,13 +1002,11 @@ function UI.RefreshHotbar()
 			e.img.Visible = true
 			e.vp.Visible = false
 			local n = d and d.consum and d.consum[cid] or 0
-			-- пустой слот выглядит как остальные пустые ячейки
-			e.img.Visible = n > 0
+			-- пустой слот выглядит как остальные пустые ячейки (иконка плавно гаснет / проявляется)
 			e.count.Text = n > 0 and ("x" .. n) or ""
-			e.img.ImageTransparency = 0
-			e.stroke.Color = n > 0 and ShopCfg.Grades[item.grade].color or C(70, 80, 70)
-			e.stroke.Thickness = 2
-			e.slot.BackgroundColor3 = C(22, 26, 22)
+			U.tween(e.img, 0.2, { ImageTransparency = n > 0 and 0 or 1 })
+			U.tween(e.stroke, 0.2, { Color = n > 0 and ShopCfg.Grades[item.grade].color or C(70, 80, 70), Thickness = 2 })
+			U.tween(e.slot, 0.2, { BackgroundColor3 = C(22, 26, 22) })
 		end
 	end
 end
@@ -1039,7 +1103,7 @@ local function buildMap()
 		TextColor3 = C(255, 255, 255),
 		Parent = header,
 	}, function()
-		win.Visible = false
+		closeWindow(win)
 	end)
 	U.corner(10).Parent = close
 	local list = new("ScrollingFrame", {
@@ -1108,7 +1172,7 @@ local function buildMap()
 			Parent = row,
 		}, function()
 			Remotes.Teleport:FireServer(e.id)
-			win.Visible = false
+			closeWindow(win)
 		end)
 		U.corner(10).Parent = go
 		mapWin.rows[i] = { e = e, desc = desc, go = go }
@@ -1130,11 +1194,11 @@ function UI.UpdateMap()
 end
 
 function UI.ToggleMap()
-	if mapWin.win.Visible then
-		mapWin.win.Visible = false
+	if U.isOpen(mapWin.win, mapWin.scale) then
+		closeWindow(mapWin.win, mapWin.scale)
 	else
-		inv.win.Visible = false
-		gacha.win.Visible = false
+		closeWindow(inv.win, inv.scale)
+		closeWindow(gacha.win, gacha.scale)
 		ShopUI.Close()
 		UI.UpdateMap()
 		openWindow(mapWin.win, mapWin.scale)
@@ -1184,20 +1248,41 @@ end
 inv.filter = "All"
 inv.onlyOwned = false
 
-local function applyFilter()
+-- карточки появляются волной с пружинкой (смена фильтра, вкладки)
+local function popCards(list)
+	table.sort(list, function(a, b)
+		return a.LayoutOrder < b.LayoutOrder
+	end)
+	for i, card in ipairs(list) do
+		local sc = card:FindFirstChild("CardPop") or new("UIScale", { Name = "CardPop", Parent = card })
+		sc.Scale = 0.6
+		task.delay(math.min(i, 16) * 0.018, function()
+			U.tween(sc, 0.3, { Scale = 1 }, Enum.EasingStyle.Back)
+		end)
+	end
+end
+
+local function applyFilter(animate)
+	local shown = {}
 	for id, c in pairs(inv.cards) do
 		local owned = ownedOf(id)
 		local okR = inv.filter == "All" or c.def.rarity == inv.filter
 		local okO = not inv.onlyOwned or owned > 0
 		c.card.Visible = okR and okO
+		if c.card.Visible then
+			table.insert(shown, c.card)
+		end
+	end
+	if animate then
+		popCards(shown)
 	end
 	for key, b in pairs(inv.filterButtons) do
 		local on = (key == inv.filter)
-		b.BackgroundTransparency = on and 0 or 0.65
-		b:FindFirstChildOfClass("UIStroke").Thickness = on and 2.5 or 1
+		U.tween(b, 0.15, { BackgroundTransparency = on and 0 or 0.65 })
+		U.tween(b:FindFirstChildOfClass("UIStroke"), 0.15, { Thickness = on and 2.5 or 1 })
 	end
 	inv.ownedToggle.Text = (inv.onlyOwned and "☑" or "☐") .. " Только мои"
-	inv.ownedToggle.TextColor3 = inv.onlyOwned and T.Accent or T.Muted
+	U.tween(inv.ownedToggle, 0.15, { TextColor3 = inv.onlyOwned and T.Accent or T.Muted })
 end
 
 local function buildInventory()
@@ -1273,7 +1358,7 @@ local function buildInventory()
 		TextSize = 22,
 		TextColor3 = C(255, 255, 255),
 	}, function()
-		win.Visible = false
+		closeWindow(win)
 	end)
 
 	-- ===== СЛОТЫ РОЯ =====
@@ -1404,7 +1489,7 @@ local function buildInventory()
 			LayoutOrder = i,
 		}, function()
 			inv.filter = f[1]
-			applyFilter()
+			applyFilter(true)
 		end)
 		U.stroke(f[3], 1).Parent = fb
 		if f[1] == "Mythic" then
@@ -1424,7 +1509,7 @@ local function buildInventory()
 		Parent = filters,
 	}, function()
 		inv.onlyOwned = not inv.onlyOwned
-		applyFilter()
+		applyFilter(true)
 	end)
 
 	-- ===== СЕТКА ДРОНОВ =====
@@ -1664,13 +1749,16 @@ function UI.SelectDrone(id)
 		inv.dmodel = setModelVp(inv.dvp, def, 0, math.rad(12))
 		inv.dmodelBase = inv.dmodel:GetPivot()
 		inv.dmodelId = id
+		-- новая модель проявляется, а не появляется рывком
+		inv.dvp.ImageTransparency = 1
+		U.tween(inv.dvp, 0.25, { ImageTransparency = 0 })
 	end
-	inv.dvp.ImageColor3 = owned > 0 and C(255, 255, 255) or C(0, 0, 0)
+	U.tween(inv.dvp, 0.2, { ImageColor3 = owned > 0 and C(255, 255, 255) or C(0, 0, 0) })
 	inv.dname.Text = hidden and "???" or def.name
 	inv.drarity.Text = r.label .. " • " .. Config.ChanceText(def.rarity)
 	inv.drarity.TextColor3 = r.rainbow and Config.Rainbow(os.clock()) or r.color
 	inv.drarityRainbow = r.rainbow
-	inv.detailStroke.Color = r.color
+	U.tween(inv.detailStroke, 0.2, { Color = r.color })
 	if hidden then
 		inv.ddesc.Text = "Секретный дрон. Выбей его, чтобы узнать больше..."
 		inv.dstats.Text = "⚙ ?   ⚔ ?   » ?"
@@ -1691,10 +1779,10 @@ function UI.SelectDrone(id)
 	inv.dcount.Text = ("В коллекции: %d   •   В рое: %d"):format(owned, eq)
 	local d = State.data
 	local canPlus = d and owned > eq and d.equippedTotal < d.maxSlots
-	inv.plus.BackgroundTransparency = canPlus and 0 or 0.6
-	inv.minus.BackgroundTransparency = eq > 0 and 0 or 0.6
+	U.tween(inv.plus, 0.15, { BackgroundTransparency = canPlus and 0 or 0.6 })
+	U.tween(inv.minus, 0.15, { BackgroundTransparency = eq > 0 and 0 or 0.6 })
 	for cid, c in pairs(inv.cards) do
-		c.stroke.Thickness = cid == id and 5 or 2.5
+		U.tween(c.stroke, 0.15, { Thickness = cid == id and 5 or 2.5 })
 	end
 end
 
@@ -1717,15 +1805,16 @@ local function updateSlots(d)
 				setModelVp(s.vp, def, math.rad(25), math.rad(16))
 				s.vp.Visible = true
 				s.plus.Visible = false
-				s.slot.BackgroundColor3 = U.darken(r.color, 0.3)
-				s.stroke.Color = r.rainbow and Config.Rainbow(os.clock()) or r.color
-				s.stroke.Thickness = 2
+				-- дрон «влетает» в слот: проявление модели и смена цвета ячейки
+				s.vp.ImageTransparency = 1
+				U.tween(s.vp, 0.3, { ImageTransparency = 0 })
+				U.tween(s.slot, 0.25, { BackgroundColor3 = U.darken(r.color, 0.3) })
+				U.tween(s.stroke, 0.25, { Color = r.rainbow and Config.Rainbow(os.clock()) or r.color, Thickness = 2 })
 			else
 				s.vp.Visible = false
 				s.plus.Visible = true
-				s.slot.BackgroundColor3 = C(28, 32, 28)
-				s.stroke.Color = C(60, 66, 60)
-				s.stroke.Thickness = 1.5
+				U.tween(s.slot, 0.25, { BackgroundColor3 = C(28, 32, 28) })
+				U.tween(s.stroke, 0.25, { Color = C(60, 66, 60), Thickness = 1.5 })
 			end
 		end
 		-- слоты сверх купленных гнёзд — закрыты
@@ -1733,7 +1822,7 @@ local function updateSlots(d)
 			local locked = i > (d.maxSlots or 3)
 			s.plus.Text = locked and "🔒" or "+"
 			s.plus.TextSize = locked and 16 or 20
-			s.slot.BackgroundTransparency = locked and 0.45 or 0
+			U.tween(s.slot, 0.2, { BackgroundTransparency = locked and 0.45 or 0 })
 		end
 	end
 	inv.slotsTitle.Text = ("РОЙ %d / %d  •  нажми на дрона в слоте, чтобы снять его"):format(d.equippedTotal, d.maxSlots)
@@ -1753,9 +1842,8 @@ function UI.UpdateSlotEnergy()
 		s.bolt.Visible = e ~= nil and e.s == 1
 		if e then
 			local r = math.clamp(e.e / 100, 0, 1)
-			s.efill.Size = UDim2.fromScale(math.max(r, 0.04), 1)
-			s.efill.BackgroundColor3 = r > 0.5 and C(90, 230, 255) or (r > 0.2 and C(255, 200, 60) or C(255, 70, 60))
-			s.vp.ImageTransparency = r <= 0 and 0.5 or 0
+			U.tween(s.efill, 0.3, { Size = UDim2.fromScale(math.max(r, 0.04), 1), BackgroundColor3 = r > 0.5 and C(90, 230, 255) or (r > 0.2 and C(255, 200, 60) or C(255, 70, 60)) })
+			U.tween(s.vp, 0.3, { ImageTransparency = r <= 0 and 0.5 or 0 })
 		end
 	end
 end
@@ -1783,10 +1871,10 @@ local function updateInventory(d)
 end
 
 function UI.ToggleInventory()
-	if inv.win.Visible then
-		inv.win.Visible = false
+	if U.isOpen(inv.win, inv.scale) then
+		closeWindow(inv.win, inv.scale)
 	else
-		gacha.win.Visible = false
+		closeWindow(gacha.win, gacha.scale)
 		ShopUI.Close()
 		openWindow(inv.win, inv.scale)
 		if not inv.selected then
@@ -1947,7 +2035,7 @@ local function buildGacha()
 		TextColor3 = C(255, 255, 255),
 		Parent = right,
 	}, function()
-		win.Visible = false
+		closeWindow(win)
 	end)
 	U.corner(12).Parent = close
 	gacha.balance = new("TextLabel", {
@@ -2182,6 +2270,18 @@ local function buildGacha()
 
 	-- витрина
 	gacha.showDef = function(def)
+		-- витрина сменяется плавно: старый дрон гаснет, новый проявляется
+		gacha.showUntil = os.clock() + 6
+		local token = {}
+		gacha.showToken = token
+		if gacha.showModel and gacha.showModel.Parent and gacha.win.Visible then
+			U.tween(gacha.showVp, 0.2, { ImageTransparency = 1 })
+			U.tween(gacha.showName, 0.2, { TextTransparency = 1 })
+			task.wait(0.2)
+			if gacha.showToken ~= token then
+				return
+			end
+		end
 		gacha.showModel = setModelVp(gacha.showVp, def, 0, math.rad(12))
 		gacha.showBase = gacha.showModel:GetPivot()
 		local r = Config.Rarities[def.rarity]
@@ -2190,21 +2290,27 @@ local function buildGacha()
 		gacha.showName.Text = (hidden and "???" or def.name) .. "  •  " .. r.label
 		gacha.showName.TextColor3 = r.color
 		gacha.showRainbow = r.rainbow
-		gacha.showUntil = os.clock() + 6
+		gacha.showVp.ImageTransparency = 1
+		gacha.showName.TextTransparency = 1
+		U.tween(gacha.showVp, 0.3, { ImageTransparency = 0 })
+		U.tween(gacha.showName, 0.3, { TextTransparency = 0 })
 	end
 	gacha.showIndex = 0
 end
 
 local function updateGacha(d)
-	gacha.balance.Text = "💎 " .. U.fmt(d.gems or 0) .. "    🔋 " .. U.fmt(d.batteries)
+	local bats = d.batteries
+	U.countTo(gacha.balance, d.gems or 0, function(v)
+		return "💎 " .. U.fmt(v) .. "    🔋 " .. U.fmt(bats)
+	end)
 	gacha.total.Text = "Всего круток: " .. U.fmt(d.totalPulls)
 	for key, bar in pairs(gacha.pityBars) do
 		local v = d.pity[key] or 0
 		bar.val.Text = ("%d / %d  •  осталось %d"):format(v, bar.pulls, bar.pulls - v)
 		U.tween(bar.fill, 0.3, { Size = UDim2.fromScale(math.clamp(v / bar.pulls, 0, 1), 1) })
 	end
-	gacha.b1.BackgroundTransparency = (d.gems or 0) >= Config.PullCost and 0 or 0.5
-	gacha.b10.BackgroundTransparency = (d.gems or 0) >= Config.Pull10Cost and 0 or 0.5
+	U.tween(gacha.b1, 0.2, { BackgroundTransparency = (d.gems or 0) >= Config.PullCost and 0 or 0.5 })
+	U.tween(gacha.b10, 0.2, { BackgroundTransparency = (d.gems or 0) >= Config.Pull10Cost and 0 or 0.5 })
 end
 
 local pulling = false
@@ -2225,9 +2331,9 @@ function UI.Pull(count)
 		UI.Toast(res.err or "Не получилось", "bad")
 		return
 	end
-	gacha.win.Visible = false
-	inv.win.Visible = false
-	gui.Enabled = false
+	closeWindow(gacha.win, gacha.scale)
+	closeWindow(inv.win, inv.scale)
+	-- HUD прячет сама анимация гачи (под мягким затемнением)
 	GachaAnim.Play(res.results, { fast = gacha.fast }, function()
 		gui.Enabled = true
 		if UI.InGachaZone() then
@@ -2246,7 +2352,7 @@ function UI.OpenGacha()
 	if GachaAnim.IsPlaying() then
 		return
 	end
-	inv.win.Visible = false
+	closeWindow(inv.win, inv.scale)
 	openWindow(gacha.win, gacha.scale)
 end
 
@@ -2262,8 +2368,8 @@ function UI.OnMenu(key)
 		end
 	elseif key == "shop" then
 		if ShopUI.InZone() then
-			inv.win.Visible = false
-			gacha.win.Visible = false
+			closeWindow(inv.win, inv.scale)
+			closeWindow(gacha.win, gacha.scale)
 			ShopUI.Open()
 		else
 			Remotes.Teleport:FireServer("shop")
@@ -2311,22 +2417,42 @@ end
 local currentZone = nil
 local function showBanner(title, sub, color)
 	hud.banner.Visible = true
-	hud.bannerTitle.Text = title
-	hud.bannerSub.Text = sub
-	hud.bannerSub.TextColor3 = color
 	local s1 = hud.bannerTitle:FindFirstChildOfClass("UIStroke")
 	local s2 = hud.bannerSub:FindFirstChildOfClass("UIStroke")
-	hud.bannerTitle.TextTransparency = 1
-	hud.bannerSub.TextTransparency = 1
-	s1.Transparency = 1
-	s2.Transparency = 1
-	U.tween(hud.bannerTitle, 0.4, { TextTransparency = 0 })
-	U.tween(hud.bannerSub, 0.4, { TextTransparency = 0 })
-	U.tween(s1, 0.4, { Transparency = 0 })
-	U.tween(s2, 0.4, { Transparency = 0 })
 	local token = {}
 	hud.bannerToken = token
-	task.delay(2.6, function()
+	-- если прошлый баннер ещё виден — сначала плавно гасим его, потом показываем новый
+	local delay = 0
+	if hud.bannerTitle.TextTransparency < 0.95 then
+		delay = 0.15
+		U.tween(hud.bannerTitle, delay, { TextTransparency = 1 })
+		U.tween(hud.bannerSub, delay, { TextTransparency = 1 })
+		U.tween(s1, delay, { Transparency = 1 })
+		U.tween(s2, delay, { Transparency = 1 })
+	end
+	task.delay(delay, function()
+		if hud.bannerToken ~= token then
+			return
+		end
+		hud.bannerTitle.Text = title
+		hud.bannerSub.Text = sub
+		hud.bannerSub.TextColor3 = color
+		-- лёгкий «наезд»: баннер чуть увеличивается из 85% с пружинкой
+		local sc = hud.bannerScale
+		sc:SetAttribute("Animating", true)
+		sc.Scale = respScale * 0.85
+		U.tween(sc, 0.45, { Scale = respScale }, Enum.EasingStyle.Back)
+		task.delay(0.46, function()
+			if hud.bannerToken == token then
+				sc:SetAttribute("Animating", nil)
+			end
+		end)
+		U.tween(hud.bannerTitle, 0.4, { TextTransparency = 0 })
+		U.tween(hud.bannerSub, 0.4, { TextTransparency = 0 })
+		U.tween(s1, 0.4, { Transparency = 0 })
+		U.tween(s2, 0.4, { Transparency = 0 })
+	end)
+	task.delay(2.6 + delay, function()
 		if hud.bannerToken ~= token then
 			return
 		end
@@ -2367,8 +2493,8 @@ local function zoneTick()
 			showBanner("🎰 ЛАБОРАТОРИЯ ДРОНОВ", "Подойди к капсуле и нажми E", T.Gacha)
 		end
 	end
-	if gacha.win.Visible and not inGacha and not GachaAnim.IsPlaying() then
-		gacha.win.Visible = false
+	if U.isOpen(gacha.win, gacha.scale) and not inGacha and not GachaAnim.IsPlaying() then
+		closeWindow(gacha.win, gacha.scale)
 	end
 end
 
@@ -2392,12 +2518,13 @@ function UI.Init()
 		gui = gui,
 		addScale = addScale,
 		openWindow = openWindow,
+		closeWindow = closeWindow,
 		button = button,
 		toast = UI.Toast,
 		closeOthers = function()
-			inv.win.Visible = false
-			gacha.win.Visible = false
-			mapWin.win.Visible = false
+			closeWindow(inv.win, inv.scale)
+			closeWindow(gacha.win, gacha.scale)
+			closeWindow(mapWin.win, mapWin.scale)
 			ShopUI.Close()
 		end,
 	})
@@ -2405,12 +2532,13 @@ function UI.Init()
 		gui = gui,
 		addScale = addScale,
 		openWindow = openWindow,
+		closeWindow = closeWindow,
 		button = button,
 		toast = UI.Toast,
 		closeOthers = function()
-			inv.win.Visible = false
-			gacha.win.Visible = false
-			mapWin.win.Visible = false
+			closeWindow(inv.win, inv.scale)
+			closeWindow(gacha.win, gacha.scale)
+			closeWindow(mapWin.win, mapWin.scale)
 			ShopUI.Close()
 			BagUI.Close()
 			QuestUI.Close()
@@ -2428,12 +2556,13 @@ function UI.Init()
 		gui = gui,
 		addScale = addScale,
 		openWindow = openWindow,
+		closeWindow = closeWindow,
 		button = button,
 		toast = UI.Toast,
 		closeOthers = function()
-			inv.win.Visible = false
-			gacha.win.Visible = false
-			mapWin.win.Visible = false
+			closeWindow(inv.win, inv.scale)
+			closeWindow(gacha.win, gacha.scale)
+			closeWindow(mapWin.win, mapWin.scale)
 			ShopUI.Close()
 			BagUI.Close()
 		end,
@@ -2515,9 +2644,9 @@ function UI.Init()
 			SettingsUI.Close()
 			BagUI.Close()
 			QuestUI.Close()
-			inv.win.Visible = false
-			gacha.win.Visible = false
-			mapWin.win.Visible = false
+			closeWindow(inv.win, inv.scale)
+			closeWindow(gacha.win, gacha.scale)
+			closeWindow(mapWin.win, mapWin.scale)
 			ShopUI.Close()
 		end
 	end)
@@ -2527,8 +2656,8 @@ function UI.Init()
 			ShopUI.Close()
 			UI.OpenGacha()
 		elseif prompt.Name == "ShopPrompt" then
-			inv.win.Visible = false
-			gacha.win.Visible = false
+			closeWindow(inv.win, inv.scale)
+			closeWindow(gacha.win, gacha.scale)
 			-- прилавки магазина открывают свою категорию (атрибут ShopTab)
 			ShopUI.Open(prompt:GetAttribute("ShopTab"))
 		end
@@ -2601,16 +2730,14 @@ function UI.Init()
 				end
 			end
 		end
-		if hud.full then
-			hud.scrap.TextTransparency = 0.25 * (0.5 + 0.5 * math.sin(t * 6))
-		else
-			hud.scrap.TextTransparency = 0
-		end
+		-- мигание «рюкзак полон» затухает плавно, а не обрывается
+		local scrapT = hud.full and 0.25 * (0.5 + 0.5 * math.sin(t * 6)) or 0
+		hud.scrap.TextTransparency += (scrapT - hud.scrap.TextTransparency) * math.min(1, dt * 12)
 		if hud.energyLow then
 			hud.chargeBtn.BackgroundColor3 = Color3.new(1, 0.55 + 0.15 * math.sin(t * 6), 0.12)
 		end
 		local hp = hud.hpBar.bg:FindFirstChildOfClass("UIStroke")
-		hp.Color = hud.hpLow and Color3.new(1, 0.25 + 0.25 * math.sin(t * 8), 0.2) or C(70, 80, 70)
+		hp.Color = hp.Color:Lerp(hud.hpLow and Color3.new(1, 0.25 + 0.25 * math.sin(t * 8), 0.2) or C(70, 80, 70), math.min(1, dt * 12))
 		-- вращение моделей в окнах
 		if inv.win.Visible and inv.dmodel and inv.dmodel.Parent then
 			inv.dmodel:PivotTo(inv.dmodelBase * CFrame.Angles(0, t * 0.8, 0))
@@ -2625,7 +2752,7 @@ function UI.Init()
 			end
 			if t > gacha.showUntil then
 				gacha.showIndex = gacha.showIndex % #featured + 1
-				gacha.showDef(featured[gacha.showIndex])
+				task.spawn(gacha.showDef, featured[gacha.showIndex])
 			end
 		end
 		if t - lastZone > 0.3 then

@@ -2596,7 +2596,9 @@ local function run(results, opts)
 		-- тряска
 		local amp = math.max(c.shakeAmp, c.shakeBase)
 		if amp > 0.2 then
-			c.shake.Position = UDim2.fromOffset((math.random() - 0.5) * amp * 2, (math.random() - 0.5) * amp * 2)
+			-- плавная тряска (шум Перлина), без рваных скачков
+			local nt = t * 22
+			c.shake.Position = UDim2.fromOffset(math.noise(nt, 0.3) * amp * 1.6, math.noise(0.7, nt) * amp * 1.6)
 		else
 			c.shake.Position = UDim2.fromOffset(0, 0)
 		end
@@ -2732,8 +2734,18 @@ local function run(results, opts)
 	ctx.blur = blur
 	local hud = pg:FindFirstChild("ZSS_HUD")
 	if hud then
+		-- HUD прячется под короткое затемнение, а не исчезает рывком
+		local cover = new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = C(0, 0, 0), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 60, Parent = gui })
+		local fastK = ctx.fast and 0.6 or 1
+		TweenService:Create(cover, TweenInfo.new(0.16 * fastK, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { BackgroundTransparency = 0.25 }):Play()
+		task.wait(0.16 * fastK)
 		hud.Enabled = false
 		ctx.hud = hud
+		local tw = TweenService:Create(cover, TweenInfo.new(0.3 * fastK, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { BackgroundTransparency = 1 })
+		tw.Completed:Connect(function()
+			cover:Destroy()
+		end)
+		tw:Play()
 	end
 
 	local maxOrder = 1
@@ -2795,22 +2807,38 @@ local function run(results, opts)
 
 	-- затухание
 	ctx.skip = false
-	local fadeOut = new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = C(0, 0, 0), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 50, Parent = gui })
+	-- уход в затемнение, под ним убираем сцену и возвращаем HUD, затем мир плавно проявляется
+	local fadeGui = new("ScreenGui", { Name = "ZSS_GachaFade", IgnoreGuiInset = true, ResetOnSpawn = false, DisplayOrder = 101, Parent = pg })
+	local fadeOut = new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = C(0, 0, 0), BackgroundTransparency = 1, BorderSizePixel = 0, Parent = fadeGui })
+	ctx.fadeGui = fadeGui
+	local blur0 = blur.Size
 	animate(0.25, function(e)
-		fadeOut.BackgroundTransparency = 1 - e * 0.6
-		blur.Size = 22 * (1 - e)
+		fadeOut.BackgroundTransparency = 1 - e * 0.85
 	end)
 	loop:Disconnect()
 	for _, f in ipairs(ctx.cleanupUI) do
 		pcall(f)
 	end
-	blur:Destroy()
 	gui:Destroy()
-	if ctx.cleanup then
-		ctx.cleanup(false)
-	end
 	if ctx.hud then
 		ctx.hud.Enabled = true
+	end
+	-- камера возвращается за спину игрока, пока затемнение рассеивается
+	local camDone = not ctx.cleanup
+	if ctx.cleanup then
+		task.spawn(function()
+			pcall(ctx.cleanup, false)
+			camDone = true
+		end)
+	end
+	animate(0.45, function(e)
+		fadeOut.BackgroundTransparency = 0.15 + 0.85 * e
+		blur.Size = blur0 * (1 - e)
+	end, Enum.EasingStyle.Sine)
+	blur:Destroy()
+	fadeGui:Destroy()
+	while not camDone do
+		RunService.RenderStepped:Wait()
 	end
 end
 
@@ -2835,6 +2863,10 @@ function GA.Play(results, opts, onDone)
 			local g = pg and pg:FindFirstChild("ZSS_GachaAnim")
 			if g then
 				g:Destroy()
+			end
+			local fg = pg and pg:FindFirstChild("ZSS_GachaFade")
+			if fg then
+				fg:Destroy()
 			end
 			local b = game:GetService("Lighting"):FindFirstChild("ZSS_GachaBlur")
 			if b then

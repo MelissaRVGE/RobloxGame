@@ -189,10 +189,10 @@ end
 
 function QuestUI.Close()
 	if dlg.win then
-		dlg.win.Visible = false
+		api.closeWindow(dlg.win, dlg.scale)
 	end
 	if cells.win then
-		cells.win.Visible = false
+		api.closeWindow(cells.win, cells.scale)
 	end
 	openNpc = nil
 end
@@ -226,7 +226,7 @@ local function buildTracker()
 		tracker.arrow.Text = tracker.collapsed and "▶" or "▼"
 		for _, c in ipairs(f:GetChildren()) do
 			if c:IsA("Frame") and c.Name == "Card" then
-				c.Visible = not tracker.collapsed
+				U.fadeVisible(c, not tracker.collapsed, 0.18)
 			end
 		end
 	end)
@@ -330,14 +330,16 @@ local function refreshTracker()
 			for i, gr in ipairs(c.goals) do
 				local cur = math.min(a.v.goals and a.v.goals[i] or 0, gr.g.n)
 				local done = cur >= gr.g.n
-				gr.bar.Size = UDim2.fromScale(math.clamp(cur / math.max(gr.g.n, 1), 0, 1), 1)
-				gr.bar.BackgroundColor3 = done and C(120, 230, 80) or a.npc.color
-				gr.num.Text = U.fmt(cur) .. "/" .. U.fmt(gr.g.n)
-				gr.num.TextColor3 = done and C(150, 255, 120) or C(255, 255, 255)
-				gr.txt.TextColor3 = done and C(160, 220, 150) or C(225, 228, 220)
+				local goalN = gr.g.n
+				U.tween(gr.bar, 0.35, { Size = UDim2.fromScale(math.clamp(cur / math.max(goalN, 1), 0, 1), 1), BackgroundColor3 = done and C(120, 230, 80) or a.npc.color })
+				U.countTo(gr.num, cur, function(v)
+					return U.fmt(v) .. "/" .. U.fmt(goalN)
+				end, 0.35)
+				U.tween(gr.num, 0.25, { TextColor3 = done and C(150, 255, 120) or C(255, 255, 255) })
+				U.tween(gr.txt, 0.25, { TextColor3 = done and C(160, 220, 150) or C(225, 228, 220) })
 			end
 			c.ready.Visible = a.v.ready == true
-			c.stroke.Color = a.v.ready and C(140, 255, 100) or a.npc.color
+			U.tween(c.stroke, 0.25, { Color = a.v.ready and C(140, 255, 100) or a.npc.color })
 		end
 	end
 end
@@ -397,7 +399,7 @@ local function buildCells()
 	new("UIGradient", { Rotation = 90, Color = ColorSequence.new(C(255, 245, 200), C(255, 170, 40)), Parent = title })
 	cells.sub = new("TextLabel", { Position = UDim2.fromOffset(73, 38), Size = UDim2.new(1, -140, 0, 18), BackgroundTransparency = 1, Font = Enum.Font.GothamBold, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = C(255, 225, 170), Parent = header })
 	local close = api.button({ AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -12, 0.5, 0), Size = UDim2.fromOffset(42, 42), BackgroundColor3 = T.Danger, Font = Enum.Font.GothamBlack, Text = "X", TextSize = 20, TextColor3 = C(255, 255, 255), Parent = header }, function()
-		win.Visible = false
+		api.closeWindow(win)
 	end)
 	U.corner(10).Parent = close
 	cells.count = new("TextLabel", { Position = UDim2.fromOffset(20, 74), Size = UDim2.new(1, -40, 0, 46), BackgroundTransparency = 1, Font = Enum.Font.GothamBlack, TextScaled = true, TextColor3 = C(255, 255, 255), Parent = win }, { U.textStroke(C(40, 20, 0), 2.5) })
@@ -487,23 +489,38 @@ end
 
 local function updateConv()
 	local on = player:GetAttribute("ZSS_Converting") == true
-	conv.frame.Visible = on
+	if on ~= conv.shown then
+		conv.shown = on
+		-- полоска переработки плавно выпрыгивает и сворачивается
+		if on then
+			conv.fill.Size = UDim2.fromScale(0, 1)
+			U.openPanel(conv.frame, conv.scale, conv.scale:GetAttribute("Animating") and conv.scale:GetAttribute("BaseScale") or conv.scale.Scale)
+		else
+			U.closePanel(conv.frame, conv.scale)
+		end
+	end
 	if not on then
 		return
 	end
 	local d = State.data
 	local start = math.max(player:GetAttribute("ZSS_ConvertStart") or 1, 1)
 	local left = d and d.scrap or 0
-	conv.fill.Size = UDim2.fromScale(math.clamp(1 - left / start, 0, 1), 1)
-	conv.text.Text = ("осталось ресурсов: %s  •  не сходи с площадки"):format(U.fmt(left))
+	U.tween(conv.fill, 0.3, { Size = UDim2.fromScale(math.clamp(1 - left / start, 0, 1), 1) })
+	U.countTo(conv.text, left, function(v)
+		return ("осталось ресурсов: %s  •  не сходи с площадки"):format(U.fmt(v))
+	end, 0.3)
 end
 
 -- на ПК трекер стоит под сеткой вкладок (y считает UI.FitRail)
 local desktopTop = 360
-function QuestUI.PlaceTracker(y)
+function QuestUI.PlaceTracker(y, animate)
 	desktopTop = y
 	if tracker.frame and not tracker.mobile then
-		tracker.frame.Position = UDim2.fromOffset(12, y)
+		if animate then
+			U.tween(tracker.frame, 0.3, { Position = UDim2.fromOffset(12, y) }, Enum.EasingStyle.Quart)
+		else
+			tracker.frame.Position = UDim2.fromOffset(12, y)
+		end
 	end
 end
 
@@ -562,8 +579,8 @@ function QuestUI.Init(a)
 				QuestUI.Close()
 			end
 		end
-		if hrp and cells.win.Visible and (hrp.Position - Config.CellShop.center).Magnitude > Config.CellShop.radius + 14 then
-			cells.win.Visible = false
+		if hrp and U.isOpen(cells.win, cells.scale) and (hrp.Position - Config.CellShop.center).Magnitude > Config.CellShop.radius + 14 then
+			api.closeWindow(cells.win, cells.scale)
 		end
 		if conv.frame.Visible then
 			conv.frame:FindFirstChildOfClass("UIStroke").Transparency = 0.3 * (0.5 + 0.5 * math.sin(t * 6))

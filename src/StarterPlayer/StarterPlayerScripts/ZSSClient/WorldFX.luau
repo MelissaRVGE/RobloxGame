@@ -51,13 +51,29 @@ local function setupShowcase(anchor)
 	}, { U.textStroke(Color3.new(0, 0, 0), 2) })
 	label = { name = nameLbl, rarity = rarLbl }
 
+	local popStart
 	local function nextDrone()
 		idx = idx % #order + 1
 		local def = order[idx]
 		if current then
-			current:Destroy()
+			-- прошлый дрон плавно уменьшается и исчезает
+			local old = current
+			task.spawn(function()
+				local t0 = os.clock()
+				while old.Parent do
+					local a = math.clamp((os.clock() - t0) / 0.25, 0, 1)
+					old:ScaleTo(math.max(0.02, 1 - TweenService:GetValue(a, Enum.EasingStyle.Quad, Enum.EasingDirection.In)))
+					if a >= 1 then
+						break
+					end
+					RunService.Heartbeat:Wait()
+				end
+				old:Destroy()
+			end)
 		end
 		current = Builder.Build(def, 2.2)
+		current:ScaleTo(0.02)
+		popStart = os.clock()
 		current.Parent = holder
 		highlight = Instance.new("Highlight")
 		highlight.FillColor = Config.Rarities[def.rarity].color
@@ -67,10 +83,20 @@ local function setupShowcase(anchor)
 		highlight.DepthMode = Enum.HighlightDepthMode.Occluded
 		highlight.Parent = current
 		TweenService:Create(highlight, TweenInfo.new(0.6), { FillTransparency = 0.85 }):Play()
-		label.name.Text = def.rarity == "Secret" and "???" or def.name
-		label.rarity.Text = Config.Rarities[def.rarity].label .. " • " .. Config.ChanceText(def.rarity)
-		label.rarity.TextColor3 = Config.Rarities[def.rarity].color
 		current:SetAttribute("Def", def.id)
+		-- подпись меняется через короткое затухание
+		local fadeT = label.name.Text ~= "" and 0.2 or 0
+		for _, l in pairs(label) do
+			TweenService:Create(l, TweenInfo.new(fadeT), { TextTransparency = 1 }):Play()
+		end
+		task.delay(fadeT, function()
+			label.name.Text = def.rarity == "Secret" and "???" or def.name
+			label.rarity.Text = Config.Rarities[def.rarity].label .. " • " .. Config.ChanceText(def.rarity)
+			label.rarity.TextColor3 = Config.Rarities[def.rarity].color
+			for _, l in pairs(label) do
+				TweenService:Create(l, TweenInfo.new(0.3), { TextTransparency = 0 }):Play()
+			end
+		end)
 	end
 	nextDrone()
 	local switchAt = os.clock() + 3.5
@@ -82,6 +108,14 @@ local function setupShowcase(anchor)
 		if t > switchAt then
 			switchAt = t + 3.5
 			nextDrone()
+		end
+		if current and popStart then
+			-- новый дрон появляется с пружинкой
+			local a = math.clamp((os.clock() - popStart) / 0.45, 0, 1)
+			current:ScaleTo(math.max(0.02, TweenService:GetValue(a, Enum.EasingStyle.Back, Enum.EasingDirection.Out)))
+			if a >= 1 then
+				popStart = nil
+			end
 		end
 		if current then
 			current:PivotTo(anchor.CFrame * CFrame.new(0, math.sin(t * 1.5) * 0.4, 0) * CFrame.Angles(0, t * 0.9, 0))
@@ -336,10 +370,16 @@ function W.Init()
 						if c.led then
 							c.led.Size = Vector3.new(0.12 + 0.38 * ((t * 0.6 + c.phase) % 1), 0.08, 0.06)
 						end
-					elseif c.ring.Transparency ~= 0 then
-						c.ring.Transparency = 0
+					elseif c.ring.Transparency ~= 0 and not c.settling then
+						-- зарядка закончилась: кольцо и индикатор плавно приходят в покой
+						c.settling = true
+						local tw = TweenService:Create(c.ring, TweenInfo.new(0.3), { Transparency = 0 })
+						tw.Completed:Connect(function()
+							c.settling = false
+						end)
+						tw:Play()
 						if c.led then
-							c.led.Size = Vector3.new(0.5, 0.08, 0.06)
+							TweenService:Create(c.led, TweenInfo.new(0.3), { Size = Vector3.new(0.5, 0.08, 0.06) }):Play()
 						end
 					end
 				end

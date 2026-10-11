@@ -111,6 +111,213 @@ function U.tween(inst, t, props, style, dir)
 	return tw
 end
 
+-- ===== Плавность: все изменения интерфейса идут через твины, без резких скачков =====
+local weakK = { __mode = "k" }
+
+-- Плавное открытие окна: из точки с пружинкой. Если окно как раз закрывается, разворачивает анимацию обратно.
+function U.openPanel(win, sc, target)
+	local token = (sc:GetAttribute("AnimToken") or 0) + 1
+	sc:SetAttribute("AnimToken", token)
+	sc:SetAttribute("Animating", true)
+	sc:SetAttribute("Closing", nil)
+	sc:SetAttribute("BaseScale", target)
+	if not win.Visible then
+		sc.Scale = target * 0.05
+	end
+	win.Visible = true
+	U.tween(sc, 0.32, { Scale = target }, Enum.EasingStyle.Back)
+	task.delay(0.33, function()
+		if sc:GetAttribute("AnimToken") == token then
+			sc:SetAttribute("Animating", nil)
+		end
+	end)
+end
+
+-- Плавное закрытие окна: сжимается в точку и только потом скрывается.
+function U.closePanel(win, sc)
+	if not win or not win.Visible then
+		return
+	end
+	if not sc then
+		win.Visible = false
+		return
+	end
+	if sc:GetAttribute("Closing") then
+		return
+	end
+	local token = (sc:GetAttribute("AnimToken") or 0) + 1
+	sc:SetAttribute("AnimToken", token)
+	sc:SetAttribute("Animating", true)
+	sc:SetAttribute("Closing", true)
+	local base = sc:GetAttribute("BaseScale") or sc.Scale
+	U.tween(sc, 0.2, { Scale = base * 0.05 }, Enum.EasingStyle.Back, Enum.EasingDirection.In)
+	task.delay(0.2, function()
+		if sc:GetAttribute("AnimToken") ~= token then
+			return -- окно успели открыть снова
+		end
+		win.Visible = false
+		sc.Scale = base
+		sc:SetAttribute("Animating", nil)
+		sc:SetAttribute("Closing", nil)
+	end)
+end
+
+-- окно открыто и не в процессе закрытия
+function U.isOpen(win, sc)
+	if not win or not win.Visible then
+		return false
+	end
+	sc = sc or win:FindFirstChildOfClass("UIScale")
+	return not (sc and sc:GetAttribute("Closing"))
+end
+
+-- Счётчик: число в тексте плавно «докручивается» до нового значения.
+local counters = setmetatable({}, weakK)
+function U.countTo(label, target, render, t)
+	render = render or U.fmt
+	local c = counters[label]
+	if not c then
+		c = { v = Instance.new("NumberValue"), target = target, render = render }
+		c.v.Value = target
+		c.v.Changed:Connect(function(x)
+			label.Text = c.render(x)
+		end)
+		counters[label] = c
+		label.Text = render(target)
+		return
+	end
+	c.render = render
+	if c.target == target then
+		label.Text = render(c.v.Value)
+		return
+	end
+	c.target = target
+	if c.tw then
+		c.tw:Cancel()
+	end
+	c.tw = TweenService:Create(c.v, TweenInfo.new(t or 0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), { Value = target })
+	c.tw:Play()
+end
+
+-- Плавная смена цветов UIGradient (двухцветный градиент).
+local gradTweens = setmetatable({}, weakK)
+function U.gradTo(grad, c0, c1, t)
+	local prev = gradTweens[grad]
+	if prev and prev.c0 == c0 and prev.c1 == c1 then
+		return
+	end
+	local kp = grad.Color.Keypoints
+	local s0, s1 = kp[1].Value, kp[#kp].Value
+	if prev then
+		prev.tw:Cancel()
+		prev.v:Destroy()
+		gradTweens[grad] = nil
+	end
+	if s0 == c0 and s1 == c1 then
+		return
+	end
+	local v = Instance.new("NumberValue")
+	v.Changed:Connect(function(a)
+		grad.Color = ColorSequence.new(s0:Lerp(c0, a), s1:Lerp(c1, a))
+	end)
+	local tw = TweenService:Create(v, TweenInfo.new(t or 0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Value = 1 })
+	gradTweens[grad] = { tw = tw, v = v, c0 = c0, c1 = c1 }
+	tw.Completed:Connect(function(state)
+		if state == Enum.PlaybackState.Completed and gradTweens[grad] and gradTweens[grad].tw == tw then
+			gradTweens[grad] = nil
+			v:Destroy()
+		end
+	end)
+	tw:Play()
+end
+
+-- Короткий «пульс» размера: плавно вверх и пружинисто назад (без мгновенного скачка).
+function U.pulseSize(inst, big, normal, tUp, tDown)
+	U.tween(inst, tUp or 0.08, { Size = big }).Completed:Connect(function(state)
+		if state == Enum.PlaybackState.Completed then
+			U.tween(inst, tDown or 0.3, { Size = normal }, Enum.EasingStyle.Back)
+		end
+	end)
+end
+
+-- Плавное появление/скрытие элемента вместе со всем содержимым (текст, картинки, рамки).
+-- Исходная прозрачность запоминается при первом вызове, к ней элемент и возвращается.
+local fadeBase = setmetatable({}, weakK)
+local function captureFade(inst)
+	local list = {}
+	local function add(o)
+		local b = {}
+		if o:IsA("GuiObject") then
+			b.BackgroundTransparency = o.BackgroundTransparency
+		end
+		if o:IsA("TextLabel") or o:IsA("TextButton") or o:IsA("TextBox") then
+			b.TextTransparency = o.TextTransparency
+		elseif o:IsA("ImageLabel") or o:IsA("ImageButton") then
+			b.ImageTransparency = o.ImageTransparency
+		elseif o:IsA("UIStroke") then
+			b.Transparency = o.Transparency
+		end
+		if next(b) then
+			table.insert(list, { o, b })
+		end
+	end
+	add(inst)
+	for _, d in ipairs(inst:GetDescendants()) do
+		add(d)
+	end
+	return list
+end
+
+local function fadeTo(inst, k, t)
+	local list = fadeBase[inst]
+	if not list then
+		list = captureFade(inst)
+		fadeBase[inst] = list
+	end
+	for _, e in ipairs(list) do
+		local o, base = e[1], e[2]
+		if o.Parent then
+			local props = {}
+			for prop, b in pairs(base) do
+				props[prop] = b + (1 - b) * k
+			end
+			if t then
+				U.tween(o, t, props)
+			else
+				for prop, v in pairs(props) do
+					o[prop] = v
+				end
+			end
+		end
+	end
+end
+
+function U.fadeVisible(inst, on, t)
+	t = t or 0.2
+	local token = (inst:GetAttribute("FadeToken") or 0) + 1
+	inst:SetAttribute("FadeToken", token)
+	if on then
+		if not inst.Visible then
+			fadeTo(inst, 1) -- старт из полной прозрачности
+			inst.Visible = true
+		elseif not inst:GetAttribute("FadingOut") then
+			return -- уже показан
+		end
+		inst:SetAttribute("FadingOut", nil)
+		fadeTo(inst, 0, t)
+	elseif inst.Visible and not inst:GetAttribute("FadingOut") then
+		inst:SetAttribute("FadingOut", true)
+		fadeTo(inst, 1, t)
+		task.delay(t, function()
+			if inst:GetAttribute("FadeToken") == token then
+				inst.Visible = false
+				inst:SetAttribute("FadingOut", nil)
+				fadeTo(inst, 0) -- вернуть исходную прозрачность, чтобы прямой показ тоже работал
+			end
+		end)
+	end
+end
+
 -- Звуки (библиотека Roblox: APM Music, Pro Sound Effects и открытые UI-звуки)
 U.Sounds = {
 	-- интерфейс
