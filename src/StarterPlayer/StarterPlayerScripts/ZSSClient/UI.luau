@@ -2,6 +2,7 @@
 local Players = game:GetService("Players")
 local RS = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local GuiService = game:GetService("GuiService")
 local ProximityPromptService = game:GetService("ProximityPromptService")
 
 local Shared = RS:WaitForChild("ZSS")
@@ -1931,16 +1932,224 @@ function UI.ToggleInventory()
 end
 
 -- ===== ГАЧА =====
+-- Фон окна с прямоугольным «окошком»: четыре полосы вокруг окошка, внешние углы скруглены.
+-- Сквозь окошко виден мир, и витрина показывает настоящего 3D-дрона в полном разрешении.
+local function holedBackground(parent, W, H, hole, radius, color, g0, g1)
+	local function piece(x, y, w, h, rounded)
+		local f = new("Frame", {
+			Position = UDim2.fromOffset(x, y),
+			Size = UDim2.fromOffset(w, h),
+			BackgroundColor3 = color,
+			BorderSizePixel = 0,
+			ZIndex = 0,
+			Parent = parent,
+		})
+		if rounded then
+			U.corner(radius).Parent = f
+		end
+		if g0 then
+			-- общий вертикальный градиент окна, разрезанный по полосам
+			local c0 = g0:Lerp(g1, y / H)
+			local c1 = g0:Lerp(g1, (y + h) / H)
+			new("UIGradient", { Rotation = 90, Color = ColorSequence.new(c0, c1), Parent = f })
+		end
+	end
+	local bottomY = hole.y + hole.h
+	piece(0, 0, W, hole.y, true)
+	piece(0, hole.y - radius, W, radius, false) -- снизу у верхней полосы углы прямые
+	piece(0, bottomY, W, H - bottomY, true)
+	piece(0, bottomY, W, radius, false)
+	-- боковые полосы на пиксель заходят на соседние, чтобы при масштабе окна не было щелей
+	piece(0, hole.y - 1, hole.x, hole.h + 2, false)
+	piece(hole.x + hole.w, hole.y - 1, W - hole.x - hole.w, hole.h + 2, false)
+end
+
+-- 3D-витрина гачи. Дрон в ViewportFrame рисовался с пониженной частотой кадров и в низком разрешении,
+-- поэтому теперь он стоит в мире прямо перед камерой, точно за окошком в окне гачи.
+-- Каждый кадр после обновления камеры дрон и тёмный задник под ним ставятся на луч камеры через центр
+-- окошка, на такую глубину, чтобы дрон занимал окошко. Винты и орбитальные шары крутятся, как в мире.
+local STAGE_SIZE = 0.6 -- диаметр дрона на сцене, стадов
+local STAGE_PITCH = math.rad(12)
+gacha.stage = {}
+
+local function stageSetModel(def, hidden, color)
+	local st = gacha.stage
+	if st.model then
+		st.model:Destroy()
+		st.model = nil
+	end
+	if not st.back then
+		st.back = new("Part", {
+			Name = "ZSS_GachaStage",
+			Anchored = true,
+			CanCollide = false,
+			CanQuery = false,
+			CanTouch = false,
+			CastShadow = false,
+			Transparency = 1,
+			Size = Vector3.new(1, 1, 0.02),
+		})
+		local sg = new("SurfaceGui", {
+			Face = Enum.NormalId.Front,
+			LightInfluence = 0,
+			SizingMode = Enum.SurfaceGuiSizingMode.FixedSize,
+			CanvasSize = Vector2.new(720, 380),
+			Parent = st.back,
+		})
+		new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = C(24, 16, 36), BorderSizePixel = 0, Parent = sg })
+		-- мягкое приглушённое свечение цвета редкости: стопка почти прозрачных кругов
+		st.glow = {}
+		for k = 1, 10 do
+			local d = 120 + k * 26
+			table.insert(st.glow, new("Frame", {
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				Position = UDim2.fromScale(0.5, 0.5),
+				Size = UDim2.fromOffset(d, d),
+				BackgroundTransparency = 0.965,
+				BorderSizePixel = 0,
+				ZIndex = 12 - k,
+				Parent = sg,
+			}, { U.round() }))
+		end
+		st.lightAtt = new("Attachment", { Parent = st.back })
+		st.light = new("PointLight", { Brightness = 0.35, Range = 4, Shadows = false, Parent = st.lightAtt })
+	end
+	for _, g in ipairs(st.glow) do
+		g.BackgroundColor3 = color:Lerp(C(0, 0, 0), 0.3)
+	end
+	local m = Builder.Build(def, 1)
+	m:PivotTo(CFrame.new())
+	local _, size = m:GetBoundingBox()
+	m:ScaleTo(STAGE_SIZE / math.max(size.Magnitude, 0.01))
+	local box = m:GetBoundingBox()
+	local center = CFrame.new(box.Position)
+	local core = m.PrimaryPart and m.PrimaryPart.CFrame or m:GetPivot()
+	local parts, entries, tints = {}, {}, {}
+	for _, p in ipairs(m:GetDescendants()) do
+		if p:IsA("BasePart") then
+			p.CastShadow = false
+			p.CanQuery = false
+			p.CanTouch = false
+			p.CanCollide = false
+			if hidden then
+				p.Color = C(0, 0, 0)
+				p.Material = Enum.Material.SmoothPlastic
+			end
+			if p:GetAttribute("Tint") and not hidden then
+				table.insert(tints, p)
+			end
+			table.insert(parts, p)
+			table.insert(entries, { offset = core:ToObjectSpace(p.CFrame), spin = p:GetAttribute("Spin"), axis = p:GetAttribute("SpinAxis"), orbit = p:GetAttribute("Orbit") })
+		elseif hidden and (p:IsA("Light") or p:IsA("ParticleEmitter") or p:IsA("Beam") or p:IsA("Trail")) then
+			p.Enabled = false
+		end
+	end
+	if hidden then
+		-- нераскрытый секретный дрон — чёрный силуэт, даже если у деталей есть текстуры
+		new("Highlight", { Adornee = m, FillColor = C(0, 0, 0), FillTransparency = 0, OutlineTransparency = 1, DepthMode = Enum.HighlightDepthMode.Occluded, Parent = m })
+	end
+	st.model = m
+	st.parts = parts
+	st.entries = entries
+	st.cfs = table.create(#parts)
+	-- радужные и секретные дроны переливаются, как в мире
+	st.tints = tints
+	st.rainbow = m:GetAttribute("Rainbow") == true
+	st.secret = m:GetAttribute("Secret") == true
+	st.coreRel = center:ToObjectSpace(core)
+	st.shown = false
+end
+
+local function stageStep()
+	local st = gacha.stage
+	local cam = workspace.CurrentCamera
+	local hole = gacha.showHole
+	local as = hole and hole.AbsoluteSize
+	local frac, tanH, z
+	local show = st.model ~= nil and gacha.win and gacha.win.Visible and cam ~= nil and as.Y > 4 and as.X > 4
+	if show then
+		frac = as.Y / math.max(cam.ViewportSize.Y, 1)
+		tanH = math.tan(math.rad(cam.FieldOfView) / 2)
+		-- глубина, на которой дрон (по диагонали габаритов) занимает почти всю высоту окошка. Пока окно только раскрывается и окошко
+		-- маленькое, дрон пришлось бы ставить далеко и он торчал бы за края окна — тогда он скрыт.
+		z = STAGE_SIZE / (1.15 * frac * 2 * tanH)
+		show = z <= 6
+		z = math.max(z, 1.2)
+	end
+	if show ~= st.shown then
+		st.shown = show
+		if st.model then
+			st.model.Parent = show and cam or nil
+		end
+		if st.back then
+			st.back.Parent = show and cam or nil
+		end
+	end
+	if not show then
+		return
+	end
+	local t = os.clock()
+	local ap = hole.AbsolutePosition
+	local inset = GuiService:GetGuiInset()
+	local ray = cam:ViewportPointToRay(ap.X + as.X / 2 + inset.X, ap.Y + as.Y / 2 + inset.Y)
+	local camCF = cam.CFrame
+	local look = camCF.LookVector
+	local function at(depth)
+		return ray.Origin + ray.Direction * (depth / ray.Direction:Dot(look))
+	end
+	local rot = camCF.Rotation * CFrame.Angles(0, math.pi, 0)
+	-- дрон повёрнут к камере «лицом» и чуть сверху, медленно вращается и мягко парит
+	local bob = math.sin(t * 1.4) * STAGE_SIZE * 0.035
+	local body = CFrame.new(at(z) + camCF.UpVector * bob) * rot * CFrame.Angles(-STAGE_PITCH, 0, 0) * CFrame.Angles(0, t * 0.7, 0)
+	local core = body * st.coreRel
+	for i, e in ipairs(st.entries) do
+		local cf
+		if e.orbit then
+			cf = core * CFrame.Angles(0, t * e.orbit, 0) * e.offset
+		else
+			cf = core * e.offset
+			if e.spin then
+				local a = t * e.spin
+				cf = cf * (e.axis == "X" and CFrame.Angles(a, 0, 0) or CFrame.Angles(0, a, 0))
+			end
+		end
+		st.cfs[i] = cf
+	end
+	workspace:BulkMoveTo(st.parts, st.cfs, Enum.BulkMoveMode.FireCFrameChanged)
+	if st.rainbow then
+		for k, p in ipairs(st.tints) do
+			p.Color = Config.Rainbow(t, k * 0.06)
+		end
+	elseif st.secret then
+		local pulse = 0.55 + 0.45 * math.abs(math.sin(t * 3))
+		for _, p in ipairs(st.tints) do
+			p.Color = Color3.new(pulse, 0.05 * pulse, 0.06 * pulse)
+		end
+	end
+	-- задник: чуть дальше дрона, с запасом закрывает всё окошко
+	local zb = z + STAGE_SIZE * 1.2
+	local h = frac * 2 * tanH * zb * 1.2
+	st.back.Size = Vector3.new(h * as.X / as.Y, h, 0.02)
+	st.back.CFrame = CFrame.new(at(zb)) * rot
+	st.lightAtt.Position = Vector3.new(0, h * 0.25, -(zb - z) - STAGE_SIZE * 0.8)
+	st.light.Range = STAGE_SIZE * 4
+end
+-- после обновления камеры, чтобы дрон не отставал от неё ни на кадр
+RunService:BindToRenderStep("ZSS_GachaStage", Enum.RenderPriority.Camera.Value + 1, stageStep)
+
 local function buildGacha()
+	-- витрина — «окно» в фоне: сквозь него виден настоящий 3D-дрон (см. stageStep)
+	local HOLE = { x = 36, y = 100, w = 360, h = 190 }
 	local win = new("Frame", {
 		Name = "Gacha",
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromScale(0.5, 0.52),
 		Size = UDim2.fromOffset(900, 560),
-		BackgroundColor3 = C(14, 10, 22),
+		BackgroundTransparency = 1,
 		Visible = false,
 		Parent = gui,
-	}, { U.corner(20), U.grad(C(255, 255, 255), C(140, 130, 160), 90) })
+	}, { U.corner(20) })
+	holedBackground(win, 900, 560, HOLE, 20, C(14, 10, 22), C(255, 255, 255), C(140, 130, 160))
 	gacha.win = win
 	gacha.scale = addScale(win)
 	local st = U.stroke(C(255, 255, 255), 3.5)
@@ -1951,10 +2160,11 @@ local function buildGacha()
 	local left = new("Frame", {
 		Position = UDim2.fromOffset(16, 16),
 		Size = UDim2.new(0, 400, 1, -32),
-		BackgroundColor3 = C(24, 16, 36),
+		BackgroundTransparency = 1,
 		ClipsDescendants = true,
 		Parent = win,
 	}, { U.corner(16), U.stroke(T.Gacha, 2, 0.3) })
+	holedBackground(left, 400, 528, { x = HOLE.x - 16, y = HOLE.y - 16, w = HOLE.w, h = HOLE.h }, 16, C(24, 16, 36))
 	local title = new("TextLabel", {
 		Position = UDim2.fromOffset(0, 8),
 		Size = UDim2.new(1, 0, 0, 56),
@@ -1976,13 +2186,22 @@ local function buildGacha()
 		TextColor3 = T.Muted,
 		Parent = left,
 	})
-	gacha.showVp = new("ViewportFrame", {
-		Position = UDim2.fromOffset(20, 84),
-		Size = UDim2.new(1, -40, 0, 190),
+	gacha.showHole = new("Frame", {
+		Position = UDim2.fromOffset(HOLE.x - 16, HOLE.y - 16),
+		Size = UDim2.fromOffset(HOLE.w, HOLE.h),
 		BackgroundTransparency = 1,
-		Ambient = C(150, 150, 150),
-		LightDirection = Vector3.new(-0.4, -1, 0.6),
+		ZIndex = 2,
 		Parent = left,
+	})
+	gacha.showStroke = U.stroke(T.Gacha, 2, 0.4)
+	gacha.showStroke.Parent = gacha.showHole
+	-- шторка для плавной смены дронов на витрине
+	gacha.showCover = new("Frame", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = C(24, 16, 36),
+		BackgroundTransparency = 0,
+		BorderSizePixel = 0,
+		Parent = gacha.showHole,
 	})
 	gacha.showName = new("TextLabel", {
 		Position = UDim2.fromOffset(0, 270),
@@ -2310,30 +2529,28 @@ local function buildGacha()
 
 	-- витрина
 	gacha.showDef = function(def)
-		-- витрина сменяется плавно: старый дрон гаснет, новый проявляется
+		-- витрина сменяется плавно: шторка закрывает старого дрона, под ней ставится новый и шторка уходит
 		gacha.showUntil = os.clock() + 6
 		local token = {}
 		gacha.showToken = token
-		if gacha.showModel and gacha.showModel.Parent and gacha.win.Visible then
-			U.tween(gacha.showVp, 0.2, { ImageTransparency = 1 })
+		if gacha.stage.model and gacha.win.Visible then
+			U.tween(gacha.showCover, 0.2, { BackgroundTransparency = 0 })
 			U.tween(gacha.showName, 0.2, { TextTransparency = 1 })
 			task.wait(0.2)
 			if gacha.showToken ~= token then
 				return
 			end
 		end
-		gacha.showModel = setModelVp(gacha.showVp, def, 0, math.rad(12))
-		gacha.showVp:SetAttribute("BaseLight", gacha.showVp:GetAttribute("BaseLight") or gacha.showVp.LightDirection)
-		gacha.showBase = orbitBase(gacha.showVp, gacha.showModel, math.rad(12))
 		local r = Config.Rarities[def.rarity]
 		local hidden = def.rarity == "Secret" and not (State.data and (State.data.owned[def.id] or 0) > 0)
-		gacha.showVp.ImageColor3 = hidden and C(0, 0, 0) or C(255, 255, 255)
+		stageSetModel(def, hidden, r.color)
 		gacha.showName.Text = (hidden and "???" or def.name) .. "  •  " .. r.label
 		gacha.showName.TextColor3 = r.color
 		gacha.showRainbow = r.rainbow
-		gacha.showVp.ImageTransparency = 1
+		U.tween(gacha.showStroke, 0.3, { Color = r.color })
+		gacha.showCover.BackgroundTransparency = 0
 		gacha.showName.TextTransparency = 1
-		U.tween(gacha.showVp, 0.3, { ImageTransparency = 0 })
+		U.tween(gacha.showCover, 0.35, { BackgroundTransparency = 1 })
 		U.tween(gacha.showName, 0.3, { TextTransparency = 0 })
 	end
 	gacha.showIndex = 0
@@ -2786,9 +3003,7 @@ function UI.Init()
 				inv.drarity.TextColor3 = Config.Rainbow(t)
 			end
 		end
-		if gacha.win.Visible and gacha.showModel and gacha.showModel.Parent then
-			-- медленный облёт камерой и мягкое парение дрона вверх-вниз
-			orbitStep(gacha.showBase, t * 0.7, math.sin(t * 1.4) * 0.1)
+		if gacha.win.Visible and gacha.stage.model then
 			if gacha.showRainbow then
 				gacha.showName.TextColor3 = Config.Rainbow(t)
 			end
