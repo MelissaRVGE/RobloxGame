@@ -15,6 +15,8 @@ Config.StudioBonusGems = 0
 Config.PullCost = 10
 Config.Pull10Cost = 100 -- без скидки: ровно 10 одиночных круток
 Config.StartGems = 50
+-- награда за время в игре (как ежечасные раздатчики в BSS): каждые interval секунд онлайн
+Config.PlaytimeReward = { interval = 600, gems = 2 }
 -- гемы нельзя купить за батареи: только квесты, босс и редкие находки
 Config.GemPacks = {}
 
@@ -28,20 +30,20 @@ Config.RarityOrder = { "Uncommon", "Rare", "Epic", "Legendary", "Mythic", "Secre
 
 -- weight в долях от 10000 (1% = 100)
 Config.Rarities = {
-	Uncommon = { order = 1, label = "UNCOMMON", ru = "Белый", color = C(235, 238, 245), weight = 8015 },
-	Rare = { order = 2, label = "RARE", ru = "Синий", color = C(50, 140, 255), weight = 1500 },
-	Epic = { order = 3, label = "EPIC", ru = "Фиолетовый", color = C(175, 70, 255), weight = 300 },
-	Legendary = { order = 4, label = "LEGENDARY", ru = "Жёлтый", color = C(255, 205, 35), weight = 100 },
-	Mythic = { order = 5, label = "MYTHIC", ru = "Радужный", color = C(255, 120, 220), weight = 80, rainbow = true },
-	Secret = { order = 6, label = "SECRET", ru = "Красный", color = C(255, 30, 40), weight = 5 },
+	Uncommon = { order = 1, label = "UNCOMMON", ru = "Белый", color = C(235, 238, 245), weight = 7700 },
+	Rare = { order = 2, label = "RARE", ru = "Синий", color = C(50, 140, 255), weight = 1700 },
+	Epic = { order = 3, label = "EPIC", ru = "Фиолетовый", color = C(175, 70, 255), weight = 450 },
+	Legendary = { order = 4, label = "LEGENDARY", ru = "Жёлтый", color = C(255, 205, 35), weight = 120 },
+	Mythic = { order = 5, label = "MYTHIC", ru = "Радужный", color = C(255, 120, 220), weight = 28, rainbow = true },
+	Secret = { order = 6, label = "SECRET", ru = "Красный", color = C(255, 30, 40), weight = 2 },
 }
 Config.WeightTotal = 10000
 
 -- Гарант: если за N круток не выпала эта редкость (или выше) — N-я крутка гарантированно её даёт
 Config.Pity = {
-	{ rarity = "Secret", pulls = 2000 },
-	{ rarity = "Mythic", pulls = 1500 },
-	{ rarity = "Legendary", pulls = 500 },
+	{ rarity = "Secret", pulls = 3000 },
+	{ rarity = "Mythic", pulls = 1000 },
+	{ rarity = "Legendary", pulls = 250 },
 }
 
 function Config.ChanceText(rarity)
@@ -71,14 +73,16 @@ do
 	Config.RainbowSequence = ColorSequence.new(kp)
 end
 
--- Базовые характеристики по редкости
+-- Базовые характеристики по редкости.
+-- Рой — главный источник дохода (как пчёлы в BSS): дрон за сбор приносит намного больше, чем один
+-- взмах инструмента, а каждая следующая редкость заметно сильнее предыдущей.
 Config.RarityStats = {
-	Uncommon = { gather = 5, damage = 3, speed = 24, gatherTime = 1.6 },
-	Rare = { gather = 8, damage = 5, speed = 27, gatherTime = 1.5 },
-	Epic = { gather = 13, damage = 8, speed = 30, gatherTime = 1.35 },
-	Legendary = { gather = 20, damage = 12, speed = 33, gatherTime = 1.25 },
-	Mythic = { gather = 30, damage = 18, speed = 36, gatherTime = 1.15 },
-	Secret = { gather = 50, damage = 30, speed = 40, gatherTime = 1.0 },
+	Uncommon = { gather = 25, damage = 4, speed = 24, gatherTime = 1.6 },
+	Rare = { gather = 45, damage = 7, speed = 27, gatherTime = 1.5 },
+	Epic = { gather = 75, damage = 11, speed = 30, gatherTime = 1.35 },
+	Legendary = { gather = 120, damage = 17, speed = 33, gatherTime = 1.25 },
+	Mythic = { gather = 180, damage = 26, speed = 36, gatherTime = 1.15 },
+	Secret = { gather = 300, damage = 42, speed = 40, gatherTime = 1.0 },
 }
 
 -- ===== 20 ДРОНОВ =====
@@ -227,20 +231,20 @@ end
 -- tier = номер яруса (0 — у базы)
 Config.Fields = {
 	{ id = "wasteland", name = "Пустошь", req = 0, mult = 1, center = Vector3.new(-58, 0, 100), size = 48, gate = "east", tier = 0,
-		zombies = { max = 5, hp = 150, damage = 4, reward = 20, speed = 7, name = "Ходок" } },
+		zombies = { max = 5, hp = 150, damage = 4, reward = 30, speed = 7, name = "Ходок" } },
 	{ id = "deadcity", name = "Мёртвый город", req = 5, mult = 2.5, center = Vector3.new(58, 12, 180), size = 48, gate = "west", tier = 1,
-		zombies = { max = 6, hp = 600, damage = 8, reward = 70, speed = 8, name = "Горожанин" } },
+		zombies = { max = 6, hp = 400, damage = 9, reward = 90, speed = 8, name = "Горожанин" } },
 	-- низина на 2-м ярусе: поле ниже уровня яруса, вокруг топь и вода
-	{ id = "swamp", name = "Гнилое болото", req = 8, mult = 4, center = Vector3.new(-58, 20, 260), size = 48, gate = "east", tier = 2,
-		zombies = { max = 7, hp = 1300, damage = 11, reward = 140, speed = 7, name = "Утопленник" } },
-	{ id = "radzone", name = "Радиоактивная зона", req = 12, mult = 6, center = Vector3.new(58, 36, 340), size = 48, gate = "west", tier = 3,
-		zombies = { max = 8, hp = 2400, damage = 15, reward = 240, speed = 9, name = "Мутант" } },
+	{ id = "swamp", name = "Гнилое болото", req = 10, mult = 5, center = Vector3.new(-58, 20, 260), size = 48, gate = "east", tier = 2,
+		zombies = { max = 7, hp = 900, damage = 14, reward = 200, speed = 7, name = "Утопленник" } },
+	{ id = "radzone", name = "Радиоактивная зона", req = 15, mult = 9, center = Vector3.new(58, 36, 340), size = 48, gate = "west", tier = 3,
+		zombies = { max = 8, hp = 2000, damage = 20, reward = 400, speed = 9, name = "Мутант" } },
 	-- вершина: последний ярус, главная дорога упирается прямо в ворота
-	{ id = "military", name = "Военная база", req = 18, mult = 12, center = Vector3.new(0, 60, 530), size = 48, gate = "south", tier = 5,
-		zombies = { max = 9, hp = 5500, damage = 22, reward = 600, speed = 10, name = "Солдат" } },
-	-- логово босса: без лома, один гигантский зомби на 1 000 000 HP
-	{ id = "boss", name = "Логово Колосса", req = 15, mult = 0, center = Vector3.new(-70, 48, 430), size = 84, gate = "east", tier = 4, boss = true,
-		zombies = { max = 0, hp = 1000000, damage = 40, reward = 0, speed = 9, name = "Колосс" } },
+	{ id = "military", name = "Военная база", req = 25, mult = 16, center = Vector3.new(0, 60, 530), size = 48, gate = "south", tier = 5,
+		zombies = { max = 9, hp = 12000, damage = 30, reward = 1500, speed = 10, name = "Солдат" } },
+	-- логово босса: без лома, один гигантский зомби на 500 000 HP (рассчитан на группу)
+	{ id = "boss", name = "Логово Колосса", req = 20, mult = 0, center = Vector3.new(-70, 48, 430), size = 84, gate = "east", tier = 4, boss = true,
+		zombies = { max = 0, hp = 500000, damage = 40, reward = 0, speed = 9, name = "Колосс" } },
 }
 
 -- Босс: если рядом никого нет 3 минуты — здоровье восстанавливается до максимума
@@ -253,8 +257,8 @@ Config.Boss = {
 	meleeCd = 2,
 	-- награда каждому, кто нанёс хотя бы 0.5% урона
 	minShare = 0.005,
-	gems = { 60, 150 },
-	batteries = 250000,
+	gems = { 25, 60 },
+	batteries = 2000000,
 	items = { 3, 6 },
 }
 
@@ -295,9 +299,12 @@ function Config.CellOffset(i, forward)
 	local y = -7.2 + row * H.dy
 	return CFrame.new(x, y, -(forward or 0))
 end
--- цена n-й ячейки (первые 3 бесплатны), плавно дорожает
+-- цена n-го гнезда (первые 3 бесплатны). Гнёзда = размер роя, поэтому это главный долгий
+-- «гейт» прогрессии, как ячейки улья в BSS: каждое следующее заметно дороже предыдущего.
+-- Числа подобраны моделью прогрессии (balance/tune.py в файлах проекта).
+-- @tune CellCost
 function Config.CellCost(n)
-	return math.floor(450 * 1.165 ^ (n - 4) / 10 + 0.5) * 10
+	return math.floor(4000 * 1.53 ^ (math.min(n, 25) - 4) * 1.1 ^ math.max(0, n - 25) / 10 + 0.5) * 10
 end
 -- Мастерская ячеек (покупка новых сот)
 Config.CellShop = { center = Vector3.new(-28, 1, -18), radius = 13 }
@@ -323,21 +330,23 @@ Config.Locations = {
 
 -- ===== РЮКЗАК =====
 Config.MaxBagLevel = 20
+-- @tune BagCapacity
 function Config.BagCapacity(level)
 	return math.floor(300 * 1.6 ^ (level - 1))
 end
+-- @tune BagCost
 function Config.BagCost(level)
 	if level >= Config.MaxBagLevel then
 		return nil
 	end
-	return math.floor(200 * 1.85 ^ (level - 1))
+	return math.floor(400 * 2.7 ^ (level - 1) / 10 + 0.5) * 10
 end
 -- материалы для улучшения рюкзака с уровня N на N+1 (находки из куч лома)
 Config.BagMats = {
-	{ nut = 2 },
-	{ nut = 4, wire = 2 },
-	{ wire = 4, oldbattery = 2 },
-	{ tooth = 4, cans = 2 },
+	{ nut = 1 },
+	{ nut = 2, wire = 1 },
+	{ wire = 3, oldbattery = 1 },
+	{ tooth = 3, cans = 1 },
 	{ cog = 2, nut = 6 },
 	{ cog = 3, chip = 2 },
 	{ chip = 3, dogtag = 2 },

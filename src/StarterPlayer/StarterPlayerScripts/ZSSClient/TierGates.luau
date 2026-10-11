@@ -3,7 +3,20 @@
 -- Спускаться можно всегда (стена выключается, если игрок уже выше неё).
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
+local Config = require(game:GetService("ReplicatedStorage"):WaitForChild("ZSS"):WaitForChild("Config"))
 local player = Players.LocalPlayer
+
+-- ворота Gate_N ведут на ярус N: сколько дронов нужно, берём из конфига (а не из карты)
+local REQ_BY_TIER = {}
+for _, f in ipairs(Config.Fields) do
+	if f.tier then
+		REQ_BY_TIER[f.tier] = f.req
+	end
+end
+local function gateReq(gate)
+	local n = tonumber(gate.Name:match("^Gate_(%d+)$"))
+	return (n and REQ_BY_TIER[n]) or gate:GetAttribute("Req") or 0
+end
 
 local TierGates = {}
 local State
@@ -20,7 +33,7 @@ local function update()
 	local char = player.Character
 	local hrp = char and char:FindFirstChild("HumanoidRootPart")
 	for _, gate in ipairs(folder:GetChildren()) do
-		local req = gate:GetAttribute("Req") or 0
+		local req = gateReq(gate)
 		local open = d ~= nil and have >= req
 		local wall = gate:FindFirstChild("Wall")
 		if wall then

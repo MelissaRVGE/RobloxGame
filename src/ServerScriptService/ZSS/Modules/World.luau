@@ -185,8 +185,48 @@ local function startPickups()
 	end
 end
 
+-- таблички и ворота на карте показывают требования из конфига (их числа меняются при балансе)
+local function syncMapReqs()
+	local map = workspace:FindFirstChild("Map")
+	if not map then
+		return
+	end
+	local byTier = {}
+	for _, f in ipairs(Config.Fields) do
+		if f.tier then
+			byTier[f.tier] = f
+		end
+		local folder = map:FindFirstChild("Fields") and map.Fields:FindFirstChild(f.id)
+		local board = folder and folder:FindFirstChild("InfoBoard")
+		if board then
+			for _, t in ipairs(board:GetDescendants()) do
+				if t:IsA("TextLabel") and t.Text:find("Нужно дронов") then
+					t.Text = "🤖 Нужно дронов: " .. f.req
+				end
+			end
+		end
+		if f.boss then
+			local arena = map:FindFirstChild("BossArena")
+			for _, t in ipairs(arena and arena:GetDescendants() or {}) do
+				if t:IsA("TextLabel") and t.Text:find("БОСС") and t.Text:find("HP") then
+					local hp = tostring(f.zombies.hp):reverse():gsub("(%d%d%d)", "%1 "):reverse():gsub("^%s+", "")
+					t.Text = ("БОСС • %s HP • НУЖНО %d ДРОНОВ"):format(hp, f.req)
+				end
+			end
+		end
+	end
+	local gates = map:FindFirstChild("TierGates")
+	for _, gate in ipairs(gates and gates:GetChildren() or {}) do
+		local n = tonumber(gate.Name:match("^Gate_(%d+)$"))
+		if n and byTier[n] then
+			gate:SetAttribute("Req", byTier[n].req)
+		end
+	end
+end
+
 function World.Init(fieldsModule, equipmentModule)
 	Fields, Equipment = fieldsModule, equipmentModule
+	task.spawn(syncMapReqs)
 	startCycle()
 	-- сферы-баффы на полях теперь в модуле Drops (разные виды баффов)
 end
