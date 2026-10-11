@@ -1997,19 +1997,26 @@ local function stageSetModel(def, hidden, color)
 			Parent = st.back,
 		})
 		new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = C(24, 16, 36), BorderSizePixel = 0, Parent = sg })
-		st.glow = new("ImageLabel", {
-			BackgroundTransparency = 1,
-			Image = Icons.glow,
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.fromScale(0.5, 0.5),
-			Size = UDim2.fromOffset(420, 420),
-			ImageTransparency = 0.55,
-			Parent = sg,
-		})
+		-- мягкое круглое свечение цвета редкости: стопка полупрозрачных кругов
+		st.glow = {}
+		for k = 1, 16 do
+			local d = 110 + k * 18
+			table.insert(st.glow, new("Frame", {
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				Position = UDim2.fromScale(0.5, 0.5),
+				Size = UDim2.fromOffset(d, d),
+				BackgroundTransparency = 0.93,
+				BorderSizePixel = 0,
+				ZIndex = 18 - k,
+				Parent = sg,
+			}, { U.round() }))
+		end
 		st.lightAtt = new("Attachment", { Parent = st.back })
-		st.light = new("PointLight", { Brightness = 1.6, Range = 4, Shadows = false, Parent = st.lightAtt })
+		st.light = new("PointLight", { Brightness = 0.35, Range = 4, Shadows = false, Parent = st.lightAtt })
 	end
-	st.glow.ImageColor3 = color
+	for _, g in ipairs(st.glow) do
+		g.BackgroundColor3 = color
+	end
 	local m = Builder.Build(def, 1)
 	m:PivotTo(CFrame.new())
 	local _, size = m:GetBoundingBox()
@@ -2017,7 +2024,7 @@ local function stageSetModel(def, hidden, color)
 	local box = m:GetBoundingBox()
 	local center = CFrame.new(box.Position)
 	local core = m.PrimaryPart and m.PrimaryPart.CFrame or m:GetPivot()
-	local parts, entries = {}, {}
+	local parts, entries, tints = {}, {}, {}
 	for _, p in ipairs(m:GetDescendants()) do
 		if p:IsA("BasePart") then
 			p.CastShadow = false
@@ -2028,16 +2035,27 @@ local function stageSetModel(def, hidden, color)
 				p.Color = C(0, 0, 0)
 				p.Material = Enum.Material.SmoothPlastic
 			end
+			if p:GetAttribute("Tint") and not hidden then
+				table.insert(tints, p)
+			end
 			table.insert(parts, p)
 			table.insert(entries, { offset = core:ToObjectSpace(p.CFrame), spin = p:GetAttribute("Spin"), axis = p:GetAttribute("SpinAxis"), orbit = p:GetAttribute("Orbit") })
 		elseif hidden and (p:IsA("Light") or p:IsA("ParticleEmitter") or p:IsA("Beam") or p:IsA("Trail")) then
 			p.Enabled = false
 		end
 	end
+	if hidden then
+		-- нераскрытый секретный дрон — чёрный силуэт, даже если у деталей есть текстуры
+		new("Highlight", { Adornee = m, FillColor = C(0, 0, 0), FillTransparency = 0, OutlineTransparency = 1, DepthMode = Enum.HighlightDepthMode.Occluded, Parent = m })
+	end
 	st.model = m
 	st.parts = parts
 	st.entries = entries
 	st.cfs = table.create(#parts)
+	-- радужные и секретные дроны переливаются, как в мире
+	st.tints = tints
+	st.rainbow = m:GetAttribute("Rainbow") == true
+	st.secret = m:GetAttribute("Secret") == true
 	st.coreRel = center:ToObjectSpace(core)
 	st.shown = false
 end
@@ -2052,9 +2070,9 @@ local function stageStep()
 	if show then
 		frac = as.Y / math.max(cam.ViewportSize.Y, 1)
 		tanH = math.tan(math.rad(cam.FieldOfView) / 2)
-		-- глубина, на которой дрон занимает ~75% высоты окошка. Пока окно только раскрывается и окошко
+		-- глубина, на которой дрон (по диагонали габаритов) занимает почти всю высоту окошка. Пока окно только раскрывается и окошко
 		-- маленькое, дрон пришлось бы ставить далеко и он торчал бы за края окна — тогда он скрыт.
-		z = STAGE_SIZE / (0.75 * frac * 2 * tanH)
+		z = STAGE_SIZE / (1.15 * frac * 2 * tanH)
 		show = z <= 6
 		z = math.max(z, 1.2)
 	end
@@ -2098,6 +2116,16 @@ local function stageStep()
 		st.cfs[i] = cf
 	end
 	workspace:BulkMoveTo(st.parts, st.cfs, Enum.BulkMoveMode.FireCFrameChanged)
+	if st.rainbow then
+		for k, p in ipairs(st.tints) do
+			p.Color = Config.Rainbow(t, k * 0.06)
+		end
+	elseif st.secret then
+		local pulse = 0.55 + 0.45 * math.abs(math.sin(t * 3))
+		for _, p in ipairs(st.tints) do
+			p.Color = Color3.new(pulse, 0.05 * pulse, 0.06 * pulse)
+		end
+	end
 	-- задник: чуть дальше дрона, с запасом закрывает всё окошко
 	local zb = z + STAGE_SIZE * 1.2
 	local h = frac * 2 * tanH * zb * 1.2
