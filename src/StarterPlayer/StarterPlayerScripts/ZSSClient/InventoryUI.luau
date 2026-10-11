@@ -431,6 +431,14 @@ local STAGE_PITCH = math.rad(7)
 local ARM_RAISE = math.rad(80) -- правая рука с оружием поднята вперёд, как в игре
 local stage = { yaw = math.rad(-18), vel = 0, idle = 0, zoom = 1, zoomT = 1, kMax = 2.6 }
 local ZOOM_MAX = 2.6
+local CORNERS = {}
+for _, x in ipairs({ -1, 1 }) do
+	for _, y in ipairs({ -1, 1 }) do
+		for _, zz in ipairs({ -1, 1 }) do
+			table.insert(CORNERS, Vector3.new(x, y, zz))
+		end
+	end
+end
 local slotsUI = {}
 local hole = {}
 
@@ -537,7 +545,7 @@ local function buildStageBack()
 	})
 	-- северное сияние: большие мягкие пятна цвета снаряжения медленно плывут и дышат
 	fx.aurora = {}
-	for k, a in ipairs({ { 0.3, 0.3, 560, 0.55 }, { 0.72, 0.42, 520, 0.6 }, { 0.5, 0.58, 640, 0.5 }, { 0.2, 0.7, 420, 0.7 } }) do
+	for k, a in ipairs({ { 0.28, 0.3, 560, 0.72 }, { 0.74, 0.4, 520, 0.74 }, { 0.5, 0.6, 640, 0.7 }, { 0.2, 0.72, 420, 0.78 } }) do
 		local img = new("ImageLabel", {
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			Position = UDim2.fromScale(a[1], a[2]),
@@ -658,7 +666,12 @@ local function tintStage(col, t)
 	end
 	t = t or 0.6
 	local h, s, v = col:ToHSV()
-	local alt = Color3.fromHSV((h + 0.09) % 1, math.min(1, s * 0.9 + 0.1), math.max(v, 0.75))
+	if s < 0.3 then
+		-- у обычного (серого) снаряжения цвета нет — сцена в фирменном сине-фиолетовом
+		h, s, v = 0.62, 0.7, 1
+		col = Color3.fromHSV(h, s, v)
+	end
+	local alt = Color3.fromHSV((h + 0.1) % 1, math.min(1, s * 0.9 + 0.1), math.max(v, 0.8))
 	for _, a in ipairs(fx.aurora) do
 		U.tween(a.img, t, { ImageColor3 = a.hue and alt or col })
 	end
@@ -703,7 +716,7 @@ local function animateStageBack(t)
 		r.st.Transparency = r.tr + 0.1 * math.sin(t * 1.3 + r.sp)
 	end
 	local pulse = 0.5 + 0.5 * math.sin(t * 1.4)
-	fx.halo.ImageTransparency = 0.42 + 0.12 * pulse
+	fx.halo.ImageTransparency = 0.6 + 0.1 * pulse
 	fx.halo.Size = UDim2.fromOffset(420 + 30 * pulse, 420 + 30 * pulse)
 	-- горизонтальные линии пола: шаг растёт к зрителю, ряд непрерывно едет вниз
 	local n = #fx.hlines
@@ -954,12 +967,13 @@ local function setZoom(k, af)
 	k = math.clamp(k, 1, stage.kMax or ZOOM_MAX)
 	local hv = stage.halfVis or 0
 	local cur = stage.focus or (stage.top + stage.low) / 2
-	if af then
+	if k0 < 1.05 and k > k0 then
+		-- приближение с общего плана — сразу к лицу и груди
+		stage.focusT = stage.top - (stage.top - stage.low) * 0.3
+	elseif af then
+		-- дальше — к точке под курсором
 		local yc = cur + af * 2 * hv
 		stage.focusT = yc - af * 2 * hv * stage.zoom / k
-	elseif k0 < 1.05 and k > k0 then
-		-- первое приближение кнопкой — к лицу и груди
-		stage.focusT = stage.top - (stage.top - stage.low) * 0.3
 	end
 	stage.zoomT = k
 	stage.idle = 0
@@ -1057,14 +1071,22 @@ local function stageStep(dt)
 	if guard then
 		local wp, ws = body.AbsolutePosition + inset, body.AbsoluteSize
 		local x0, y0, x1, y1 = wp.X + 8, wp.Y + 8, wp.X + ws.X - 8, wp.Y + ws.Y - 8
-		local pxPer = cam.ViewportSize.Y / 2 / tanH
 		local fade = 1 - math.exp(-dt * 14)
+		local zoomed = stage.zoom > 1.01
 		for i, p in ipairs(stage.parts) do
-			local r = stage.ext[i]
-			if r then
-				local sp = cam:WorldToViewportPoint(stage.cfs[i].Position)
-				local rp = r / math.max(sp.Z, 1e-3) * pxPer
-				local out = stage.zoom > 1.01 and (sp.X - rp < x0 or sp.X + rp > x1 or sp.Y - rp < y0 or sp.Y + rp > y1)
+			if stage.ext[i] then
+				-- проверяем все 8 углов детали: плоские крылья и длинные клинки не гаснут зря
+				local out = false
+				if zoomed then
+					local cf, hs = stage.cfs[i], p.Size / 2
+					for _, c in ipairs(CORNERS) do
+						local sp = cam:WorldToViewportPoint(cf * (hs * c))
+						if sp.X < x0 or sp.X > x1 or sp.Y < y0 or sp.Y > y1 then
+							out = true
+							break
+						end
+					end
+				end
 				local cur = p.LocalTransparencyModifier
 				local goal = out and 1 or 0
 				if cur ~= goal then
@@ -1905,7 +1927,7 @@ local function buildCharacterPanel(left)
 			table.insert(hole.brackets, b)
 		end
 	end
-	hole.hint = label(hole.frame, { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -6), Size = UDim2.new(1, -10, 0, 14), Text = UIS.TouchEnabled and not UIS.MouseEnabled and "Тяни — повернуть  •  Щипок — приблизить" or "Тяни — повернуть  •  Колёсико — приблизить", Font = Enum.Font.GothamBold, TextSize = 11, TextColor3 = C(200, 215, 230), TextTransparency = 0.2, ZIndex = 6 }, 1)
+	hole.hint = label(hole.frame, { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -6), Size = UDim2.new(1, -10, 0, 14), Text = UIS.TouchEnabled and not UIS.MouseEnabled and "Тяни — вращать  •  Щипок — зум" or "Тяни — вращать  •  Колёсико — зум", Font = Enum.Font.GothamBold, TextSize = 11, TextColor3 = C(200, 215, 230), TextTransparency = 0.2, ZIndex = 6 }, 1)
 	-- вращение персонажа мышью или пальцем
 	hole.frame.InputBegan:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
