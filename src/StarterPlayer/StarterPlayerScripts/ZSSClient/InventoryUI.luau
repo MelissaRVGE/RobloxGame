@@ -779,11 +779,13 @@ local function stageStep(dt)
 		local vpY = math.max(cam.ViewportSize.Y, 1)
 		frac = as.Y / vpY
 		tanH = math.tan(math.rad(cam.FieldOfView) / 2)
-		-- глубина, на которой вся сцена (высота и диаметр вращения) помещается в окошко с полями;
-		-- ближний край модели крупнее из-за перспективы, поэтому запас на радиус
-		local zH = (stage.top - stage.low) / (0.9 * frac * 2 * tanH)
-		local zW = 2 * stage.rad / (0.9 * (as.X / vpY) * 2 * tanH)
-		z = math.max(zH, zW) + stage.rad * 0.5
+		-- глубина, на которой вся сцена помещается в окошко с полями при любом повороте:
+		-- по ширине — касательные к сфере вращения, по высоте — с запасом на ближний край
+		local th = 0.92 * frac * tanH
+		local tw = 0.92 * (as.X / vpY) * tanH
+		local zH = (stage.top - stage.low) / (2 * th) + stage.rad * 0.3
+		local zW = stage.rad * math.sqrt(1 + 1 / (tw * tw))
+		z = math.max(zH, zW)
 		z = math.max(z, 0.1 + stage.rad + 0.01)
 		-- пока окно раскрывается, окошко маленькое — сцену прячем, чтобы она не торчала за краями
 		local base = scaleObj:GetAttribute("BaseScale") or scaleObj.Scale
