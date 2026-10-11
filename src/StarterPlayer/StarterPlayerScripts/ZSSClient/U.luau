@@ -240,6 +240,28 @@ function U.pulseSize(inst, big, normal, tUp, tDown)
 	end)
 end
 
+-- Масштаб без «лесенки»: у Size и Position смещение в пикселях целое, поэтому покадровые
+-- анимации размера идут через UIScale (дробный масштаб рисуется плавно).
+function U.scaleOf(inst)
+	local sc = inst:FindFirstChild("AnimScale")
+	if not sc then
+		sc = Instance.new("UIScale")
+		sc.Name = "AnimScale"
+		sc.Parent = inst
+	end
+	return sc
+end
+
+-- «Пульс» через масштаб: плавно вверх и пружинисто назад
+function U.pulseScale(inst, peak, tUp, tDown)
+	local sc = U.scaleOf(inst)
+	U.tween(sc, tUp or 0.08, { Scale = peak }).Completed:Connect(function(state)
+		if state == Enum.PlaybackState.Completed then
+			U.tween(sc, tDown or 0.3, { Scale = 1 }, Enum.EasingStyle.Back)
+		end
+	end)
+end
+
 -- Плавное появление/скрытие элемента вместе со всем содержимым (текст, картинки, рамки).
 -- Исходная прозрачность запоминается при первом вызове, к ней элемент и возвращается.
 local fadeBase = setmetatable({}, weakK)

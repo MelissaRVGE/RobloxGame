@@ -317,9 +317,11 @@ local function buildHUD()
 		-- искорки-звёздочки вокруг иконки
 		local stars = {}
 		for k = 1, 3 do
-			stars[k] = { img = new("ImageLabel", { BackgroundTransparency = 1, Image = Icons.twinkle, ImageColor3 = color:Lerp(C(255, 255, 255), 0.6), AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.fromOffset(0, 0), ZIndex = 7, Parent = chip }), start = -10, dur = 1 }
+			local img = new("ImageLabel", { BackgroundTransparency = 1, Image = Icons.twinkle, ImageColor3 = color:Lerp(C(255, 255, 255), 0.6), AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.fromOffset(18, 18), ZIndex = 7, Parent = chip })
+			stars[k] = { img = img, sc = U.scaleOf(img), start = -10, dur = 1 }
+			stars[k].sc.Scale = 0
 		end
-		local c = { chip = chip, glow = glow, glintGrad = glintGrad, sheenGrad = sheenGrad, stGrad = stGrad, valueGrad = valueGrad, stars = stars, phase = #hud.chips * 1.7, icon = icon }
+		local c = { chip = chip, glow = glow, glowScale = U.scaleOf(glow), glintGrad = glintGrad, sheenGrad = sheenGrad, stGrad = stGrad, valueGrad = valueGrad, stars = stars, phase = #hud.chips * 1.7, icon = icon }
 		table.insert(hud.chips, c)
 		return value, c
 	end
@@ -452,7 +454,10 @@ local function buildHUD()
 			ZIndex = 3,
 			Parent = b,
 		})
-		local ic = iconImg(b, it.icon, UDim2.fromOffset(46, 46), UDim2.new(0.5, -23, 0, 7), 4)
+		local ic = iconImg(b, it.icon, UDim2.fromOffset(46, 46), UDim2.new(0.5, 0, 30 / BH, 0), 4)
+		ic.AnchorPoint = Vector2.new(0.5, 0.5)
+		local icScale = U.scaleOf(ic)
+		local glowScale = U.scaleOf(glow)
 		-- блик, пробегающий по кнопке
 		local sheen = new("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(-0.6, 0, 0.5, 0), Size = UDim2.new(0, 16, 2, 0), Rotation = 22, BackgroundColor3 = C(255, 255, 255), BackgroundTransparency = 0.7, BorderSizePixel = 0, ZIndex = 6, Parent = b })
 		-- подпись-плашка
@@ -502,14 +507,18 @@ local function buildHUD()
 		b.MouseEnter:Connect(function()
 			fx.hover = true
 			U.tween(b, 0.15, { Position = UDim2.fromOffset(0, -2) }, Enum.EasingStyle.Back)
-			U.tween(ic, 0.18, { Size = UDim2.fromOffset(52, 52), Rotation = -6 }, Enum.EasingStyle.Back)
-			U.tween(glow, 0.18, { ImageTransparency = 0.15, Size = UDim2.fromOffset(92, 92) })
+			U.tween(icScale, 0.2, { Scale = 52 / 46 }, Enum.EasingStyle.Back)
+			U.tween(ic, 0.2, { Rotation = -6 }, Enum.EasingStyle.Back)
+			U.tween(glow, 0.2, { ImageTransparency = 0.15 })
+			U.tween(glowScale, 0.2, { Scale = 92 / 78 })
 		end)
 		b.MouseLeave:Connect(function()
 			fx.hover = false
 			U.tween(b, 0.15, { Position = UDim2.fromOffset(0, 0) })
-			U.tween(ic, 0.18, { Size = UDim2.fromOffset(46, 46), Rotation = 0 })
-			U.tween(glow, 0.18, { ImageTransparency = 0.45, Size = UDim2.fromOffset(78, 78) })
+			U.tween(icScale, 0.2, { Scale = 1 })
+			U.tween(ic, 0.2, { Rotation = 0 })
+			U.tween(glow, 0.2, { ImageTransparency = 0.45 })
+			U.tween(glowScale, 0.2, { Scale = 1 })
 		end)
 		-- нажатие: кнопка вдавливается в торец, иконка подпрыгивает, расходятся кольцо и искры
 		b.Activated:Connect(function()
@@ -520,9 +529,11 @@ local function buildHUD()
 			end)
 			fx.jump = os.clock()
 			fx.nextSheen = 0
-			U.tween(glow, 0.07, { ImageTransparency = 0, Size = UDim2.fromOffset(40, 40) }).Completed:Connect(function(state)
+			U.tween(glow, 0.07, { ImageTransparency = 0 })
+			U.tween(glowScale, 0.07, { Scale = 40 / 78 }).Completed:Connect(function(state)
 				if state == Enum.PlaybackState.Completed then
-					U.tween(glow, 0.45, { Size = UDim2.fromOffset(fx.hover and 92 or 78, fx.hover and 92 or 78), ImageTransparency = fx.hover and 0.15 or 0.45 })
+					U.tween(glowScale, 0.45, { Scale = fx.hover and 92 / 78 or 1 })
+					U.tween(glow, 0.45, { ImageTransparency = fx.hover and 0.15 or 0.45 })
 				end
 			end)
 			local ring = new("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0, 30), Size = UDim2.fromOffset(26, 26), BackgroundTransparency = 1, ZIndex = 6, Parent = b }, { U.round() })
@@ -559,8 +570,8 @@ local function buildHUD()
 					f.jump = nil
 				end
 			end
-			local s = f.ic.Size.X.Offset
-			f.ic.Position = UDim2.new(0.5, -s / 2, 0, 30 - s / 2 + y)
+			-- сдвиг задаём долей высоты кнопки: дробные значения дают плавное движение без «ступенек» по пикселю
+			f.ic.Position = UDim2.new(0.5, 0, (30 + y) / BH, 0)
 			f.stGrad.Rotation = (t * 60 + f.ph * 40) % 360
 			if t >= f.nextSheen then
 				f.nextSheen = t + 4 + math.random() * 3
@@ -590,7 +601,7 @@ local function buildHUD()
 		ic.Size = UDim2.fromOffset(32, 32)
 		local glow = new("ImageLabel", { BackgroundTransparency = 1, Image = Icons.glow, ImageColor3 = C(255, 60, 70), ImageTransparency = 0.35, AnchorPoint = Vector2.new(0.5, 0.5), Position = ic.Position, Size = UDim2.fromOffset(60, 60), ZIndex = 4, Parent = hud.hpBar.holder })
 		local ring = new("ImageLabel", { BackgroundTransparency = 1, Image = Icons.health, ImageColor3 = C(255, 255, 255), ImageTransparency = 1, AnchorPoint = Vector2.new(0.5, 0.5), Position = ic.Position, Size = UDim2.fromOffset(32, 32), ZIndex = 4, Parent = hud.hpBar.holder })
-		hud.heart = { icon = ic, glow = glow, ring = ring, hit = 0, phase = 0 }
+		hud.heart = { icon = ic, glow = glow, ring = ring, hit = 0, phase = 0, iconScale = U.scaleOf(ic), glowScale = U.scaleOf(glow), ringScale = U.scaleOf(ring) }
 		RunService.RenderStepped:Connect(function(dt)
 			local h = hud.heart
 			local low = hud.hpLow
@@ -599,12 +610,13 @@ local function buildHUD()
 			-- двойной удар «тук-тук»
 			local beat = math.max(0, 1 - math.abs(ph - 0.08) / 0.08) + 0.6 * math.max(0, 1 - math.abs(ph - 0.28) / 0.08)
 			local s = 32 * (1 + beat * (low and 0.22 or 0.12)) + h.hit * 8
-			h.icon.Size = UDim2.fromOffset(s, s)
-			h.glow.Size = UDim2.fromOffset(56 + beat * 18 + h.hit * 16, 56 + beat * 18 + h.hit * 16)
+			-- размер через UIScale: дробный масштаб, удары сердца без пиксельной «лесенки»
+			h.iconScale.Scale = s / 32
+			h.glowScale.Scale = (56 + beat * 18 + h.hit * 16) / 60
 			h.glow.ImageTransparency = 0.55 - beat * 0.3 - h.hit * 0.3
 			-- кольцо-импульс расходится от сердца на каждом ударе
 			local rp = math.clamp(ph / 0.45, 0, 1)
-			h.ring.Size = UDim2.fromOffset(32 + rp * 26, 32 + rp * 26)
+			h.ringScale.Scale = (32 + rp * 26) / 32
 			h.ring.ImageTransparency = 0.55 + rp * 0.45
 			h.ring.ImageColor3 = low and C(255, 120, 60) or C(255, 170, 180)
 			if h.hit > 0 then
@@ -881,7 +893,7 @@ local function updateHUD(d)
 		U.tween(e.val, 0.3, { TextTransparency = has and 0 or 0.5 })
 		U.tween(e.stroke, 0.3, { Transparency = has and 0.1 or 0.6 })
 		if n > e.last then
-			U.pulseSize(e.icon, UDim2.fromOffset(36, 36), UDim2.fromOffset(28, 28))
+			U.pulseScale(e.icon, 36 / 28)
 		end
 		e.last = n
 	end
@@ -1228,6 +1240,38 @@ local function setModelVp(vp, def, yaw, pitch)
 	local m = Builder.Build(def, 1)
 	Builder.SetupViewport(vp, m, yaw or math.rad(25), pitch or math.rad(16), 1.0)
 	return m
+end
+
+-- Живая модель в окне: вращается вокруг центра габаритов (у части дронов точка привязки смещена,
+-- и вокруг неё дрон «гулял» по кругу), а винты и орбитальные шары крутятся, как у дронов в мире.
+local function spinBase(m)
+	local box = m:GetBoundingBox()
+	local center = CFrame.new(box.Position)
+	local core = m.PrimaryPart and m.PrimaryPart.CFrame or m:GetPivot()
+	local entries = {}
+	for _, p in ipairs(m:GetDescendants()) do
+		if p:IsA("BasePart") then
+			table.insert(entries, { part = p, offset = core:ToObjectSpace(p.CFrame), spin = p:GetAttribute("Spin"), axis = p:GetAttribute("SpinAxis"), orbit = p:GetAttribute("Orbit") })
+		end
+	end
+	return { center = center, coreRel = center:ToObjectSpace(core), entries = entries }
+end
+
+local function spinModel(base, cf, t)
+	local core = base.center * cf * base.coreRel
+	for _, e in ipairs(base.entries) do
+		local pcf
+		if e.orbit then
+			pcf = core * CFrame.Angles(0, t * e.orbit, 0) * e.offset
+		else
+			pcf = core * e.offset
+			if e.spin then
+				local a = t * e.spin
+				pcf = pcf * (e.axis == "X" and CFrame.Angles(a, 0, 0) or CFrame.Angles(0, a, 0))
+			end
+		end
+		e.part.CFrame = pcf
+	end
 end
 
 local function ownedOf(id)
@@ -1747,7 +1791,7 @@ function UI.SelectDrone(id)
 	local hidden = owned == 0 and def.rarity == "Secret"
 	if inv.dmodelId ~= id then
 		inv.dmodel = setModelVp(inv.dvp, def, 0, math.rad(12))
-		inv.dmodelBase = inv.dmodel:GetPivot()
+		inv.dmodelBase = spinBase(inv.dmodel)
 		inv.dmodelId = id
 		-- новая модель проявляется, а не появляется рывком
 		inv.dvp.ImageTransparency = 1
@@ -2283,7 +2327,7 @@ local function buildGacha()
 			end
 		end
 		gacha.showModel = setModelVp(gacha.showVp, def, 0, math.rad(12))
-		gacha.showBase = gacha.showModel:GetPivot()
+		gacha.showBase = spinBase(gacha.showModel)
 		local r = Config.Rarities[def.rarity]
 		local hidden = def.rarity == "Secret" and not (State.data and (State.data.owned[def.id] or 0) > 0)
 		gacha.showVp.ImageColor3 = hidden and C(0, 0, 0) or C(255, 255, 255)
@@ -2702,7 +2746,7 @@ function UI.Init()
 				local ph = t + c.phase
 				local k = 0.5 + 0.5 * math.sin(ph * 2.2)
 				c.glow.ImageTransparency = 0.15 + 0.4 * (1 - k)
-				c.glow.Size = UDim2.fromOffset(84 + 26 * k, 84 + 26 * k)
+				c.glowScale.Scale = (84 + 26 * k) / 96
 				c.glow.Rotation = (ph * 20) % 360
 				c.icon.Rotation = math.sin(ph * 1.3) * 4
 				-- блик проходит по иконке раз в ~2.6 с
@@ -2720,11 +2764,11 @@ function UI.Init()
 							st.img.Position = UDim2.fromOffset(math.random(8, 50), math.random(6, 48))
 							st.size = math.random(10, 18)
 						else
-							st.img.Size = UDim2.fromOffset(0, 0)
+							st.sc.Scale = 0
 						end
 					else
 						local sz = (st.size or 12) * math.sin(a * math.pi)
-						st.img.Size = UDim2.fromOffset(sz, sz)
+						st.sc.Scale = sz / 18
 						st.img.Rotation = a * 90
 					end
 				end
@@ -2740,13 +2784,16 @@ function UI.Init()
 		hp.Color = hp.Color:Lerp(hud.hpLow and Color3.new(1, 0.25 + 0.25 * math.sin(t * 8), 0.2) or C(70, 80, 70), math.min(1, dt * 12))
 		-- вращение моделей в окнах
 		if inv.win.Visible and inv.dmodel and inv.dmodel.Parent then
-			inv.dmodel:PivotTo(inv.dmodelBase * CFrame.Angles(0, t * 0.8, 0))
+			spinModel(inv.dmodelBase, CFrame.Angles(0, t * 0.8, 0), t)
 			if inv.drarityRainbow then
 				inv.drarity.TextColor3 = Config.Rainbow(t)
 			end
 		end
 		if gacha.win.Visible and gacha.showModel and gacha.showModel.Parent then
-			gacha.showModel:PivotTo(gacha.showBase * CFrame.new(0, math.sin(t * 1.6) * 0.15, 0) * CFrame.Angles(0, t * 0.9, 0))
+			-- мягкое парение: плавный подъём/опускание и лёгкий наклон, вращение строго на месте
+			local bob = math.sin(t * 1.4) * 0.12
+			local tilt = CFrame.Angles(math.sin(t * 1.1) * 0.05, 0, math.sin(t * 0.9 + 1) * 0.05)
+			spinModel(gacha.showBase, CFrame.new(0, bob, 0) * tilt * CFrame.Angles(0, t * 0.9, 0), t)
 			if gacha.showRainbow then
 				gacha.showName.TextColor3 = Config.Rainbow(t)
 			end
