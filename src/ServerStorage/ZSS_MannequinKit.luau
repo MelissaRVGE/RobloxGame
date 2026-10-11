@@ -105,12 +105,14 @@ function K.Dress(m, gear)
 	end
 	if gear.gloves then
 		for _, h in ipairs({ m.LeftHand, m.RightHand }) do
-			put(IB.Glove(Shop.ById[gear.gloves], h.Size), h)
+			local arm = m:FindFirstChild((h.Name:gsub("Hand", "LowerArm")))
+			put(IB.Glove(Shop.ById[gear.gloves], h.Size, arm and arm.Size.Y * 0.8), h)
 		end
 	end
 	if gear.boots then
 		for _, f in ipairs({ m.LeftFoot, m.RightFoot }) do
-			put(IB.Boot(Shop.ById[gear.boots], f.Size), f)
+			local leg = m:FindFirstChild((f.Name:gsub("Foot", "LowerLeg")))
+			put(IB.Boot(Shop.ById[gear.boots], f.Size, leg and leg.Size.Y * 0.6), f)
 		end
 	end
 	if gear.weapon then

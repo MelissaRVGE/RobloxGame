@@ -280,7 +280,10 @@ function Equipment.Apply(player)
 		for _, hand in ipairs({ bp.lhand, bp.rhand }) do
 			if hand then
 				local box = bp.r15 and hand.Size or Vector3.new(1, 0.6, 1)
-				attach(folder, IB.Glove(Shop.ById[g.gloves], box), hand, bp.r15 and CFrame.new() or CFrame.new(0, -0.7, 0))
+				-- перчатка закрывает кисть и большую часть предплечья
+				local arm = bp.r15 and char:FindFirstChild((hand.Name:gsub("Hand", "LowerArm")))
+				local reach = arm and arm.Size.Y * 0.8 or 0.7
+				attach(folder, IB.Glove(Shop.ById[g.gloves], box, reach), hand, bp.r15 and CFrame.new() or CFrame.new(0, -0.7, 0))
 			end
 		end
 	end
@@ -288,7 +291,10 @@ function Equipment.Apply(player)
 		for _, foot in ipairs({ bp.lfoot, bp.rfoot }) do
 			if foot then
 				local box = bp.r15 and foot.Size or Vector3.new(1, 0.6, 1.1)
-				attach(folder, IB.Boot(Shop.ById[g.boots], box), foot, bp.r15 and CFrame.new() or CFrame.new(0, -0.72, -0.05))
+				-- ботинок закрывает стопу и нижнюю часть голени
+				local leg = bp.r15 and char:FindFirstChild((foot.Name:gsub("Foot", "LowerLeg")))
+				local reach = leg and leg.Size.Y * 0.6 or 0.5
+				attach(folder, IB.Boot(Shop.ById[g.boots], box, reach), foot, bp.r15 and CFrame.new() or CFrame.new(0, -0.72, -0.05))
 			end
 		end
 	end

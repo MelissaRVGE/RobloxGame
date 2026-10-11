@@ -832,6 +832,25 @@ end
 -- Используются собственные оси меша: грудь смотрит в -Z, Yaw (градусы) доворачивает меш, если он сгенерирован боком.
 -- SX / SY / SZ — размер относительно торса по осям (меш растягивается, чтобы обернуть торс),
 -- Up — сдвиг вверх (доля высоты торса), Back — сдвиг назад (доля глубины торса).
+-- поддоспешник под 3D-бронёй: облегает торс, чтобы в просветах брони была ткань/кольчуга, а не рубашка игрока
+local ARMOR_UNDER = {
+	{ C(150, 118, 78), "ZSS_I_Burlap" },
+	{ C(92, 58, 36), "ZSS_I_Leather" },
+	{ C(70, 76, 56), "ZSS_I_Kevlar" },
+	{ C(92, 98, 72), "ZSS_D_Camo" },
+	{ C(46, 46, 52), "ZSS_D_Carbon" },
+	{ C(112, 118, 128), "ZSSG_W_Steel" },
+	{ C(110, 26, 24), "ZSSG_W_DragonScale" },
+	{ C(84, 58, 40), "ZSS_I_Leather" },
+	{ C(214, 184, 46), "ZSSG_W_Hazmat" },
+	{ C(64, 84, 126), "ZSSG_W_Steel" },
+	{ C(44, 34, 32), "ZSSG_W_Obsidian" },
+	{ C(28, 22, 38), "ZSSG_W_Obsidian" },
+	{ C(40, 46, 62), "ZSSG_W_Circuit" },
+	{ C(128, 20, 30), "ZSSG_B_Quilted" },
+	{ C(220, 222, 232), "ZSS_D_SciFi" },
+}
+
 local function armorMesh(m, t, box)
 	local z = game:GetService("ReplicatedStorage"):FindFirstChild("ZSS")
 	local lib = z and z:FindFirstChild("ArmorMeshes")
@@ -845,6 +864,14 @@ local function armorMesh(m, t, box)
 	local size = Vector3.new(w * (tpl:GetAttribute("SX") or 1.5), h * (tpl:GetAttribute("SY") or 1.2), d * (tpl:GetAttribute("SZ") or 2.3))
 	if math.abs(math.cos(yaw)) < 0.5 then
 		size = Vector3.new(size.Z, size.Y, size.X)
+	end
+	local under = ARMOR_UNDER[t]
+	if under and tpl:GetAttribute("Under") ~= false then
+		P(m, { name = "Under", size = Vector3.new(w * 1.04, h * 0.98, d * 1.08), color = under[1], v = under[2] })
+		-- у R15 верхний торс ниже ширины; пояс закрывает LowerTorso, чтобы броня не обрывалась над поясом
+		if h < w * 0.9 then
+			P(m, { name = "Belt", size = Vector3.new(w * 1.06, h * 0.3, d * 1.12), cf = CFrame.new(0, -h * 0.62, 0), color = under[1], v = under[2] })
+		end
 	end
 	local p = src:Clone()
 	p.Size = size
@@ -1010,18 +1037,29 @@ local function helmetMesh(m, t, hs)
 	end
 	local c = tpl:Clone()
 	c:ScaleTo(c:GetScale() * hs * (tpl:GetAttribute("Fit") or 1.4) / 2)
-	c:PivotTo(CFrame.new(0, hs * (tpl:GetAttribute("Up") or 0.15), 0))
+	-- у сгенерированного меша лицевая сторона смотрит по его собственной оси -Z, а pivot шаблона
+	-- бывает повёрнут, поэтому одиночную деталь ставим по её локальным осям (+ поправка Yaw)
+	local at = CFrame.new(0, hs * (tpl:GetAttribute("Up") or 0.15), 0) * CFrame.Angles(0, math.rad(tpl:GetAttribute("Yaw") or 0), 0)
+	local parts = {}
 	for _, p in ipairs(c:GetDescendants()) do
 		if p:IsA("BasePart") then
-			p.Anchored = true
-			p.CanCollide = false
-			p.CanQuery = false
-			p.CanTouch = false
-			p.Massless = true
-			p.CastShadow = false
-			p.Name = "Shell"
-			p.Parent = m
+			table.insert(parts, p)
 		end
+	end
+	if #parts == 1 then
+		parts[1].CFrame = at
+	else
+		c:PivotTo(at)
+	end
+	for _, p in ipairs(parts) do
+		p.Anchored = true
+		p.CanCollide = false
+		p.CanQuery = false
+		p.CanTouch = false
+		p.Massless = true
+		p.CastShadow = false
+		p.Name = "Shell"
+		p.Parent = m
 	end
 	c:Destroy()
 	-- закрытый шлем: голова прячется, внутри тёмная подложка (чтобы сквозь прорези не было видно квадратной головы)
@@ -1128,8 +1166,67 @@ local function gloveHigh(m, t, box)
 	end
 end
 
-function IB.Glove(item, box)
+-- 3D-перчатки и ботинки (ReplicatedStorage.ZSS.GloveMeshes/glovesN, BootMeshes/bootsN).
+-- Меш натягивается на кисть (стопу) и часть предплечья (голени): box — кисть или стопа,
+-- reach — сколько захватить выше неё. Лицевая сторона меша смотрит по его собственной оси -Z;
+-- атрибуты шаблона SX/SY/SZ, Up, Fwd, Yaw — поправки размера, сдвига и поворота (по умолчанию — def).
+-- Блочная рука толще меша, поэтому под ним рукав/голенище в цвет снаряжения (sleeve = { color, variant }).
+local function limbMesh(m, libName, key, box, reach, glow, sleeve, def)
+	local z = game:GetService("ReplicatedStorage"):FindFirstChild("ZSS")
+	local lib = z and z:FindFirstChild(libName)
+	local tpl = lib and lib:FindFirstChild(key)
+	local src = tpl and tpl:FindFirstChildWhichIsA("BasePart", true)
+	if not src then
+		return false
+	end
+	local hgt = box.Y + reach
+	if sleeve and tpl:GetAttribute("Sleeve") ~= false then
+		P(m, { name = "Sleeve", size = Vector3.new(box.X * 1.06, hgt, box.Z * 1.06), cf = CFrame.new(0, (hgt - box.Y) / 2, 0), color = sleeve[1], v = sleeve[2] })
+	end
+	local yaw = math.rad(tpl:GetAttribute("Yaw") or 0)
+	local size = Vector3.new(box.X * (tpl:GetAttribute("SX") or def.X), hgt * (tpl:GetAttribute("SY") or def.Y), box.Z * (tpl:GetAttribute("SZ") or def.Z))
+	if math.abs(math.cos(yaw)) < 0.5 then
+		size = Vector3.new(size.Z, size.Y, size.X)
+	end
+	local p = src:Clone()
+	p.Size = size
+	p.CFrame = CFrame.new(0, (hgt - box.Y) / 2 + hgt * (tpl:GetAttribute("Up") or 0), -box.Z * (tpl:GetAttribute("Fwd") or 0)) * CFrame.Angles(0, yaw, 0)
+	p.Anchored = true
+	p.CanCollide = false
+	p.CanQuery = false
+	p.CanTouch = false
+	p.Massless = true
+	p.CastShadow = false
+	p.Name = "Shell"
+	for _, c in ipairs(p:GetChildren()) do
+		c:Destroy()
+	end
+	p.Parent = m
+	if glow then
+		local l = Instance.new("PointLight")
+		l.Color = glow
+		l.Range = 4
+		l.Brightness = 0.8
+		l.Parent = p
+	end
+	return true
+end
+
+-- перчатка шире руки, но не настолько, чтобы влезать в торс; ботинки не должны задевать друг друга
+local GLOVE_FIT = Vector3.new(1.45, 1.08, 1.7)
+local BOOT_FIT = Vector3.new(1.15, 1.04, 1.5)
+
+function IB.Glove(item, box, reach)
 	box = box or Vector3.new(0.6, 0.5, 0.6)
+	do
+		local m = newModel(item.id)
+		root(m)
+		local st = HI[item.tier] or GLOVES[item.tier]
+		if limbMesh(m, "GloveMeshes", item.id, box, reach or box.Y * 1.6, st and st.glow, st and { st.main, st.v }, GLOVE_FIT) then
+			return m
+		end
+		m:Destroy()
+	end
 	if item.tier >= 6 and HI[item.tier] then
 		local m = newModel(item.id)
 		root(m)
@@ -1190,8 +1287,17 @@ local function bootHigh(m, t, box)
 	end
 end
 
-function IB.Boot(item, box)
+function IB.Boot(item, box, reach)
 	box = box or Vector3.new(0.6, 0.4, 0.8)
+	do
+		local m = newModel(item.id)
+		root(m)
+		local st = HI[item.tier] or BOOTS[item.tier]
+		if limbMesh(m, "BootMeshes", item.id, box, reach or box.Y * 1.5, st and st.glow, st and { st.main, st.v }, BOOT_FIT) then
+			return m
+		end
+		m:Destroy()
+	end
 	if item.tier >= 6 and HI[item.tier] then
 		local m = newModel(item.id)
 		root(m)
