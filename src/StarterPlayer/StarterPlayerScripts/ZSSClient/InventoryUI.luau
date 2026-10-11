@@ -609,7 +609,8 @@ local function rebuildStage()
 		return
 	end
 	for _, dsc in ipairs(m:GetDescendants()) do
-		if dsc:IsA("BaseScript") or dsc:IsA("Sound") or dsc:IsA("Tool") or dsc:IsA("ForceField") or dsc:IsA("ProximityPrompt") or dsc:IsA("BillboardGui") or dsc.ClassName == "AudioEmitter" or dsc.ClassName == "AudioListener" then
+		if dsc:IsA("BaseScript") or dsc:IsA("Sound") or dsc:IsA("Tool") or dsc:IsA("ForceField") or dsc:IsA("ProximityPrompt") or dsc:IsA("BillboardGui") or dsc.ClassName == "AudioEmitter" or dsc.ClassName == "AudioListener"
+			or dsc:IsA("FaceControls") or dsc:IsA("Animator") then
 			dsc:Destroy()
 		end
 	end
@@ -702,6 +703,10 @@ local function rebuildStage()
 			p.Offset *= s
 		elseif p:IsA("Attachment") then
 			p.Position *= s
+			if p:IsA("Bone") then
+				-- мимика головы двигает кости в полных studs; на крошечной копии это рвёт лицо
+				p.Transform = CFrame.identity
+			end
 		end
 	end
 	m.WorldPivot = pivot
