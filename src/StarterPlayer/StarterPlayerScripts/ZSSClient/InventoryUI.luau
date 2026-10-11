@@ -29,8 +29,10 @@ local win, scaleObj, body, fitScale
 
 -- ===== РАЗМЕТКА =====
 local W, H = 1100, 580
-local LEFT = { x = 14, y = 72, w = 400, h = 494 }
-local MID = { x = 424, y = 72, w = 300, h = 494 }
+-- персонаж — посередине окна: окошко у центра экрана, и перспектива камеры не растягивает модель
+-- (у края широкого экрана близкий объект виден сбоку и заметно расплывается вширь)
+local MID = { x = 14, y = 72, w = 300, h = 494 }
+local LEFT = { x = 324, y = 72, w = 400, h = 494 }
 local RIGHT = { x = 734, y = 72, w = 352, h = 494 }
 local SLOT = 76
 -- окошко, сквозь которое виден 3D-персонаж (в координатах левой панели)
@@ -719,6 +721,19 @@ local function rebuildStage()
 		end
 	end
 	stage.model = m
+	-- габариты сцены со всем снаряжением, оружием и крыльями: по ним подбирается расстояние до камеры,
+	-- чтобы при любом повороте ничего не выходило за рамку окошка
+	local top, low, rad = 0, 0, STAGE_H * 0.33
+	for i, p in ipairs(parts) do
+		local off = entries[i]
+		local ext = p.Size.Magnitude / 2
+		if p.Transparency < 1 then
+			top = math.max(top, off.Y + ext)
+			low = math.min(low, off.Y - ext)
+			rad = math.max(rad, Vector2.new(off.X, off.Z).Magnitude + ext)
+		end
+	end
+	stage.top, stage.low, stage.rad = top, low, rad
 	stage.parts = parts
 	stage.entries = entries
 	stage.cfs = table.create(#parts)
@@ -761,12 +776,20 @@ local function stageStep(dt)
 	local frac, tanH, z
 	local show = stage.model ~= nil and win and win.Visible and cam ~= nil and as.Y > 4 and as.X > 4
 	if show then
-		frac = as.Y / math.max(cam.ViewportSize.Y, 1)
+		local vpY = math.max(cam.ViewportSize.Y, 1)
+		frac = as.Y / vpY
 		tanH = math.tan(math.rad(cam.FieldOfView) / 2)
-		-- тело занимает ~56% высоты окошка: остаётся место под шлем с рогами, крылья, наплечники и подставку
-		z = STAGE_H / (0.56 * frac * 2 * tanH)
-		show = z <= STAGE_H * 4
-		z = math.max(z, 0.1 + STAGE_H * 0.5)
+		-- глубина, на которой вся сцена помещается в окошко с полями при любом повороте:
+		-- по ширине — касательные к сфере вращения, по высоте — с запасом на ближний край
+		local th = 0.92 * frac * tanH
+		local tw = 0.92 * (as.X / vpY) * tanH
+		local zH = (stage.top - stage.low) / (2 * th) + stage.rad * 0.3
+		local zW = stage.rad * math.sqrt(1 + 1 / (tw * tw))
+		z = math.max(zH, zW)
+		z = math.max(z, 0.1 + stage.rad + 0.01)
+		-- пока окно раскрывается, окошко маленькое — сцену прячем, чтобы она не торчала за краями
+		local base = scaleObj:GetAttribute("BaseScale") or scaleObj.Scale
+		show = as.Y >= HOLE.h * base * fitScale.Scale * 0.6
 	end
 	if show ~= stage.shown then
 		stage.shown = show
@@ -800,12 +823,13 @@ local function stageStep(dt)
 	local function at(depth)
 		return camCF.Position + ray.Direction * (depth / ray.Direction:Dot(look))
 	end
-	local rot = camCF.Rotation * CFrame.Angles(0, math.pi, 0)
 	local center = at(z)
 	local up = camCF.UpVector
+	-- сцена смотрит прямо на камеру (вдоль луча через окошко), а не параллельно экрану
+	local rot = CFrame.lookAt(Vector3.zero, camCF.Position - center, up)
 	local bob = math.sin(t * 1.6) * STAGE_H * 0.006
 	-- центр персонажа — в центре окошка; поворот вокруг вертикальной оси через ступни
-	local feet = CFrame.new(center - up * (STAGE_H * 0.52) + up * bob) * rot * CFrame.Angles(-STAGE_PITCH, 0, 0) * CFrame.Angles(0, stage.yaw, 0)
+	local feet = CFrame.new(center - up * ((stage.top + stage.low) / 2) + up * bob) * rot * CFrame.Angles(-STAGE_PITCH, 0, 0) * CFrame.Angles(0, stage.yaw, 0)
 	for i, off in ipairs(stage.entries) do
 		stage.cfs[i] = feet * off
 	end
@@ -814,7 +838,7 @@ local function stageStep(dt)
 		stage.ring.Transparency = 0.15 + 0.2 * (0.5 + 0.5 * math.sin(t * 2.4))
 	end
 	-- задник сразу за персонажем
-	local zb = z + STAGE_H * 0.55
+	local zb = z + stage.rad + STAGE_H * 0.08
 	local hb = frac * 2 * tanH * zb * 1.1
 	stage.back.Size = Vector3.new(hb * as.X / as.Y, hb, 0.02)
 	stage.back.CFrame = CFrame.new(at(zb)) * rot
