@@ -1997,17 +1997,17 @@ local function stageSetModel(def, hidden, color)
 			Parent = st.back,
 		})
 		new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = C(24, 16, 36), BorderSizePixel = 0, Parent = sg })
-		-- мягкое круглое свечение цвета редкости: стопка полупрозрачных кругов
+		-- мягкое приглушённое свечение цвета редкости: стопка почти прозрачных кругов
 		st.glow = {}
-		for k = 1, 16 do
-			local d = 110 + k * 18
+		for k = 1, 10 do
+			local d = 120 + k * 26
 			table.insert(st.glow, new("Frame", {
 				AnchorPoint = Vector2.new(0.5, 0.5),
 				Position = UDim2.fromScale(0.5, 0.5),
 				Size = UDim2.fromOffset(d, d),
-				BackgroundTransparency = 0.93,
+				BackgroundTransparency = 0.965,
 				BorderSizePixel = 0,
-				ZIndex = 18 - k,
+				ZIndex = 12 - k,
 				Parent = sg,
 			}, { U.round() }))
 		end
@@ -2015,7 +2015,7 @@ local function stageSetModel(def, hidden, color)
 		st.light = new("PointLight", { Brightness = 0.35, Range = 4, Shadows = false, Parent = st.lightAtt })
 	end
 	for _, g in ipairs(st.glow) do
-		g.BackgroundColor3 = color
+		g.BackgroundColor3 = color:Lerp(C(0, 0, 0), 0.3)
 	end
 	local m = Builder.Build(def, 1)
 	m:PivotTo(CFrame.new())
