@@ -82,8 +82,8 @@ function Hives.Refresh(i)
 	end
 	local owner = owners[i]
 	local p = owner and Data.Get(owner)
-	-- видно столько гнёзд, сколько куплено (у свободной стойки — 3 потухших)
-	local slots = p and (p.dockSlots or Config.Hive.startCells) or Config.Hive.startCells
+	-- видно столько гнёзд, сколько куплено; у свободной стойки гнёзд нет — они появляются, когда игрок её займёт
+	local slots = owner and (p and p.dockSlots or Config.Hive.startCells) or 0
 	local docked = owner and Drones.DockedCells(owner) or {}
 	local folder = model:FindFirstChild("Slots")
 	if not folder then
