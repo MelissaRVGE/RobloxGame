@@ -15,6 +15,7 @@ local UI = require(script.UI)
 local PlayerAnim = require(script.PlayerAnim)
 local DayNight = require(script.DayNight)
 local TierGates = require(script.TierGates)
+local FieldTilesFX = require(script.FieldTilesFX)
 
 FX.Init(Renderer)
 Renderer.Init(FX)
@@ -25,6 +26,7 @@ FX.PlayerAnim = PlayerAnim
 DayNight.Init()
 UI.Init()
 TierGates.Init(State, UI)
+FieldTilesFX.Init()
 
 Remotes.DataSync.OnClientEvent:Connect(State.Set)
 task.spawn(function()

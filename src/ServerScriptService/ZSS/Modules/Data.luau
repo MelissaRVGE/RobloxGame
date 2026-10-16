@@ -209,21 +209,59 @@ function Data.AddItem(player, id, n)
 	return true
 end
 
--- списать n ресурсов из рюкзака (сначала простые), вернуть сколько списано
+-- списать n ресурсов из рюкзака — со всех видов одновременно, пропорционально их доле.
+-- Возвращает, сколько списано всего, и таблицу {resId = сколько}.
 function Data.TakeScrap(p, n)
 	n = math.min(math.floor(n), p.scrap)
-	local left = n
 	p.res = p.res or {}
+	local taken = {}
+	if n <= 0 then
+		return 0, taken
+	end
+	local total = 0
 	for _, r in ipairs(Config.Resources) do
-		local have = p.res[r.id] or 0
-		if have > 0 and left > 0 then
-			local take = math.min(have, left)
-			p.res[r.id] = have - take > 0 and have - take or nil
-			left -= take
+		total += p.res[r.id] or 0
+	end
+	local left = n
+	if total > 0 then
+		-- целая часть доли каждому виду, остаток — по самым большим дробным частям
+		local fr = {}
+		for _, r in ipairs(Config.Resources) do
+			local have = p.res[r.id] or 0
+			if have > 0 then
+				local exact = n * have / total
+				local whole = math.min(have, math.floor(exact))
+				taken[r.id] = whole
+				left -= whole
+				table.insert(fr, { id = r.id, f = exact - whole, have = have })
+			end
+		end
+		table.sort(fr, function(a, b)
+			return a.f > b.f
+		end)
+		while left > 0 do
+			local moved = false
+			for _, e in ipairs(fr) do
+				if left > 0 and taken[e.id] < e.have then
+					taken[e.id] += 1
+					left -= 1
+					moved = true
+				end
+			end
+			if not moved then
+				break
+			end
+		end
+		for id, k in pairs(taken) do
+			local rest = (p.res[id] or 0) - k
+			p.res[id] = rest > 0 and rest or nil
+			if k <= 0 then
+				taken[id] = nil
+			end
 		end
 	end
 	p.scrap -= n
-	return n
+	return n, taken
 end
 
 function Data.AddGems(player, amount)
