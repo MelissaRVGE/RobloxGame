@@ -230,8 +230,47 @@ local function syncMapReqs()
 	end
 end
 
+-- ===== ГРАНИЦЫ КАРТЫ =====
+-- невидимые стены по подножию гор вокруг всей карты: на склоны и за карту не выйти
+local function buildMapBounds()
+	local B = Config.MapBounds
+	local old = workspace:FindFirstChild("ZSS_MapBounds")
+	if old then
+		old:Destroy()
+	end
+	local folder = Instance.new("Folder")
+	folder.Name = "ZSS_MapBounds"
+	local h = B.yMax - B.yMin
+	local midY = (B.yMax + B.yMin) / 2
+	local cx, cz = (B.minX + B.maxX) / 2, (B.minZ + B.maxZ) / 2
+	local lx, lz = B.maxX - B.minX + 8, B.maxZ - B.minZ + 8
+	local walls = {
+		{ CFrame.new(cx, midY, B.minZ - 2), Vector3.new(lx, h, 4) },
+		{ CFrame.new(cx, midY, B.maxZ + 2), Vector3.new(lx, h, 4) },
+		{ CFrame.new(B.minX - 2, midY, cz), Vector3.new(4, h, lz) },
+		{ CFrame.new(B.maxX + 2, midY, cz), Vector3.new(4, h, lz) },
+		-- крыша: даже с ускорением и прыжками не перелететь
+		{ CFrame.new(cx, B.yMax + 2, cz), Vector3.new(lx, 4, lz) },
+	}
+	for _, w in ipairs(walls) do
+		local p = Instance.new("Part")
+		p.Name = "Bound"
+		p.Anchored = true
+		p.CanCollide = true
+		p.CanQuery = false
+		p.CanTouch = false
+		p.CastShadow = false
+		p.Transparency = 1
+		p.CFrame = w[1]
+		p.Size = w[2]
+		p.Parent = folder
+	end
+	folder.Parent = workspace
+end
+
 function World.Init(fieldsModule, equipmentModule)
 	Fields, Equipment = fieldsModule, equipmentModule
+	pcall(buildMapBounds)
 	task.spawn(syncMapReqs)
 	startCycle()
 	-- сферы-баффы на полях теперь в модуле Drops (разные виды баффов)
