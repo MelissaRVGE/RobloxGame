@@ -24,7 +24,7 @@ PlayerAnim.Init()
 FX.PlayerAnim = PlayerAnim
 DayNight.Init()
 UI.Init()
-TierGates.Init(State)
+TierGates.Init(State, UI)
 
 Remotes.DataSync.OnClientEvent:Connect(State.Set)
 task.spawn(function()

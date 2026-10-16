@@ -265,6 +265,9 @@ Config.Boss = {
 -- Смена дня и ночи (секунды). Ночью зомби бьют x2, но награда тоже x2
 Config.DayNight = { day = 1800, night = 600, damageMult = 2, rewardMult = 2 }
 
+-- Границы карты: невидимые стены по подножию гор (X/Z) и потолок (Y)
+Config.MapBounds = { minX = -158, maxX = 148, minZ = -92, maxZ = 596, yMin = -40, yMax = 260 }
+
 -- Ускорение, которое появляется на полях
 Config.SpeedPickup = { perField = 2, minDelay = 15, maxDelay = 45, bonus = 10, duration = 20, lifetime = 60 }
 
