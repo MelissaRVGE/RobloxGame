@@ -41,7 +41,7 @@ function Loot.TryDrop(player, kind, fieldIndex, pos)
 		chance *= 1 + p.perks.luck
 	end
 	-- бафф «Удача»
-	chance *= Buffs.Mult(player, "luck")
+	chance *= Buffs.Mult(player, "luck") * (player:GetAttribute("ZSS_Luck") or 1)
 	if rng:NextNumber() >= chance then
 		return nil
 	end

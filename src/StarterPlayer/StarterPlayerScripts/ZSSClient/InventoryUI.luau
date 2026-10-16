@@ -74,6 +74,17 @@ local STAT_LABELS = {
 }
 local STAT_ORDER = { "dmg", "radius", "gather", "cd", "hp", "def", "scrap", "speed", "jump", "cap", "conv", "cspeed", "heal", "energy", "stacks" }
 local PCT = { def = true, scrap = true, energy = true, cap = true, conv = true, cspeed = true }
+-- доп. характеристики в стиле BSS (общий список в ShopConfig)
+local SUFFIX = {}
+for _, k in ipairs(Shop.StatOrder) do
+	local sd = Shop.StatDefs[k]
+	STAT_LABELS[k] = sd[1]
+	PCT[k] = sd.pct or nil
+	SUFFIX[k] = sd.suffix
+	if not table.find(STAT_ORDER, k) then
+		table.insert(STAT_ORDER, k)
+	end
+end
 
 local function fmtNum(v)
 	if math.abs(v - math.floor(v)) < 0.001 then
@@ -87,6 +98,8 @@ local function fmtStat(k, v)
 		return ("+%d%%"):format(math.floor(v * 100 + 0.5))
 	elseif k == "cd" then
 		return ("%.2f с"):format(v)
+	elseif SUFFIX[k] then
+		return "+" .. fmtNum(v) .. SUFFIX[k]
 	elseif k == "speed" or k == "jump" or k == "hp" or k == "heal" or k == "stacks" then
 		return "+" .. fmtNum(v)
 	end
@@ -380,6 +393,12 @@ local function gearSpec(item, fromSlot)
 	if item.stack then
 		local n = d and d.consum and d.consum[item.id] or 0
 		sub = "РАСХОДНИК  •  x" .. n
+		for bid, bn in pairs(item.use and item.use.buffs or {}) do
+			local b = Buffs.ById[bid]
+			if b then
+				table.insert(lines, { "✦ " .. b.name, ("+%d ступ. (%d с)"):format(bn, b.time), b.color })
+			end
+		end
 		footer, fcol = "ЛКМ — использовать (или клавиша в хотбаре)", C(130, 220, 255)
 	elseif isEquipped(item) then
 		footer = FIXED[item.slot] and "✔ НАДЕТО  •  заменить можно другим предметом" or "✔ НАДЕТО  •  ЛКМ — снять"
@@ -409,6 +428,9 @@ local function findSpec(it, n)
 		end
 		if u.gems then
 			table.insert(lines, 1, { "💎 Гемы", "+" .. u.gems, C(120, 230, 255) })
+		end
+		if u.pull then
+			table.insert(lines, 1, { "🧬 Дрон из гачи", u.pull == true and "любой (с гарантом)" or ("от «%s»"):format(u.pull), C(220, 160, 255) })
 		end
 	end
 	return {
@@ -1292,7 +1314,18 @@ local STAT_ROWS = {
 	{ key = "cap", icon = "🎒", name = "Вместимость", color = C(130, 200, 255) },
 	{ key = "conv", icon = "♻", name = "Переработка", color = C(130, 240, 130) },
 	{ key = "luck", icon = "🍀", name = "Удача находок", color = C(120, 240, 100), buff = "luck" },
+	{ key = "crit", icon = "🎯", name = "Шанс крита", color = C(255, 110, 70), buff = "crit" },
+	{ key = "critx", icon = "💥", name = "Сила крита", color = C(255, 160, 90) },
+	{ key = "ddmg", icon = "🤖", name = "Урон дронов", color = C(255, 120, 120) },
+	{ key = "dgather", icon = "🛸", name = "Сбор дронов", color = C(240, 200, 70), buff = "dgather" },
+	{ key = "tgather", icon = "⛏", name = "Сбор инструментом", color = C(255, 200, 110) },
+	{ key = "instconv", icon = "⚡", name = "Мгнов. переработка", color = C(190, 255, 90) },
+	{ key = "regen", icon = "✚", name = "Регенерация", color = C(120, 255, 160) },
+	{ key = "energy", icon = "🔋", name = "Выносливость дронов", color = C(120, 200, 255) },
+	{ key = "dspeed", icon = "🚀", name = "Скорость дронов", color = C(255, 150, 40), buff = "dspeed" },
+	{ key = "buffdur", icon = "⏳", name = "Длительность баффов", color = C(230, 210, 255) },
 }
+local STAT_VISIBLE = 12 -- строк без прокрутки
 
 local function multStr(m)
 	return Buffs.MultText(m)
@@ -1326,8 +1359,32 @@ local function computeStats()
 	out.cap = { v = d.capacity or 0, text = U.fmt(d.capacity or 0), lines = { { "Уровень рюкзака", tostring(d.bagLevel or 1) }, { "Бонус рюкзака", fmtStat("cap", t.cap), C(140, 255, 120) } } }
 	out.conv = { v = t.conv + t.cspeed, text = ("+%d%%"):format(math.floor(t.conv * 100 + 0.5)), lines = { { "Батарей с переработки", fmtStat("conv", t.conv), C(140, 255, 120) }, { "Скорость переработки", fmtStat("cspeed", t.cspeed), C(140, 255, 120) } } }
 	local lm = Buffs.Mult(player, "luck")
-	local lk = (1 + (perks.luck or 0)) * lm
-	out.luck = { v = lk, text = multStr(lk), mult = lm, lines = { { "Награды квестов", ("+%d%%"):format((perks.luck or 0) * 100), C(255, 220, 120) }, { "Бафф «Удача»", multStr(lm), C(120, 240, 100) } } }
+	local lk = (1 + (perks.luck or 0) + t.luck) * lm
+	out.luck = { v = lk, text = multStr(lk), mult = lm, lines = { { "Снаряжение", fmtStat("luck", t.luck), C(140, 255, 120) }, { "Награды квестов", ("+%d%%"):format((perks.luck or 0) * 100), C(255, 220, 120) }, { "Бафф «Удача»", multStr(lm), C(120, 240, 100) } } }
+	-- доп. характеристики
+	local GEAR = { "Снаряжение", nil, C(140, 255, 120) }
+	local function pctRow(key, extra)
+		local v = t[key] or 0
+		local lines = { { GEAR[1], fmtStat(key, v), GEAR[3] } }
+		for _, l in ipairs(extra or {}) do
+			table.insert(lines, l)
+		end
+		return lines
+	end
+	local critStacks = Buffs.Stacks(player, "crit")
+	local crit = math.min(0.6, t.crit) + critStacks * Buffs.ById.crit.per
+	out.crit = { v = crit, text = ("%d%%"):format(math.floor(crit * 100 + 0.5)), mult = critStacks > 0 and 1 + critStacks * Buffs.ById.crit.per or nil, lines = pctRow("crit", { { "Бафф «Прицел»", ("+%d%%"):format(critStacks * Buffs.ById.crit.per * 100), C(255, 110, 70) } }) }
+	out.critx = { v = t.critx, text = ("x%s"):format(fmtNum(1.5 + t.critx)), lines = { { "База", "x1.5" }, { GEAR[1], fmtStat("critx", t.critx), GEAR[3] } } }
+	out.ddmg = { v = t.ddmg, text = multStr(1 + t.ddmg), lines = pctRow("ddmg") }
+	local dgm = Buffs.Mult(player, "dgather")
+	out.dgather = { v = (1 + t.dgather) * dgm, text = multStr((1 + t.dgather) * dgm), mult = dgm, lines = pctRow("dgather", { { "Бафф «Смазка роя»", multStr(dgm), C(240, 200, 70) } }) }
+	out.tgather = { v = t.tgather, text = multStr(1 + t.tgather), lines = pctRow("tgather") }
+	out.instconv = { v = t.instconv, text = ("%d%%"):format(math.floor(t.instconv * 100 + 0.5)), lines = pctRow("instconv", { { "Предел", "50%" } }) }
+	out.regen = { v = t.regen, text = fmtNum(t.regen) .. "/с", lines = { { "Броня", "+" .. fmtNum(t.regen) .. " HP/с", GEAR[3] } } }
+	out.energy = { v = t.energy, text = multStr(1 + t.energy), lines = pctRow("energy") }
+	local dsm = Buffs.Mult(player, "dspeed")
+	out.dspeed = { v = (1 + t.dspeed) * dsm, text = multStr((1 + t.dspeed) * dsm), mult = dsm, lines = pctRow("dspeed", { { "Бафф «Турбо роя»", multStr(dsm), C(255, 150, 40) } }) }
+	out.buffdur = { v = t.buffdur, text = multStr(1 + t.buffdur), lines = pctRow("buffdur") }
 	return out
 end
 
@@ -1341,6 +1398,16 @@ local STAT_DESC = {
 	cd = "Пауза между ударами: чем меньше, тем быстрее.",
 	gather = "Сколько ресурсов приносит один удар инструментом по куче.",
 	scrap = "Множитель лома со всех куч: перчатки, награды и бафф.",
+	crit = Shop.StatDefs.crit.desc,
+	critx = Shop.StatDefs.critx.desc,
+	ddmg = Shop.StatDefs.ddmg.desc,
+	dgather = Shop.StatDefs.dgather.desc,
+	tgather = Shop.StatDefs.tgather.desc,
+	instconv = Shop.StatDefs.instconv.desc,
+	regen = Shop.StatDefs.regen.desc,
+	energy = Shop.StatDefs.energy.desc,
+	dspeed = Shop.StatDefs.dspeed.desc,
+	buffdur = Shop.StatDefs.buffdur.desc,
 	cap = "Сколько лома помещается в рюкзак.",
 	conv = "Бонус Переработчика от рюкзака: больше батарей и быстрее.",
 	luck = "Шанс найти редкие предметы в кучах и у зомби.",
@@ -1348,8 +1415,10 @@ local STAT_DESC = {
 
 local function buildStats(mid)
 	label(mid, { Position = UDim2.fromOffset(14, 10), Size = UDim2.new(1, -28, 0, 22), Text = "ХАРАКТЕРИСТИКИ", TextSize = 18, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = C(255, 255, 255) }, 1.5)
-	local list = new("Frame", { Position = UDim2.fromOffset(10, 38), Size = UDim2.new(1, -20, 0, #STAT_ROWS * 26), BackgroundTransparency = 1, Parent = mid }, {
+	-- список прокручивается колёсиком: видно STAT_VISIBLE строк
+	local list = new("ScrollingFrame", { Position = UDim2.fromOffset(10, 38), Size = UDim2.new(1, -20, 0, STAT_VISIBLE * 26), BackgroundTransparency = 1, BorderSizePixel = 0, CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollBarThickness = 4, ScrollBarImageColor3 = C(200, 210, 200), ScrollingDirection = Enum.ScrollingDirection.Y, Parent = mid }, {
 		new("UIListLayout", { SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 2) }),
+		new("UIPadding", { PaddingRight = UDim.new(0, 7) }),
 	})
 	for i, r in ipairs(STAT_ROWS) do
 		local row = new("TextButton", { LayoutOrder = i, Size = UDim2.new(1, 0, 0, 24), BackgroundColor3 = C(255, 255, 255), BackgroundTransparency = i % 2 == 0 and 0.965 or 0.93, AutoButtonColor = false, Text = "", Parent = list }, { U.corner(6) })
@@ -1374,14 +1443,14 @@ local function buildStats(mid)
 		end)
 	end
 	-- активные баффы
-	local by = 38 + #STAT_ROWS * 26 + 8
+	local by = 38 + STAT_VISIBLE * 26 + 8
 	label(mid, { Position = UDim2.fromOffset(14, by), Size = UDim2.new(1, -28, 0, 18), Text = "АКТИВНЫЕ БАФФЫ", TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = C(255, 230, 150) }, 1.2)
 	local row = new("Frame", { Position = UDim2.fromOffset(12, by + 22), Size = UDim2.new(1, -24, 0, MID.h - by - 34), BackgroundTransparency = 1, Parent = mid }, {
 		new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder }),
 	})
 	local cw = math.floor((MID.w - 24 - 18) / 4)
 	for _, b in ipairs(Buffs.List) do
-		if b.time > 0 then
+		if b.time > 0 and b.cat ~= "item" then
 			local c = new("Frame", { LayoutOrder = b.index, Size = UDim2.new(0, cw, 1, 0), BackgroundColor3 = C(255, 255, 255), Parent = row }, { U.corner(10) })
 			local grad = new("UIGradient", { Rotation = 90, Color = ColorSequence.new(C(34, 38, 44), C(18, 20, 24)), Parent = c })
 			local st = U.stroke(C(60, 66, 74), 1.5)

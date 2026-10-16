@@ -32,6 +32,10 @@ I.List = {
 	{ id = "plutonium", name = "Плутониевый стержень", tier = "Epic", value = 4000, use = { energy = 1 }, desc = "Полностью заряжает весь рой." },
 	{ id = "mutantheart", name = "Сердце мутанта", tier = "Epic", value = 5000, use = { heal = 9999 }, desc = "Всё ещё бьётся. Полностью восстанавливает здоровье." },
 	{ id = "goldbar", name = "Золотой слиток", tier = "Legendary", value = 15000, desc = "Из хранилища падшего банка. Дорого продаётся." },
+	-- капсулы дронов (аналог Королевского желе и яиц): бесплатная крутка гачи где угодно
+	{ id = "capsule", name = "Капсула прошивки", tier = "Epic", value = 3000, w = 0.2, use = { pull = true }, desc = "Перепрошивает случайного дрона из гачи. Считается как обычная крутка (с гарантом)." },
+	{ id = "goldcapsule", name = "Золотая капсула", tier = "Legendary", value = 12000, w = 0.15, use = { pull = "Epic" }, desc = "Дрон из гачи редкости «Эпический» или выше." },
+	{ id = "starcapsule", name = "Звёздная капсула", tier = "Legendary", value = 25000, w = 0.03, use = { pull = "Legendary" }, desc = "Дрон из гачи редкости «Легендарный» или выше. Сияет даже днём." },
 	{ id = "omegacore", name = "Ядро «Омега»", tier = "Legendary", value = 30000, use = { gems = 5 }, desc = "Источник силы секретного дрона. Даёт 5 гемов — но лучшие вещи крафтятся именно из него." },
 }
 
@@ -71,13 +75,22 @@ function I.Roll(rng, fieldIndex, luck)
 			break
 		end
 	end
-	local pool = {}
+	-- внутри редкости у предмета свой вес w (по умолчанию 1): капсулы дронов выпадают реже
+	local pool, sum = {}, 0
 	for _, it in ipairs(I.List) do
 		if it.tier == tier then
 			table.insert(pool, it)
+			sum += it.w or 1
 		end
 	end
-	return pool[rng:NextInteger(1, #pool)]
+	local x = rng:NextNumber() * sum
+	for _, it in ipairs(pool) do
+		x -= it.w or 1
+		if x <= 0 then
+			return it
+		end
+	end
+	return pool[#pool]
 end
 
 return I

@@ -773,9 +773,174 @@ local POPUP_COLORS = {
 	bio = C(150, 255, 90),
 	gold = C(255, 215, 40),
 	dmg = C(255, 80, 70),
+	crit = C(255, 230, 60),
 	kill = C(200, 255, 120),
 	battery = C(190, 255, 90),
 }
+
+-- ===== РАСХОДНИКИ: свой эффект и свой звук у каждого предмета (fx/sfx в ShopConfig) =====
+local ShopCfg = require(Shared.ShopConfig)
+
+-- звук: ключ из U.Sounds или номер ассета; владелец слышит в 2D, остальные — от персонажа
+local function itemSound(sfx, owner, hrp)
+	for _, s in ipairs(sfx or {}) do
+		local id = U.Sounds[s[1]] or ("rbxassetid://" .. s[1])
+		task.delay(s[4] or 0, function()
+			if owner == player.UserId or not hrp then
+				U.play(id, s[2] or 0.5, s[3] or 1)
+			else
+				local snd = Instance.new("Sound")
+				snd.SoundId = id
+				snd.Volume = (s[2] or 0.5) * U.Volume.master * U.Volume.sfx
+				snd.PlaybackSpeed = s[3] or 1
+				snd.RollOffMaxDistance = 70
+				snd.Parent = hrp
+				snd:Play()
+				Debris:AddItem(snd, 6)
+			end
+		end)
+	end
+end
+
+local CONSUME = {}
+-- капли/брызги стекают вниз
+CONSUME.drip = function(pos, col)
+	FX.Burst(pos + Vector3.new(0, 2, 0), col, 30, 0.5, 8)
+	for i = 1, 6 do
+		local a = i / 6 * math.pi * 2
+		local d = part({ shape = Enum.PartType.Ball, size = Vector3.one * 0.35, cf = CFrame.new(pos + Vector3.new(math.cos(a) * 1.2, 3, math.sin(a) * 1.2)), color = col, tr = 0.1, life = 1 })
+		tw(d, 0.7, { CFrame = d.CFrame - Vector3.new(0, 3, 0), Size = Vector3.one * 0.1, Transparency = 1 }, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+	end
+end
+-- пульс силы: два кольца и вспышка
+CONSUME.pulse = function(pos, col)
+	FX.Ring(pos, 7, col, 0.5)
+	task.delay(0.15, function()
+		FX.Ring(pos, 11, col, 0.6)
+	end)
+	FX.Burst(pos, ColorSequence.new(col:Lerp(C(255, 255, 255), 0.5), col), 40, 0.7, 16)
+	if FX.ShakeEnabled then
+		FX.Shake(0.25)
+	end
+end
+CONSUME.sparkle = function(pos, col)
+	FX.Burst(pos + Vector3.new(0, 1.5, 0), col, 45, 0.5, 10)
+	FX.Burst(pos + Vector3.new(0, 1.5, 0), C(255, 255, 255), 15, 0.3, 6)
+end
+CONSUME.heal = function(pos, col)
+	FX.Burst(pos, C(90, 255, 120), 30, 0.7, 6)
+	FX.Burst(pos + Vector3.new(0, 2, 0), col, 30, 0.5, 9)
+end
+-- облако золотой краски перед игроком
+CONSUME.spray = function(pos, col, hrp)
+	local look = hrp and hrp.CFrame.LookVector or Vector3.zAxis
+	for i = 1, 5 do
+		task.delay(i * 0.06, function()
+			FX.Burst(pos + look * (1.5 + i * 1.6), col, 18, 0.9, 5, SMOKE_TEX)
+		end)
+	end
+	FX.Ring(pos - Vector3.new(0, 2.6, 0), 10, col, 0.8)
+end
+-- телепорт: столб света
+CONSUME.teleport = function(pos, col)
+	local col2 = col:Lerp(C(255, 255, 255), 0.4)
+	local beam = part({ shape = Enum.PartType.Cylinder, size = Vector3.new(30, 3, 3), cf = CFrame.new(pos + Vector3.new(0, 12, 0)) * CFrame.Angles(0, 0, math.pi / 2), color = col2, tr = 0.3, life = 1 })
+	tw(beam, 0.7, { Size = Vector3.new(30, 0.1, 0.1), Transparency = 1 })
+	FX.Ring(pos - Vector3.new(0, 2.6, 0), 5, col, 0.5, true)
+	FX.Burst(pos, col, 40, 0.6, 14)
+end
+-- ракета взлетает и взрывается в небе
+CONSUME.flare = function(pos, col)
+	local r = part({ shape = Enum.PartType.Ball, size = Vector3.one * 0.7, cf = CFrame.new(pos), color = col, life = 2 })
+	local light = Instance.new("PointLight")
+	light.Color = col
+	light.Range = 18
+	light.Brightness = 3
+	light.Parent = r
+	tw(r, 0.8, { CFrame = CFrame.new(pos + Vector3.new(0, 26, 0)) }, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+	for i = 1, 8 do
+		task.delay(i * 0.09, function()
+			if r.Parent then
+				FX.Burst(r.Position, ColorSequence.new(C(255, 230, 150), col), 6, 0.6, 3, FIRE_TEX)
+			end
+		end)
+	end
+	task.delay(0.85, function()
+		FX.Burst(pos + Vector3.new(0, 26, 0), ColorSequence.new(C(255, 240, 180), col), 70, 1.1, 30)
+		r:Destroy()
+	end)
+end
+CONSUME.convert = function(pos, col)
+	FX.Ring(pos, 6, col, 0.6, true)
+	FX.Burst(pos + Vector3.new(0, 1, 0), ColorSequence.new(C(255, 170, 80), col), 50, 0.6, 12)
+end
+-- ящик падает с неба и взрывается
+CONSUME.bomb = function(pos, col)
+	local ground = pos - Vector3.new(0, 2.6, 0)
+	local box = part({ size = Vector3.new(2.4, 2.4, 2.4), cf = CFrame.new(ground + Vector3.new(0, 30, 0)), color = C(120, 90, 55), mat = Enum.Material.WoodPlanks, life = 2 })
+	local stripe = part({ size = Vector3.new(2.5, 0.5, 2.5), cf = box.CFrame, color = col, life = 2 })
+	tw(box, 0.55, { CFrame = CFrame.new(ground + Vector3.new(0, 1.2, 0)) * CFrame.Angles(0.3, 0.8, 0) }, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+	tw(stripe, 0.55, { CFrame = CFrame.new(ground + Vector3.new(0, 1.2, 0)) * CFrame.Angles(0.3, 0.8, 0) }, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+	task.delay(0.58, function()
+		box:Destroy()
+		stripe:Destroy()
+		local sph = part({ shape = Enum.PartType.Ball, size = Vector3.one * 2, cf = CFrame.new(ground), color = col, tr = 0, life = 1 })
+		tw(sph, 0.5, { Size = Vector3.one * 24, Transparency = 1 })
+		FX.Ring(ground + Vector3.new(0, 0.3, 0), 12, col, 0.6)
+		FX.Burst(ground, ColorSequence.new(C(255, 230, 120), C(255, 80, 20)), 60, 2.4, 30, FIRE_TEX)
+		FX.Burst(ground, C(110, 100, 90), 30, 2.5, 14, SMOKE_TEX)
+		FX.Shake(0.6)
+	end)
+end
+CONSUME.confetti = function(pos, col)
+	for _, c in ipairs({ C(255, 120, 200), C(120, 220, 255), C(255, 230, 90), C(130, 255, 120) }) do
+		FX.Burst(pos + Vector3.new(0, 2, 0), c, 14, 0.45, 18)
+	end
+end
+CONSUME.swarm = function(pos, col)
+	FX.Ring(pos, 8, col, 0.6, true)
+	FX.Burst(pos + Vector3.new(0, 1.5, 0), col, 50, 0.35, 20)
+end
+CONSUME.bubbles = function(pos, col)
+	for i = 1, 10 do
+		local b = part({ shape = Enum.PartType.Ball, size = Vector3.one * (0.3 + math.random() * 0.5), cf = CFrame.new(pos + Vector3.new(math.random(-15, 15) / 10, -1, math.random(-15, 15) / 10)), color = col, mat = Enum.Material.Glass, tr = 0.4, life = 2 })
+		tw(b, 1 + math.random() * 0.6, { CFrame = b.CFrame + Vector3.new(0, 5 + math.random() * 3, 0), Transparency = 1 }, Enum.EasingStyle.Sine)
+	end
+	FX.Burst(pos, col, 25, 0.5, 8)
+end
+CONSUME.cloud = function(pos, col)
+	FX.Burst(pos + Vector3.new(0, 3, 0), col, 50, 3, 12, SMOKE_TEX)
+	FX.Ring(pos - Vector3.new(0, 2.6, 0), 20, col, 1)
+	FX.Burst(pos + Vector3.new(0, 3, 0), C(255, 255, 255), 30, 0.4, 20)
+end
+CONSUME.goldfield = function(pos, col)
+	local ground = pos - Vector3.new(0, 2.6, 0)
+	FX.Burst(ground, C(110, 220, 80), 20, 0.6, 8)
+	task.delay(0.35, function()
+		FX.Ring(ground, 30, col, 1.1)
+		FX.Burst(ground + Vector3.new(0, 1, 0), C(255, 220, 80), 80, 0.9, 30)
+		FX.Shake(0.4)
+	end)
+end
+CONSUME.rainbow = function(pos, col)
+	FX.Ring(pos, 10, col, 0.7)
+	FX.Burst(pos + Vector3.new(0, 1.5, 0), Config.RainbowSequence, 90, 0.8, 22)
+	FX.Shake(0.4)
+end
+
+H.consume = function(d)
+	local item = ShopCfg.ById[d.id]
+	if not item or not item.fx then
+		return
+	end
+	local hrp = ownerRoot(d.owner)
+	local pos = hrp and hrp.Position or d.pos
+	local col = item.fx.color or C(255, 255, 255)
+	itemSound(item.sfx, d.owner, hrp)
+	H.aura({ owner = d.owner, color = col, duration = 1.5, rainbow = item.fx.style == "rainbow" })
+	local f = CONSUME[item.fx.style] or CONSUME.sparkle
+	f(pos, col, hrp)
+end
 
 function FX.Init(renderer)
 	Renderer = renderer
@@ -804,7 +969,7 @@ function FX.Init(renderer)
 			FX.Popup(pos, text, r and r.color or C(255, 255, 255), false, Icons.res and Icons.res[resId])
 			return
 		end
-		FX.Popup(pos, text, POPUP_COLORS[kind] or C(255, 255, 255), kind == "gold" or kind == "kill")
+		FX.Popup(pos, text, POPUP_COLORS[kind] or C(255, 255, 255), kind == "gold" or kind == "kill" or kind == "crit")
 	end)
 
 	RunService:BindToRenderStep("ZSS_Shake", Enum.RenderPriority.Camera.Value + 1, function(dt)

@@ -303,6 +303,16 @@ Remotes.BagAction.OnServerInvoke = function(player, action, id)
 		if u.gems then
 			Data.AddGems(player, u.gems)
 		end
+		if u.pull then
+			local def, rarity, isNew = Gacha.Capsule(player, u.pull ~= true and u.pull or nil)
+			if not def then
+				return { ok = false, err = "Нельзя сейчас" }
+			end
+			take(1)
+			Quests.Event(player, "use", { id = id })
+			local rar = Config.Rarities[rarity]
+			return { ok = true, msg = ("🧬 %s: %s дрон «%s»%s"):format(item.name, rar.label, def.name, isNew and " (НОВЫЙ!)" or "") }
+		end
 		take(1)
 		Quests.Event(player, "use", { id = id })
 		return { ok = true, msg = "✔ Использовано: " .. item.name .. (u.gems and (" (+" .. u.gems .. " 💎)") or "") }
@@ -473,7 +483,7 @@ Remotes.Scoop.OnServerEvent:Connect(function(player)
 	end
 	if item.slot == "tool" then
 		for _, t in ipairs(Fields.TilesNear(field, hrp.Position + hrp.CFrame.LookVector * 2, st.radius * 0.8)) do
-			Fields.Collect(player, t, st.gather or 1, 1)
+			Fields.Collect(player, t, st.gather or 1, player:GetAttribute("ZSS_ToolGather") or 1)
 		end
 	else
 		for _, z in ipairs(Zombies.InRadius(field, hrp.Position, st.radius + 2)) do
@@ -582,6 +592,21 @@ task.spawn(function()
 		return
 	end
 	prompt.Triggered:Connect(Converter.Start)
+end)
+
+-- ===== РЕГЕНЕРАЦИЯ ЗДОРОВЬЯ (характеристика брони) =====
+task.spawn(function()
+	while true do
+		task.wait(1)
+		for _, player in ipairs(Players:GetPlayers()) do
+			local regen = player:GetAttribute("ZSS_Regen") or 0
+			local char = player.Character
+			local hum = char and char:FindFirstChildOfClass("Humanoid")
+			if regen > 0 and hum and hum.Health > 0 and hum.Health < hum.MaxHealth then
+				hum.Health = math.min(hum.MaxHealth, hum.Health + regen)
+			end
+		end
+	end
 end)
 
 -- ===== ОТЛАДКА (только в Studio) =====

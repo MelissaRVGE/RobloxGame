@@ -410,9 +410,16 @@ function Zombies.Damage(z, dmg, player)
 	if pp and pp.perks and pp.perks.dmg then
 		dmg *= 1 + pp.perks.dmg
 	end
-	-- бафф «Ярость роя»
+	-- бафф «Ярость роя» и критический удар (снаряжение + бафф «Прицел»)
+	local crit = false
 	if player then
-		dmg *= require(game:GetService("ReplicatedStorage").ZSS.BuffsConfig).Mult(player, "rage")
+		local B = require(game:GetService("ReplicatedStorage").ZSS.BuffsConfig)
+		dmg *= B.Mult(player, "rage")
+		local chance = (player:GetAttribute("ZSS_Crit") or 0) + B.Stacks(player, "crit") * B.ById.crit.per
+		if math.random() < chance then
+			crit = true
+			dmg *= 1.5 + (player:GetAttribute("ZSS_CritX") or 0)
+		end
 	end
 	if z.contrib and player then
 		local real = math.min(dmg, z.hum.Health)
@@ -423,7 +430,7 @@ function Zombies.Damage(z, dmg, player)
 	end
 	z.hum:TakeDamage(dmg)
 	if player then
-		Remotes.Popup:FireClient(player, z.root.Position + Vector3.new(math.random(-10, 10) / 10, 3, 0), tostring(math.floor(dmg + 0.5)), "dmg")
+		Remotes.Popup:FireClient(player, z.root.Position + Vector3.new(math.random(-10, 10) / 10, 3, 0), crit and ("💥" .. math.floor(dmg + 0.5)) or tostring(math.floor(dmg + 0.5)), crit and "crit" or "dmg")
 		-- бой — активность: рядом может появиться боевой бафф
 		if not z.boss then
 			require(script.Parent.Drops).OnActivity(player, "combat", z.root.Position, z.field)

@@ -15,6 +15,11 @@ B.List = {
 	{ id = "luck", name = "Удача", short = "УДАЧА", desc = "шанс находок", time = 20, per = 0.2, weight = 12, cat = "gather", color = C(110, 240, 90) },
 	{ id = "heal", name = "Аптечка", short = "ЛЕЧЕНИЕ", desc = "Сразу +50 здоровья", time = 0, value = 50, weight = 10, cat = "combat", color = C(255, 90, 100) },
 	{ id = "charge", name = "Батарея роя", short = "ЗАРЯД +25%", desc = "Сразу +25% энергии всем дронам", time = 0, value = 0.25, weight = 8, cat = "gather", color = C(90, 170, 255) },
+	-- баффы только от расходников (cat = "item": сферами не падают)
+	{ id = "dgather", name = "Смазка роя", short = "СБОР ДРОНОВ", desc = "сбор лома дронами", time = 300, per = 0.05, weight = 0, cat = "item", color = C(240, 200, 70) },
+	{ id = "convb", name = "Ферментация", short = "ПЕРЕРАБОТКА", desc = "батареи с переработки", time = 600, per = 0.05, weight = 0, cat = "item", color = C(150, 255, 90) },
+	{ id = "crit", name = "Прицел", short = "КРИТ", desc = "шанс крита (+2% за ступень)", time = 120, per = 0.02, weight = 0, cat = "item", color = C(255, 110, 70) },
+	{ id = "dspeed", name = "Турбо роя", short = "СКОРОСТЬ РОЯ", desc = "скорость дронов", time = 300, per = 0.04, weight = 0, cat = "item", color = C(255, 150, 40) },
 }
 B.ById = {}
 for i, b in ipairs(B.List) do
@@ -34,13 +39,13 @@ B.Loot = { ownerTime = 20, lifetime = 120, magnet = 9 }
 function B.Roll(rng, cat)
 	local total = 0
 	for _, b in ipairs(B.List) do
-		if not cat or b.cat == cat then
+		if (not cat or b.cat == cat) and b.weight > 0 then
 			total += b.weight
 		end
 	end
 	local r = rng:NextNumber() * total
 	for _, b in ipairs(B.List) do
-		if not cat or b.cat == cat then
+		if (not cat or b.cat == cat) and b.weight > 0 then
 			r -= b.weight
 			if r <= 0 then
 				return b

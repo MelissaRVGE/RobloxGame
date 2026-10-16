@@ -116,6 +116,20 @@ function Fields.Collect(player, tile, base, mult)
 	amount = math.max(1, math.floor(amount + 0.5))
 	tile.fill = math.max(0, tile.fill - 0.08)
 	Fields.UpdateTile(tile)
+	-- «Мгновенная переработка»: часть лома сразу становится батареями, мимо рюкзака
+	local inst = player:GetAttribute("ZSS_InstConv") or 0
+	if inst > 0 then
+		local conv = amount * inst
+		local whole = math.floor(conv)
+		if math.random() < conv - whole then
+			whole += 1
+		end
+		if whole > 0 then
+			amount -= whole
+			local B = require(RS.ZSS.BuffsConfig)
+			Data.AddBatteries(player, math.max(1, math.floor(whole * (player:GetAttribute("ZSS_ConvMult") or 1) * B.Mult(player, "convb") + 0.5)))
+		end
+	end
 	local res = Config.ResourceByField[f.cfg.id]
 	local added, full = Data.AddScrap(player, amount, res and res.id)
 	if added > 0 then
