@@ -45,25 +45,25 @@ D.List = {
 
 	-- ===== ГЕМЫ =====
 	{
-		key = "gems1", kind = "product", id = 0, price = 199, tab = "gems",
+		key = "gems1", kind = "product", id = 3719060039, price = 199, tab = "gems",
 		name = "Handful of Gems", short = "120 💎  •  12 rolls",
 		desc = "A small handful of gems for the drone gacha.",
 		grant = { gems = 120 }, color = C(110, 210, 255), anim = "gems", level = 1,
 	},
 	{
-		key = "gems2", kind = "product", id = 0, price = 899, tab = "gems", badge = "+20%",
+		key = "gems2", kind = "product", id = 3719060193, price = 899, tab = "gems", badge = "+20%",
 		name = "Bag of Gems", short = "650 💎  •  65 rolls",
 		desc = "A bag of gems: 20% better value than handfuls.",
 		grant = { gems = 650 }, color = C(80, 180, 255), anim = "gems", level = 2,
 	},
 	{
-		key = "gems3", kind = "product", id = 0, price = 1799, tab = "gems", badge = "+33%",
+		key = "gems3", kind = "product", id = 3719060393, price = 1799, tab = "gems", badge = "+33%",
 		name = "Chest of Gems", short = "1,450 💎  •  145 rolls",
 		desc = "A chest of gems: a third better value than handfuls. The most popular choice.",
 		grant = { gems = 1450 }, color = C(150, 120, 255), anim = "gems", level = 3,
 	},
 	{
-		key = "gems4", kind = "product", id = 0, price = 3599, tab = "gems", badge = "+40%",
+		key = "gems4", kind = "product", id = 3719060476, price = 3599, tab = "gems", badge = "+40%",
 		name = "Gem Vault", short = "3,050 💎  •  305 rolls",
 		desc = "A whole vault of gems: the best deal, 40% more gems per Robux.",
 		grant = { gems = 3050 }, color = C(255, 120, 220), anim = "gems", level = 4,
@@ -71,21 +71,21 @@ D.List = {
 
 	-- ===== НАБОРЫ =====
 	{
-		key = "starter", kind = "product", id = 0, price = 199, tab = "packs", once = true, badge = "ONCE",
+		key = "starter", kind = "product", id = 3719060695, price = 299, tab = "packs", once = true, badge = "ONCE",
 		name = "Starter Pack", short = "200 💎 + 8 boosts",
 		desc = "One time only: 200 gems, 3 Mini Recyclers, 3 Lucky Nuts and 2 Gatherer Extracts.",
 		grant = { gems = 200, consum = { microconv = 3, luckycoin = 3, gatherextract = 2 } },
 		color = C(255, 120, 90), anim = "gift",
 	},
 	{
-		key = "boosts", kind = "product", id = 0, price = 199, tab = "packs",
+		key = "boosts", kind = "product", id = 3719060969, price = 199, tab = "packs",
 		name = "Boost Crate", short = "13 swarm boosts",
 		desc = "3 Lucky Nuts, 3 Gatherer Extracts, 3 Rage Extracts, 2 Enzymes and 2 Motor Oils.",
 		grant = { consum = { luckycoin = 3, gatherextract = 3, rageextract = 3, enzymes = 2, motoroil = 2 } },
 		color = C(255, 150, 50), anim = "shake",
 	},
 	{
-		key = "microconv", kind = "product", id = 0, price = 49, tab = "packs",
+		key = "microconv", kind = "product", id = 3719061089, price = 49, tab = "packs",
 		name = "5 Mini Recyclers", short = "Backpack → batteries right in the field",
 		desc = "5 pocket recyclers: all scrap in your backpack instantly turns into batteries, wherever you are.",
 		grant = { consum = { microconv = 5 } }, color = C(130, 255, 120), anim = "recycle",
