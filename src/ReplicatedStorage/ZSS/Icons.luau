@@ -42,6 +42,27 @@ return {
 		uranium = "rbxassetid://84047575805962",
 		brass = "rbxassetid://125788325677179",
 	},
+	-- расходники как в BSS (свои картинки)
+	lube = "rbxassetid://107244545422593",
+	beacon = "rbxassetid://93230832838960",
+	stim = "rbxassetid://101555472899231",
+	goldpaint = "rbxassetid://137599155176035",
+	flare = "rbxassetid://124205672528199",
+	microconv = "rbxassetid://129383749475306",
+	scrapbomb = "rbxassetid://140201918297352",
+	luckycoin = "rbxassetid://127812199354691",
+	candybars = "rbxassetid://97738854878508",
+	botbox = "rbxassetid://122697204191908",
+	magglue = "rbxassetid://140035324833530",
+	rageextract = "rbxassetid://121964605801306",
+	gatherextract = "rbxassetid://124191977562707",
+	enzymes = "rbxassetid://86314838466814",
+	motoroil = "rbxassetid://71094591734898",
+	cocktail = "rbxassetid://92369007187765",
+	nanocloud = "rbxassetid://123056375244507",
+	mutantseed = "rbxassetid://126665807468774",
+	mutagen = "rbxassetid://78329965955653",
+	supershake = "rbxassetid://75287432180485",
 	-- выпадающие баффы
 	buffs = {
 		speed = "rbxassetid://87819119903671",
@@ -50,6 +71,10 @@ return {
 		luck = "rbxassetid://99692679118298",
 		heal = "rbxassetid://121900606962122",
 		charge = "rbxassetid://75257168573097",
+		dgather = "rbxassetid://126441931451072",
+		convb = "rbxassetid://112237453211782",
+		crit = "rbxassetid://103819896430414",
+		dspeed = "rbxassetid://94727466911530",
 	},
 	-- декали зомби
 	zombie = {
@@ -81,5 +106,8 @@ return {
 		mutantheart = "rbxassetid://79864092433381",
 		goldbar = "rbxassetid://78841849408582",
 		omegacore = "rbxassetid://81448109693912",
+		capsule = "rbxassetid://130875253516116",
+		goldcapsule = "rbxassetid://94105655884508",
+		starcapsule = "rbxassetid://128979724910047",
 	},
 }
