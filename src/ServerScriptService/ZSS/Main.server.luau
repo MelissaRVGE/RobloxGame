@@ -24,6 +24,7 @@ make("RemoteFunction", "BuyGems")
 make("RemoteFunction", "BagAction")
 make("RemoteEvent", "ShopEquip")
 make("RemoteEvent", "UseItem")
+make("RemoteEvent", "SetHotbar")
 make("RemoteEvent", "Energy")
 make("RemoteEvent", "ChargeToggle")
 make("RemoteFunction", "GetData")
@@ -504,6 +505,17 @@ Remotes.UseItem.OnServerEvent:Connect(function(player, id)
 	if typeof(id) == "string" then
 		Equipment.Use(player, id)
 	end
+end)
+
+-- свободные ячейки хотбара: положить предмет / поменять местами / очистить
+local Hotbar = require(Shared.Hotbar)
+Remotes.SetHotbar.OnServerEvent:Connect(function(player, slot, key)
+	local p = Data.Get(player)
+	if not p or typeof(slot) ~= "number" or (key ~= "" and not Hotbar.Valid(key)) then
+		return
+	end
+	p.hotbar = Hotbar.Place(p.hotbar, slot, key)
+	Data.MarkDirty(player)
 end)
 
 -- ===== УЛЕЙ-ЗАРЯДКА (свой у каждого игрока) =====

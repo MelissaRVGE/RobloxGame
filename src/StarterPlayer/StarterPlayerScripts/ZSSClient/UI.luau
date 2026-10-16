@@ -16,6 +16,7 @@ local ShopUI = require(script.Parent.ShopUI)
 local BagUI = require(script.Parent.BagUI)
 local QuestUI = require(script.Parent.QuestUI)
 local SettingsUI = require(script.Parent.SettingsUI)
+local HS = require(script.Parent.HotbarSlots)
 local FXmod = require(script.Parent.FX)
 local ItemsCfg = require(Shared:WaitForChild("ItemsConfig"))
 
@@ -634,8 +635,8 @@ local function buildHUD()
 		end)
 	end
 
-	-- ===== хотбар: оружие, инструмент, расходники =====
-	local NSLOT = ShopCfg.HotbarWeapons + #ShopCfg.HotbarConsumables
+	-- ===== хотбар: оружие, инструмент, дальше свободные ячейки под любой предмет =====
+	local NSLOT = ShopCfg.HotbarWeapons + HS.Free
 	local hb = new("Frame", {
 		Name = "Hotbar",
 		AnchorPoint = Vector2.new(0.5, 1),
@@ -713,8 +714,78 @@ local function buildHUD()
 		end
 		local entry = { slot = slot, stroke = st, vp = vp, img = img, count = count, index = i, kind = kind }
 		slot.Activated:Connect(function()
+			if HS.JustDropped() then
+				return
+			end
 			UI.UseSlot(i)
 		end)
+		if i > ShopCfg.HotbarWeapons then
+			-- свободная ячейка: «+» когда пусто, подпись с названием при наведении, перетаскивание
+			local fi = i - ShopCfg.HotbarWeapons
+			entry.free = fi
+			entry.plus = new("TextLabel", {
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				Position = UDim2.fromScale(0.5, 0.52),
+				Size = UDim2.fromOffset(30, 30),
+				BackgroundTransparency = 1,
+				Font = Enum.Font.GothamBold,
+				Text = "+",
+				TextSize = 30,
+				TextColor3 = C(150, 170, 150),
+				TextTransparency = 0.55,
+				ZIndex = 4,
+				Parent = slot,
+			})
+			entry.imgScale = U.scaleOf(img)
+			entry.hoverScale = U.scaleOf(slot)
+			entry.pill = new("TextLabel", {
+				AnchorPoint = Vector2.new(0.5, 1),
+				Position = UDim2.new(0.5, 0, 0, -6),
+				Size = UDim2.fromOffset(0, 22),
+				AutomaticSize = Enum.AutomaticSize.X,
+				BackgroundColor3 = C(16, 20, 16),
+				BackgroundTransparency = 0.1,
+				Font = Enum.Font.GothamBold,
+				Text = "",
+				TextSize = 13,
+				TextColor3 = C(255, 255, 255),
+				Visible = false,
+				ZIndex = 8,
+				Parent = slot,
+			}, { U.corner(8), U.stroke(C(90, 110, 90), 1.5), new("UIPadding", { PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8) }) })
+			slot.MouseEnter:Connect(function()
+				entry.mouseOn = true
+				local vis = HS.Visual(HS.Key(fi))
+				entry.pill.Text = vis and vis.name or "Пусто — перетащи сюда предмет из инвентаря (B)"
+				U.fadeVisible(entry.pill, true, 0.15)
+			end)
+			slot.MouseLeave:Connect(function()
+				entry.mouseOn = false
+				U.fadeVisible(entry.pill, false, 0.15)
+			end)
+			-- ПКМ очищает ячейку
+			slot.MouseButton2Click:Connect(function()
+				if HS.Key(fi) ~= "" then
+					HS.Assign(fi, "")
+					U.play(U.Sounds.tap, 0.4, 0.8)
+				end
+			end)
+			HS.AttachSource(slot, function()
+				local k = HS.Key(fi)
+				return k ~= "" and k or nil
+			end, function()
+				return fi
+			end)
+			HS.AddTarget(slot, fi, function(on)
+				entry.hoverOn = on
+				UI.StyleFreeSlot(entry)
+			end, function(on)
+				entry.dragOn = on
+				UI.StyleFreeSlot(entry)
+			end, function()
+				return not (BagUI.IsOpen() or ShopUI.IsOpen and ShopUI.IsOpen())
+			end)
+		end
 		hud.slots[i] = entry
 	end
 
@@ -977,6 +1048,20 @@ local function weaponTools()
 	return list
 end
 
+-- рамка свободной ячейки: цвет предмета, подсветка во время перетаскивания и под указателем
+function UI.StyleFreeSlot(e)
+	local color, thick, bg = e.baseColor or C(70, 80, 70), 2, C(22, 26, 22)
+	if e.hoverOn then
+		color, thick, bg = T.Accent, 4, C(40, 70, 30)
+	elseif e.dragOn then
+		color, thick, bg = C(150, 220, 120), 3, C(30, 40, 28)
+	end
+	U.tween(e.stroke, 0.18, { Color = color, Thickness = thick })
+	U.tween(e.slot, 0.18, { BackgroundColor3 = bg })
+	U.tween(e.hoverScale, 0.2, { Scale = e.hoverOn and 1.12 or 1 }, Enum.EasingStyle.Back)
+	U.tween(e.plus, 0.2, { TextTransparency = e.shown and 1 or (e.dragOn and 0.15 or 0.55) })
+end
+
 function UI.RefreshHotbar()
 	if not hud.slots then
 		return
@@ -984,6 +1069,7 @@ function UI.RefreshHotbar()
 	local tools = weaponTools()
 	local held = heldTool()
 	local d = State.data
+	local hbList = HS.List()
 	for i, e in ipairs(hud.slots) do
 		if i <= ShopCfg.HotbarWeapons then
 			local t = tools[i]
@@ -1010,18 +1096,35 @@ function UI.RefreshHotbar()
 			U.tween(e.stroke, 0.18, { Color = selected and T.Accent or (id and ShopCfg.Grades[ShopCfg.ById[id].grade].color or C(70, 80, 70)), Thickness = selected and 4 or 2 })
 			U.tween(e.slot, 0.18, { BackgroundColor3 = selected and C(40, 70, 30) or C(22, 26, 22) })
 		else
-			local cid = ShopCfg.HotbarConsumables[i - ShopCfg.HotbarWeapons]
-			local item = ShopCfg.ById[cid]
-			e.id = cid
-			e.img.Image = Icons[item.icon]
-			e.img.Visible = true
+			local key = hbList[e.free] or ""
+			local vis = HS.Visual(key)
 			e.vp.Visible = false
-			local n = d and d.consum and d.consum[cid] or 0
-			-- пустой слот выглядит как остальные пустые ячейки (иконка плавно гаснет / проявляется)
-			e.count.Text = n > 0 and ("x" .. n) or ""
-			U.tween(e.img, 0.2, { ImageTransparency = n > 0 and 0 or 1 })
-			U.tween(e.stroke, 0.2, { Color = n > 0 and ShopCfg.Grades[item.grade].color or C(70, 80, 70), Thickness = 2 })
-			U.tween(e.slot, 0.2, { BackgroundColor3 = C(22, 26, 22) })
+			e.img.Visible = true
+			if key ~= e.id then
+				local first = e.id == nil
+				e.id = key
+				if vis then
+					-- новый предмет в ячейке: иконка «впрыгивает»
+					e.img.Image = vis.image
+					if not first then
+						e.img.ImageTransparency = 1
+						e.imgScale.Scale = 0.4
+						U.tween(e.imgScale, 0.35, { Scale = 1 }, Enum.EasingStyle.Back)
+						U.pulseScale(e.slot, 1.08)
+					end
+				end
+				if e.mouseOn then
+					e.pill.Text = vis and vis.name or "Пусто — перетащи сюда предмет из инвентаря (B)"
+				end
+			end
+			local n = vis and HS.Count(key) or 0
+			e.shown = vis ~= nil
+			-- закончился — иконка остаётся полупрозрачной, чтобы было видно, что тут лежало
+			e.count.Text = vis and ("x" .. n) or ""
+			e.count.TextColor3 = n > 0 and C(255, 255, 255) or C(255, 120, 110)
+			U.tween(e.img, 0.2, { ImageTransparency = vis and (n > 0 and 0 or 0.6) or 1 })
+			e.baseColor = vis and (n > 0 and vis.color or vis.color:Lerp(C(70, 80, 70), 0.65)) or C(70, 80, 70)
+			UI.StyleFreeSlot(e)
 		end
 	end
 end
@@ -1048,8 +1151,7 @@ function UI.UseSlot(i)
 			end
 			U.play(U.Sounds.tick, 0.4, 1.1)
 		end
-	else
-		Remotes.UseItem:FireServer(e.id)
+	elseif HS.Use(e.free) then
 		U.play(U.Sounds.pop, 0.5, 1.2)
 	end
 	task.delay(0.1, UI.RefreshHotbar)
@@ -2929,6 +3031,7 @@ function UI.Init()
 
 	Remotes.Notify.OnClientEvent:Connect(UI.Toast)
 	ShopUI.Init(UI.Toast)
+	HS.toast = UI.Toast
 
 	-- горячие клавиши: Y — инвентарь, G — гача, N — магазин, B — инвентарь, M — карта, Esc — закрыть окна
 	game:GetService("UserInputService").InputBegan:Connect(function(input, processed)
@@ -2937,7 +3040,17 @@ function UI.Init()
 		end
 		local HOTKEYS = { [Enum.KeyCode.One] = 1, [Enum.KeyCode.Two] = 2, [Enum.KeyCode.Three] = 3, [Enum.KeyCode.Four] = 4, [Enum.KeyCode.Five] = 5, [Enum.KeyCode.Six] = 6 }
 		if HOTKEYS[input.KeyCode] then
-			UI.UseSlot(HOTKEYS[input.KeyCode])
+			local n = HOTKEYS[input.KeyCode]
+			-- в инвентаре навёл на предмет и нажал 3–6 — предмет ложится в эту ячейку
+			local hk = BagUI.IsOpen() and HS.HoverKey()
+			if hk and n >= HS.First then
+				HS.Assign(n - HS.First + 1, hk)
+				U.play(U.Sounds.chime, 0.35, 1.2)
+				local vis = HS.Visual(hk)
+				UI.Toast(("«%s» → ячейка %d"):format(vis and vis.name or "?", n), "good")
+			else
+				UI.UseSlot(n)
+			end
 		elseif input.KeyCode == Enum.KeyCode.M then
 			UI.ToggleMap()
 		elseif input.KeyCode == Enum.KeyCode.Y then

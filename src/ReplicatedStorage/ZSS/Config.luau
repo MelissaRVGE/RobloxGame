@@ -315,8 +315,8 @@ Config.CellShop = { center = Vector3.new(-28, 1, -18), radius = 13 }
 Config.ChargeStation = { center = Vector3.new(0, 1, -30), radius = 14 }
 
 -- ===== ПЕРЕРАБОТЧИК (как делание мёда в BSS: перерабатывает постепенно) =====
--- скорость в секунду = baseRate + вместимость * capRate  (полный рюкзак ~10–25 сек)
-Config.Converter = { pad = Vector3.new(25, 1, 22), radius = 8, baseRate = 18, capRate = 0.04 }
+-- скорость в секунду = baseRate + вместимость * capRate  (первый рюкзак ~5 сек, дальше ~10–20 сек)
+Config.Converter = { pad = Vector3.new(25, 1, 22), radius = 8, baseRate = 48, capRate = 0.05 }
 
 -- Быстрое перемещение (вкладка «Карта»)
 Config.Locations = {
