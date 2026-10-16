@@ -711,8 +711,12 @@ H.convertTick = function(d)
 	end
 	local from = hrp.Position + hrp.CFrame.LookVector * -0.8 + Vector3.new(0, 1, 0)
 	local to = mouth.Position
-	for k = 1, 3 do
-		local chunk = part({ mat = Enum.Material.CorrodedMetal, color = Color3.fromHSV(0.07, 0.4, 0.45 + math.random() * 0.3), size = Vector3.new(0.5, 0.35, 0.45), cf = CFrame.new(from), life = 1.2 })
+	-- все виды ресурсов идут в Переработчик одновременно: кусочки окрашены по ресурсам
+	local ids = d.res or {}
+	for k = 1, math.max(3, math.min(#ids, 5)) do
+		local r = #ids > 0 and Config.ResourceById[ids[(k - 1) % #ids + 1]]
+		local color = r and r.color:Lerp(Color3.new(0.2, 0.2, 0.2), math.random() * 0.35) or Color3.fromHSV(0.07, 0.4, 0.45 + math.random() * 0.3)
+		local chunk = part({ mat = Enum.Material.CorrodedMetal, color = color, size = Vector3.new(0.5, 0.35, 0.45), cf = CFrame.new(from), life = 1.2 })
 		local t0 = os.clock() + k * 0.08
 		local spin = Vector3.new(math.random() * 8, math.random() * 8, math.random() * 8)
 		local conn

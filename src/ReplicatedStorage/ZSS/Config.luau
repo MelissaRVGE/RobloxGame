@@ -204,14 +204,15 @@ for i, d in ipairs(Config.Drones) do
 end
 
 -- ===== ПОЛЯ =====
+-- Поле — сетка плиток 4x4 (как цветы в BSS). На каждой плитке лежит один из ресурсов поля:
+-- у поля 1–3 вида ресурсов, первый — главный (его больше всего). Собранная плитка
+-- проседает и плавно поднимается обратно по мере восстановления.
 Config.TileSize = 4
-Config.TileKinds = {
-	rust = { mult = 1, name = "Ржавый лом", color = C(150, 85, 45), mat = "CorrodedMetal" },
-	tech = { mult = 1.25, name = "Электроника", color = C(95, 110, 125), mat = "DiamondPlate" },
-	bio = { mult = 1.6, name = "Биомасса", color = C(110, 210, 60), mat = "Glass" },
-}
+Config.TileDepth = 1.2 -- насколько опускается пустая плитка
+Config.TileRegen = 0.025 -- восстановление полноты плитки в секунду
+Config.TileTake = 0.08 -- сколько полноты забирает один сбор
 
--- Ресурсы: каждая локация даёт свой. Все лежат в общем рюкзаке и перерабатываются в батареи.
+-- Ресурсы: все лежат в общем рюкзаке и перерабатываются в батареи одновременно.
 Config.Resources = {
 	{ id = "rust", name = "Металлолом", color = C(255, 160, 90), field = "wasteland" },
 	{ id = "chips", name = "Микросхемы", color = C(90, 220, 140), field = "deadcity" },
@@ -229,18 +230,24 @@ end
 -- Карта «лестницей» (как в BSS): база внизу, главная дорога идёт на север,
 -- каждый следующий ярус выше на 12 и открывается при большем числе дронов.
 -- tier = номер яруса (0 — у базы)
+-- res = ресурсы поля {id, доля %} (первый — главный); tileMult — средний множитель сбора плиток
 Config.Fields = {
 	{ id = "wasteland", name = "Пустошь", req = 0, mult = 1, center = Vector3.new(-58, 0, 100), size = 48, gate = "east", tier = 0,
+		res = { { "rust", 75 }, { "chips", 25 } }, tileMult = 1.09, ground = { mat = "Ground", color = C(150, 122, 82) },
 		zombies = { max = 5, hp = 150, damage = 4, reward = 30, speed = 7, name = "Ходок" } },
 	{ id = "deadcity", name = "Мёртвый город", req = 5, mult = 2.5, center = Vector3.new(58, 12, 180), size = 48, gate = "west", tier = 1,
+		res = { { "chips", 65 }, { "rust", 25 }, { "brass", 10 } }, tileMult = 1.17, ground = { mat = "Asphalt", color = C(78, 80, 86) },
 		zombies = { max = 6, hp = 400, damage = 9, reward = 90, speed = 8, name = "Горожанин" } },
 	-- низина на 2-м ярусе: поле ниже уровня яруса, вокруг топь и вода
 	{ id = "swamp", name = "Гнилое болото", req = 10, mult = 5, center = Vector3.new(-58, 20, 260), size = 48, gate = "east", tier = 2,
+		res = { { "bio", 100 } }, tileMult = 1.37, ground = { mat = "Mud", color = C(72, 84, 46) },
 		zombies = { max = 7, hp = 900, damage = 14, reward = 200, speed = 7, name = "Утопленник" } },
 	{ id = "radzone", name = "Радиоактивная зона", req = 15, mult = 9, center = Vector3.new(58, 36, 340), size = 48, gate = "west", tier = 3,
+		res = { { "uranium", 65 }, { "bio", 25 }, { "chips", 10 } }, tileMult = 1.34, ground = { mat = "Ground", color = C(92, 108, 44) },
 		zombies = { max = 8, hp = 2000, damage = 20, reward = 400, speed = 9, name = "Мутант" } },
 	-- вершина: последний ярус, главная дорога упирается прямо в ворота
 	{ id = "military", name = "Военная база", req = 25, mult = 16, center = Vector3.new(0, 60, 530), size = 48, gate = "south", tier = 5,
+		res = { { "brass", 70 }, { "rust", 30 } }, tileMult = 1.18, ground = { mat = "Sand", color = C(148, 132, 92) },
 		zombies = { max = 9, hp = 12000, damage = 30, reward = 1500, speed = 10, name = "Солдат" } },
 	-- логово босса: без лома, один гигантский зомби на 500 000 HP (рассчитан на группу)
 	{ id = "boss", name = "Логово Колосса", req = 20, mult = 0, center = Vector3.new(-70, 48, 430), size = 84, gate = "east", tier = 4, boss = true,

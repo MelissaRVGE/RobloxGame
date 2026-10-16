@@ -81,21 +81,8 @@ function Converter.Init(dataModule)
 				else
 					local rate = (CV.baseRate + Data.Capacity(p) * CV.capRate) * (player:GetAttribute("ZSS_ConvSpeed") or 1)
 					local chunk = math.min(p.scrap, math.max(1, math.floor(rate * TICK + 0.5)))
-					p.scrap -= chunk
-					-- списываем ресурсы по порядку (сначала простые)
-					local left = chunk
-					p.res = p.res or {}
-					for _, r in ipairs(Config.Resources) do
-						local have = p.res[r.id] or 0
-						if have > 0 and left > 0 then
-							local take = math.min(have, left)
-							p.res[r.id] = have - take
-							if p.res[r.id] <= 0 then
-								p.res[r.id] = nil
-							end
-							left -= take
-						end
-					end
+					-- все виды ресурсов перерабатываются одновременно, пропорционально их доле
+					local _, taken = Data.TakeScrap(p, chunk)
 					-- бонус переработки от рюкзака: дробная часть копится между тиками
 					local gain = chunk * (player:GetAttribute("ZSS_ConvMult") or 1) * require(RS.ZSS.BuffsConfig).Mult(player, "convb") + (st.frac or 0)
 					local whole = math.floor(gain)
@@ -106,7 +93,11 @@ function Converter.Init(dataModule)
 					local now = os.clock()
 					if not st.nextFx or now >= st.nextFx then
 						st.nextFx = now + 0.4
-						Remotes.FX:FireAllClients("convertTick", { owner = player.UserId, amount = chunk })
+						local ids = {}
+						for id in pairs(taken) do
+							table.insert(ids, id)
+						end
+						Remotes.FX:FireAllClients("convertTick", { owner = player.UserId, amount = chunk, res = ids })
 					end
 					if p.scrap <= 0 then
 						Converter.Stop(player)

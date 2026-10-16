@@ -1,36 +1,29 @@
--- Поля с кучами лома (аналог цветочных полей из BSS)
+-- Поля с ресурсами (аналог цветочных полей из BSS): у поля 1–3 вида ресурсов, один главный
 local RS = game:GetService("ReplicatedStorage")
 local Config = require(RS.ZSS.Config)
 local Remotes = RS.ZSS.Remotes
+local FieldTiles = require(RS.ZSS.FieldTiles)
 
 local Fields = {}
 Fields.List = {}
 
 local Data, Loot
--- плитки в стиле BSS: низкие, при сборе проседают, значок сверху бледнеет
-local MIN_H, MAX_H = 0.2, 1.0
+-- плитки в стиле BSS: при сборе проседают и плавно поднимаются при восстановлении.
+-- Сервер хранит полноту и пишет её в атрибут Fill, а двигает плитки клиент (FieldTilesFX) —
+-- так анимация плавная и не грузит сеть.
 local GOLD = Color3.fromRGB(255, 200, 40)
 local lastFullWarn = {}
 
 function Fields.UpdateTile(tile)
-	local h = MIN_H + (MAX_H - MIN_H) * tile.fill
-	if math.abs(h - tile.h) < 0.04 and tile.fill < 1 then
-		return
-	end
-	tile.h = h
-	local p = tile.part
-	p.Size = Vector3.new(p.Size.X, h, p.Size.Z)
-	p.Position = Vector3.new(tile.x, tile.bottom + h / 2, tile.z)
-	if tile.icon then
-		tile.icon.Transparency = 0.7 * (1 - tile.fill)
-	end
-	if not tile.gold then
-		p.Color = tile.baseColor:Lerp(Color3.new(0.35, 0.3, 0.25), 0.45 * (1 - tile.fill))
+	local q = math.floor(tile.fill * 40 + 0.5) / 40
+	if q ~= tile.sent then
+		tile.sent = q
+		tile.part:SetAttribute("Fill", q)
 	end
 end
 
 function Fields.TopPos(tile)
-	return Vector3.new(tile.x, tile.bottom + tile.h, tile.z)
+	return Vector3.new(tile.x, tile.top - Config.TileDepth * (1 - tile.fill) + 0.5, tile.z)
 end
 
 function Fields.At(pos)
@@ -101,7 +94,6 @@ local function clearGold(tile)
 	tile.gold = false
 	tile.part.Color = tile.baseColor
 	tile.part.Material = tile.baseMat
-	Fields.UpdateTile(tile)
 end
 
 function Fields.Collect(player, tile, base, mult)
@@ -114,7 +106,7 @@ function Fields.Collect(player, tile, base, mult)
 		amount *= Config.DayNight.rewardMult
 	end
 	amount = math.max(1, math.floor(amount + 0.5))
-	tile.fill = math.max(0, tile.fill - 0.08)
+	tile.fill = math.max(0, tile.fill - Config.TileTake)
 	Fields.UpdateTile(tile)
 	-- «Мгновенная переработка»: часть лома сразу становится батареями, мимо рюкзака
 	local inst = player:GetAttribute("ZSS_InstConv") or 0
@@ -130,10 +122,9 @@ function Fields.Collect(player, tile, base, mult)
 			Data.AddBatteries(player, math.max(1, math.floor(whole * (player:GetAttribute("ZSS_ConvMult") or 1) * B.Mult(player, "convb") + 0.5)))
 		end
 	end
-	local res = Config.ResourceByField[f.cfg.id]
-	local added, full = Data.AddScrap(player, amount, res and res.id)
+	local added, full = Data.AddScrap(player, amount, tile.res)
 	if added > 0 then
-		Remotes.Popup:FireClient(player, Fields.TopPos(tile), "+" .. added, gold > 1 and "gold" or (res and ("res:" .. res.id)) or tile.kind)
+		Remotes.Popup:FireClient(player, Fields.TopPos(tile), "+" .. added, gold > 1 and "gold" or ("res:" .. tile.res))
 		require(script.Parent.Quests).Event(player, "scrap", nil, added)
 	end
 	-- случайная находка в куче лома
@@ -166,25 +157,26 @@ function Fields.Init(dataModule)
 			tf.Name = "Tiles"
 			tf.Parent = folder
 		end
+		FieldTiles.Build(folder, cfg, i)
 		local field = { cfg = cfg, index = i, tiles = {}, folder = folder, half = cfg.size / 2, zcount = 0 }
+		local main = Config.ResourceByField[cfg.id]
 		for _, t in ipairs(folder:WaitForChild("Tiles"):GetChildren()) do
-			local kind = t:GetAttribute("Kind") or "rust"
 			local tile = {
 				part = t,
 				fill = 1,
+				sent = 1,
 				gold = false,
 				goldUntil = 0,
-				kind = kind,
-				kmult = Config.TileKinds[kind].mult,
+				res = t:GetAttribute("Res") or (main and main.id) or "rust",
+				kmult = cfg.tileMult or 1,
 				baseColor = t.Color,
 				baseMat = t.Material,
-				bottom = t.Position.Y - t.Size.Y / 2,
+				top = t:GetAttribute("TopY") or (t.Position.Y + t.Size.Y / 2),
 				x = t.Position.X,
 				z = t.Position.Z,
-				h = t.Size.Y,
-				icon = t:FindFirstChild("Icon"),
 				field = field,
 			}
+			t:SetAttribute("Fill", 1)
 			table.insert(field.tiles, tile)
 		end
 		Fields.List[i] = field
@@ -197,7 +189,7 @@ function Fields.Init(dataModule)
 			for _, f in ipairs(Fields.List) do
 				for _, tile in ipairs(f.tiles) do
 					if tile.fill < 1 then
-						tile.fill = math.min(1, tile.fill + 0.025)
+						tile.fill = math.min(1, tile.fill + Config.TileRegen)
 						Fields.UpdateTile(tile)
 					end
 					if tile.gold and now > tile.goldUntil then
