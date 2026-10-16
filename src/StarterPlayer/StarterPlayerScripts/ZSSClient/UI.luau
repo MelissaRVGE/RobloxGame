@@ -418,7 +418,7 @@ local function buildHUD()
 		{ key = "map", icon = "teleport", label = "Карта", color = C(255, 90, 80), hot = "M" },
 		{ key = "bag", icon = "bag", label = "Инвентарь", color = C(80, 170, 255), hot = "B" },
 		{ key = "convert", icon = "converter", label = "Переработка", color = C(120, 240, 110), hot = "R" },
-		{ key = "donate", icon = "donate", label = "Донат", color = C(255, 90, 170), hot = "H" },
+		{ key = "donate", icon = "donate", label = "Donate", color = C(255, 90, 170), hot = "H" },
 	}
 	hud.buttons = {}
 	hud.railFx = {}
