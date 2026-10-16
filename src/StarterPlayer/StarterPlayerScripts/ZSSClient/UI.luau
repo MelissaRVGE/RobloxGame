@@ -1220,6 +1220,249 @@ function UI.ToggleMap()
 	end
 end
 
+-- ===== 3D-ВИТРИНЫ =====
+-- Фон окна с прямоугольным «окошком»: четыре полосы вокруг окошка, внешние углы скруглены.
+-- Сквозь окошко виден мир, и витрина показывает настоящего 3D-дрона в полном разрешении.
+local function holedBackground(parent, W, H, hole, radius, color, g0, g1)
+	local function piece(x, y, w, h, rounded)
+		local f = new("Frame", {
+			Position = UDim2.fromOffset(x, y),
+			Size = UDim2.fromOffset(w, h),
+			BackgroundColor3 = color,
+			BorderSizePixel = 0,
+			ZIndex = 0,
+			Parent = parent,
+		})
+		if rounded then
+			U.corner(radius).Parent = f
+		end
+		if g0 then
+			-- общий вертикальный градиент окна, разрезанный по полосам
+			local c0 = g0:Lerp(g1, y / H)
+			local c1 = g0:Lerp(g1, (y + h) / H)
+			new("UIGradient", { Rotation = 90, Color = ColorSequence.new(c0, c1), Parent = f })
+		end
+	end
+	local bottomY = hole.y + hole.h
+	piece(0, 0, W, hole.y, true)
+	piece(0, hole.y - radius, W, radius, false) -- снизу у верхней полосы углы прямые
+	piece(0, bottomY, W, H - bottomY, true)
+	piece(0, bottomY, W, radius, false)
+	-- боковые полосы на пиксель заходят на соседние, чтобы при масштабе окна не было щелей
+	piece(0, hole.y - 1, hole.x, hole.h + 2, false)
+	piece(hole.x + hole.w, hole.y - 1, W - hole.x - hole.w, hole.h + 2, false)
+end
+
+-- 3D-витрина (гача и окно дронов). Дрон в ViewportFrame рисовался с пониженной частотой кадров и в низком
+-- разрешении, поэтому он стоит в мире прямо перед камерой, точно за окошком в окне интерфейса.
+-- Каждый кадр после обновления камеры дрон и тёмный задник под ним ставятся на луч камеры через центр
+-- окошка, на такую глубину, чтобы дрон занимал окошко. Винты и орбитальные шары крутятся, как в мире.
+-- Дрон крошечный и стоит в паре десятых стада от камеры, а задник сразу за ним: так между камерой и задником
+-- не помещается ни стена, ни колонна, и декорации мира не просвечивают в окошко.
+local STAGE_SIZE = 0.1 -- диаметр дрона на сцене, стадов
+local STAGE_PITCH = math.rad(12)
+
+local function newStage(name, bg, brightness)
+	return { name = name, bg = bg, brightness = brightness or 0.35 }
+end
+
+local function stageBack(st)
+	if st.back then
+		return
+	end
+	st.back = new("Part", {
+		Name = st.name,
+		Anchored = true,
+		CanCollide = false,
+		CanQuery = false,
+		CanTouch = false,
+		CastShadow = false,
+		Transparency = 1,
+		Size = Vector3.new(1, 1, 0.02),
+	})
+	local sg = new("SurfaceGui", {
+		Face = Enum.NormalId.Front,
+		LightInfluence = 0,
+		SizingMode = Enum.SurfaceGuiSizingMode.FixedSize,
+		CanvasSize = Vector2.new(720, 380),
+		Parent = st.back,
+	})
+	new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = st.bg, BorderSizePixel = 0, Parent = sg })
+	-- мягкое приглушённое свечение цвета редкости: стопка почти прозрачных кругов
+	st.glow = {}
+	for k = 1, 10 do
+		local d = 120 + k * 26
+		table.insert(st.glow, new("Frame", {
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(0.5, 0.5),
+			Size = UDim2.fromOffset(d, d),
+			BackgroundTransparency = 0.965,
+			BorderSizePixel = 0,
+			ZIndex = 12 - k,
+			Parent = sg,
+		}, { U.round() }))
+	end
+	st.lightAtt = new("Attachment", { Parent = st.back })
+	st.light = new("PointLight", { Brightness = st.brightness, Range = 4, Shadows = false, Parent = st.lightAtt })
+end
+
+-- mode: "full" — дрон в своих цветах; "hidden" — чёрный силуэт нераскрытого секретного дрона;
+-- "silhouette" — тёмный силуэт ещё не выбитого дрона с контуром цвета редкости
+local function stageSetModel(st, def, mode, r)
+	if st.model then
+		st.model:Destroy()
+		st.model = nil
+	end
+	stageBack(st)
+	for _, g in ipairs(st.glow) do
+		g.BackgroundColor3 = r.color:Lerp(C(0, 0, 0), 0.3)
+	end
+	local dark = mode ~= "full"
+	local m = Builder.Build(def, 1)
+	m:PivotTo(CFrame.new())
+	local _, size = m:GetBoundingBox()
+	m:ScaleTo(STAGE_SIZE / math.max(size.Magnitude, 0.01))
+	local box = m:GetBoundingBox()
+	local center = CFrame.new(box.Position)
+	local core = m.PrimaryPart and m.PrimaryPart.CFrame or m:GetPivot()
+	local parts, entries, tints = {}, {}, {}
+	for _, p in ipairs(m:GetDescendants()) do
+		if p:IsA("BasePart") then
+			p.CastShadow = false
+			p.CanQuery = false
+			p.CanTouch = false
+			p.CanCollide = false
+			if dark then
+				p.Color = C(0, 0, 0)
+				p.Material = Enum.Material.SmoothPlastic
+			end
+			if p:GetAttribute("Tint") and not dark then
+				table.insert(tints, p)
+			end
+			table.insert(parts, p)
+			table.insert(entries, { offset = core:ToObjectSpace(p.CFrame), spin = p:GetAttribute("Spin"), axis = p:GetAttribute("SpinAxis"), orbit = p:GetAttribute("Orbit") })
+		elseif dark and (p:IsA("Light") or p:IsA("ParticleEmitter") or p:IsA("Beam") or p:IsA("Trail")) then
+			p.Enabled = false
+		end
+	end
+	st.outline = nil
+	if dark then
+		-- силуэт чёрный, даже если у деталей есть текстуры; у не выбитого дрона светится контур цвета редкости
+		local outlined = mode == "silhouette"
+		local hl = new("Highlight", {
+			Adornee = m,
+			FillColor = C(0, 0, 0),
+			FillTransparency = 0,
+			OutlineColor = r.rainbow and C(255, 255, 255) or r.color,
+			OutlineTransparency = outlined and 0.15 or 1,
+			DepthMode = Enum.HighlightDepthMode.Occluded,
+			Parent = m,
+		})
+		if outlined and r.rainbow then
+			st.outline = hl
+		end
+	end
+	st.model = m
+	st.parts = parts
+	st.entries = entries
+	st.cfs = table.create(#parts)
+	-- радужные и секретные дроны переливаются, как в мире
+	st.tints = tints
+	st.rainbow = m:GetAttribute("Rainbow") == true
+	st.secret = m:GetAttribute("Secret") == true
+	st.coreRel = center:ToObjectSpace(core)
+	if st.shown and st.back.Parent then
+		m.Parent = st.back.Parent
+	end
+end
+
+local function stageStep(st, hole, visible)
+	local cam = workspace.CurrentCamera
+	local as = hole and hole.AbsoluteSize
+	local frac, tanH, z
+	local show = st.model ~= nil and visible and cam ~= nil and as ~= nil and as.Y > 4 and as.X > 4
+	if show then
+		frac = as.Y / math.max(cam.ViewportSize.Y, 1)
+		tanH = math.tan(math.rad(cam.FieldOfView) / 2)
+		-- глубина, на которой дрон (по диагонали габаритов) занимает почти всю высоту окошка. Пока окно только раскрывается и окошко
+		-- маленькое, дрон пришлось бы ставить далеко и он торчал бы за края окна — тогда он скрыт.
+		z = STAGE_SIZE / (1.15 * frac * 2 * tanH)
+		show = z <= STAGE_SIZE * 10
+		-- передний край дрона не должен заходить за плоскость отсечения камеры (0.1 стада)
+		z = math.max(z, 0.1 + STAGE_SIZE * 0.7)
+	end
+	if show ~= st.shown then
+		st.shown = show
+		if st.model then
+			st.model.Parent = show and cam or nil
+		end
+		if st.back then
+			st.back.Parent = show and cam or nil
+		end
+	end
+	if not show then
+		return
+	end
+	local t = os.clock()
+	local ap = hole.AbsolutePosition
+	local inset = GuiService:GetGuiInset()
+	local ray = cam:ViewportPointToRay(ap.X + as.X / 2 + inset.X, ap.Y + as.Y / 2 + inset.Y)
+	local camCF = cam.CFrame
+	local look = camCF.LookVector
+	-- от самой камеры: начало луча лежит на плоскости отсечения, а не в камере
+	local function at(depth)
+		return camCF.Position + ray.Direction * (depth / ray.Direction:Dot(look))
+	end
+	local rot = camCF.Rotation * CFrame.Angles(0, math.pi, 0)
+	-- дрон смотрит вдоль луча на камеру: в окошке сбоку экрана он виден прямо, без перспективного перекоса
+	local pos = at(z)
+	local face = CFrame.lookAt(pos, pos - ray.Direction, camCF.UpVector).Rotation
+	-- дрон повёрнут к камере «лицом» и чуть сверху, медленно вращается и мягко парит
+	local bob = math.sin(t * 1.4) * STAGE_SIZE * 0.035
+	local body = CFrame.new(pos + camCF.UpVector * bob) * face * CFrame.Angles(-STAGE_PITCH, 0, 0) * CFrame.Angles(0, t * 0.7, 0)
+	local core = body * st.coreRel
+	for i, e in ipairs(st.entries) do
+		local cf
+		if e.orbit then
+			cf = core * CFrame.Angles(0, t * e.orbit, 0) * e.offset
+		else
+			cf = core * e.offset
+			if e.spin then
+				local a = t * e.spin
+				cf = cf * (e.axis == "X" and CFrame.Angles(a, 0, 0) or CFrame.Angles(0, a, 0))
+			end
+		end
+		st.cfs[i] = cf
+	end
+	workspace:BulkMoveTo(st.parts, st.cfs, Enum.BulkMoveMode.FireCFrameChanged)
+	if st.rainbow then
+		for k, p in ipairs(st.tints) do
+			p.Color = Config.Rainbow(t, k * 0.06)
+		end
+	elseif st.secret then
+		local pulse = 0.55 + 0.45 * math.abs(math.sin(t * 3))
+		for _, p in ipairs(st.tints) do
+			p.Color = Color3.new(pulse, 0.05 * pulse, 0.06 * pulse)
+		end
+	end
+	if st.outline then
+		st.outline.OutlineColor = Config.Rainbow(t)
+	end
+	-- свечение за дроном мягко «дышит»
+	local breathe = 0.965 - 0.012 * (0.5 + 0.5 * math.sin(t * 1.6))
+	for _, g in ipairs(st.glow) do
+		g.BackgroundTransparency = breathe
+	end
+	-- задник: сразу за дроном, с небольшим запасом закрывает окошко, но не вылезает за край окна
+	local zb = z + STAGE_SIZE * 0.75
+	local h = frac * 2 * tanH * zb * 1.08
+	st.back.Size = Vector3.new(h * as.X / as.Y, h, 0.02)
+	st.back.CFrame = CFrame.new(at(zb)) * rot
+	st.lightAtt.Position = Vector3.new(0, h * 0.25, -(zb - z) - STAGE_SIZE * 0.8)
+	st.light.Range = STAGE_SIZE * 4
+end
+
+
 -- ===== ИНВЕНТАРЬ (клавиша Y) =====
 local function rarityStroke(parent, rarity, thickness)
 	local r = Config.Rarities[rarity]
@@ -1243,31 +1486,6 @@ local function setModelVp(vp, def, yaw, pitch)
 	local m = Builder.Build(def, 1)
 	Builder.SetupViewport(vp, m, yaw or math.rad(25), pitch or math.rad(16), 1.0)
 	return m
-end
-
--- Витрина модели в окне: сама модель стоит неподвижно, а камера плавно облетает её по кругу.
--- Сдвигать каждый кадр десятки деталей внутри ViewportFrame дорого, и картинка подтормаживает,
--- а движение одной камеры перерисовывается ровно, без рывков. Свет поворачивается вместе с камерой,
--- поэтому дрон освещён одинаково со всех сторон, как будто вращается он сам.
-local function orbitBase(vp, m, pitch)
-	local box = m:GetBoundingBox()
-	local cam = vp.CurrentCamera
-	return {
-		vp = vp,
-		cam = cam,
-		center = box.Position,
-		dist = (cam.CFrame.Position - box.Position).Magnitude,
-		pitch = pitch,
-		light = vp:GetAttribute("BaseLight") or vp.LightDirection,
-	}
-end
-
-local function orbitStep(o, yaw, bob)
-	local rot = CFrame.Angles(0, -yaw, 0)
-	local dir = (rot * CFrame.Angles(o.pitch, 0, 0)).LookVector
-	local target = o.center - Vector3.new(0, bob or 0, 0)
-	o.cam.CFrame = CFrame.lookAt(target + dir * o.dist, target)
-	o.vp.LightDirection = rot:VectorToWorldSpace(o.light)
 end
 
 local function ownedOf(id)
@@ -1325,16 +1543,23 @@ local function applyFilter(animate)
 	U.tween(inv.ownedToggle, 0.15, { TextColor3 = inv.onlyOwned and T.Accent or T.Muted })
 end
 
+-- окошко превью в координатах окна: панель деталей (x = 960 - 14 - 272, y = 70) плюс отступ 10
+local INV_DETAIL = { x = 674, y = 70, w = 272, h = 516 }
+local INV_HOLE = { x = INV_DETAIL.x + 10, y = INV_DETAIL.y + 10, w = INV_DETAIL.w - 20, h = 170 }
+local INV_STAGE_BG = C(14, 20, 16)
+
 local function buildInventory()
 	local win = new("Frame", {
 		Name = "Inventory",
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromScale(0.5, 0.52),
 		Size = UDim2.fromOffset(960, 600),
-		BackgroundColor3 = T.Bg,
+		BackgroundTransparency = 1,
 		Visible = false,
 		Parent = gui,
-	}, { U.corner(18), U.stroke(T.Accent, 3), U.grad(C(255, 255, 255), C(170, 180, 170), 90) })
+	}, { U.corner(18), U.stroke(T.Accent, 3) })
+	-- в фоне окна «окошко» под превью дрона в панели деталей: сквозь него виден 3D-дрон (см. stageStep)
+	holedBackground(win, 960, 600, INV_HOLE, 18, T.Bg, C(255, 255, 255), C(170, 180, 170))
 	inv.scale = addScale(win)
 	inv.win = win
 
@@ -1665,22 +1890,32 @@ local function buildInventory()
 
 	-- ===== ПАНЕЛЬ ДЕТАЛЕЙ =====
 	local detail = new("Frame", {
-		AnchorPoint = Vector2.new(1, 0),
-		Position = UDim2.new(1, -14, 0, 70),
-		Size = UDim2.new(0, 272, 1, -84),
-		BackgroundColor3 = T.Panel,
+		Position = UDim2.fromOffset(INV_DETAIL.x, INV_DETAIL.y),
+		Size = UDim2.fromOffset(INV_DETAIL.w, INV_DETAIL.h),
+		BackgroundTransparency = 1,
 		Parent = win,
 	}, { U.corner(14) })
+	holedBackground(detail, INV_DETAIL.w, INV_DETAIL.h, { x = 10, y = 10, w = INV_HOLE.w, h = INV_HOLE.h }, 14, T.Panel)
 	inv.detailStroke = U.stroke(T.AccentDark, 2)
 	inv.detailStroke.Parent = detail
-	inv.dvp = new("ViewportFrame", {
+	-- превью: настоящий крошечный 3D-дрон перед камерой, видный сквозь окошко (ViewportFrame рисовался рывками)
+	inv.dhole = new("Frame", {
 		Position = UDim2.fromOffset(10, 10),
-		Size = UDim2.new(1, -20, 0, 170),
-		BackgroundColor3 = C(52, 60, 52),
-		Ambient = C(150, 150, 150),
-		LightDirection = Vector3.new(-0.4, -1, 0.6),
+		Size = UDim2.fromOffset(INV_HOLE.w, INV_HOLE.h),
+		BackgroundTransparency = 1,
+		Active = true,
+		ZIndex = 2,
 		Parent = detail,
-	}, { U.corner(12) })
+	})
+	inv.dholeStroke = U.stroke(T.AccentDark, 2, 0.35)
+	inv.dholeStroke.Parent = inv.dhole
+	-- шторка для плавной смены дрона в превью
+	inv.dcover = new("Frame", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = INV_STAGE_BG,
+		BorderSizePixel = 0,
+		Parent = inv.dhole,
+	})
 	inv.dname = new("TextLabel", {
 		Position = UDim2.fromOffset(12, 186),
 		Size = UDim2.new(1, -24, 0, 30),
@@ -1785,16 +2020,28 @@ function UI.SelectDrone(id)
 	local r = Config.Rarities[def.rarity]
 	local owned, eq = ownedOf(id)
 	local hidden = owned == 0 and def.rarity == "Secret"
-	if inv.dmodelId ~= id then
-		inv.dmodel = setModelVp(inv.dvp, def, 0, math.rad(12))
-		inv.dvp:SetAttribute("BaseLight", inv.dvp:GetAttribute("BaseLight") or inv.dvp.LightDirection)
-		inv.dmodelBase = orbitBase(inv.dvp, inv.dmodel, math.rad(12))
-		inv.dmodelId = id
-		-- новая модель проявляется, а не появляется рывком
-		inv.dvp.ImageTransparency = 1
-		U.tween(inv.dvp, 0.25, { ImageTransparency = 0 })
+	-- выбитый дрон крутится в своих цветах, ещё не выбитый — тёмным силуэтом с контуром цвета редкости
+	local mode = hidden and "hidden" or (owned > 0 and "full" or "silhouette")
+	local key = id .. "/" .. mode
+	if inv.dmodelKey ~= key then
+		inv.dmodelKey = key
+		-- шторка плавно закрывает старого дрона, под ней ставится новый и шторка уходит
+		local token = {}
+		inv.dtoken = token
+		task.spawn(function()
+			if inv.stage.model and inv.win.Visible then
+				U.tween(inv.dcover, 0.15, { BackgroundTransparency = 0 })
+				task.wait(0.15)
+				if inv.dtoken ~= token then
+					return
+				end
+			end
+			stageSetModel(inv.stage, def, mode, r)
+			inv.dcover.BackgroundTransparency = 0
+			U.tween(inv.dcover, 0.35, { BackgroundTransparency = 1 })
+		end)
 	end
-	U.tween(inv.dvp, 0.2, { ImageColor3 = owned > 0 and C(255, 255, 255) or C(0, 0, 0) })
+	U.tween(inv.dholeStroke, 0.2, { Color = r.color })
 	inv.dname.Text = hidden and "???" or def.name
 	inv.drarity.Text = r.label .. " • " .. Config.ChanceText(def.rarity)
 	inv.drarity.TextColor3 = r.rainbow and Config.Rainbow(os.clock()) or r.color
@@ -1931,215 +2178,17 @@ function UI.ToggleInventory()
 	end
 end
 
+inv.stage = newStage("ZSS_InvStage", INV_STAGE_BG, 0.5)
+RunService:BindToRenderStep("ZSS_InvStage", Enum.RenderPriority.Camera.Value + 1, function()
+	stageStep(inv.stage, inv.dhole, inv.win and inv.win.Visible)
+end)
+
 -- ===== ГАЧА =====
--- Фон окна с прямоугольным «окошком»: четыре полосы вокруг окошка, внешние углы скруглены.
--- Сквозь окошко виден мир, и витрина показывает настоящего 3D-дрона в полном разрешении.
-local function holedBackground(parent, W, H, hole, radius, color, g0, g1)
-	local function piece(x, y, w, h, rounded)
-		local f = new("Frame", {
-			Position = UDim2.fromOffset(x, y),
-			Size = UDim2.fromOffset(w, h),
-			BackgroundColor3 = color,
-			BorderSizePixel = 0,
-			ZIndex = 0,
-			Parent = parent,
-		})
-		if rounded then
-			U.corner(radius).Parent = f
-		end
-		if g0 then
-			-- общий вертикальный градиент окна, разрезанный по полосам
-			local c0 = g0:Lerp(g1, y / H)
-			local c1 = g0:Lerp(g1, (y + h) / H)
-			new("UIGradient", { Rotation = 90, Color = ColorSequence.new(c0, c1), Parent = f })
-		end
-	end
-	local bottomY = hole.y + hole.h
-	piece(0, 0, W, hole.y, true)
-	piece(0, hole.y - radius, W, radius, false) -- снизу у верхней полосы углы прямые
-	piece(0, bottomY, W, H - bottomY, true)
-	piece(0, bottomY, W, radius, false)
-	-- боковые полосы на пиксель заходят на соседние, чтобы при масштабе окна не было щелей
-	piece(0, hole.y - 1, hole.x, hole.h + 2, false)
-	piece(hole.x + hole.w, hole.y - 1, W - hole.x - hole.w, hole.h + 2, false)
-end
-
--- 3D-витрина гачи. Дрон в ViewportFrame рисовался с пониженной частотой кадров и в низком разрешении,
--- поэтому теперь он стоит в мире прямо перед камерой, точно за окошком в окне гачи.
--- Каждый кадр после обновления камеры дрон и тёмный задник под ним ставятся на луч камеры через центр
--- окошка, на такую глубину, чтобы дрон занимал окошко. Винты и орбитальные шары крутятся, как в мире.
--- Дрон крошечный и стоит в паре десятых стада от камеры, а задник сразу за ним: так между камерой и задником
--- не помещается ни стена, ни колонна, и декорации мира не просвечивают в окошко.
-local STAGE_SIZE = 0.1 -- диаметр дрона на сцене, стадов
-local STAGE_PITCH = math.rad(12)
-gacha.stage = {}
-
-local function stageSetModel(def, hidden, color)
-	local st = gacha.stage
-	if st.model then
-		st.model:Destroy()
-		st.model = nil
-	end
-	if not st.back then
-		st.back = new("Part", {
-			Name = "ZSS_GachaStage",
-			Anchored = true,
-			CanCollide = false,
-			CanQuery = false,
-			CanTouch = false,
-			CastShadow = false,
-			Transparency = 1,
-			Size = Vector3.new(1, 1, 0.02),
-		})
-		local sg = new("SurfaceGui", {
-			Face = Enum.NormalId.Front,
-			LightInfluence = 0,
-			SizingMode = Enum.SurfaceGuiSizingMode.FixedSize,
-			CanvasSize = Vector2.new(720, 380),
-			Parent = st.back,
-		})
-		new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = C(24, 16, 36), BorderSizePixel = 0, Parent = sg })
-		-- мягкое приглушённое свечение цвета редкости: стопка почти прозрачных кругов
-		st.glow = {}
-		for k = 1, 10 do
-			local d = 120 + k * 26
-			table.insert(st.glow, new("Frame", {
-				AnchorPoint = Vector2.new(0.5, 0.5),
-				Position = UDim2.fromScale(0.5, 0.5),
-				Size = UDim2.fromOffset(d, d),
-				BackgroundTransparency = 0.965,
-				BorderSizePixel = 0,
-				ZIndex = 12 - k,
-				Parent = sg,
-			}, { U.round() }))
-		end
-		st.lightAtt = new("Attachment", { Parent = st.back })
-		st.light = new("PointLight", { Brightness = 0.35, Range = 4, Shadows = false, Parent = st.lightAtt })
-	end
-	for _, g in ipairs(st.glow) do
-		g.BackgroundColor3 = color:Lerp(C(0, 0, 0), 0.3)
-	end
-	local m = Builder.Build(def, 1)
-	m:PivotTo(CFrame.new())
-	local _, size = m:GetBoundingBox()
-	m:ScaleTo(STAGE_SIZE / math.max(size.Magnitude, 0.01))
-	local box = m:GetBoundingBox()
-	local center = CFrame.new(box.Position)
-	local core = m.PrimaryPart and m.PrimaryPart.CFrame or m:GetPivot()
-	local parts, entries, tints = {}, {}, {}
-	for _, p in ipairs(m:GetDescendants()) do
-		if p:IsA("BasePart") then
-			p.CastShadow = false
-			p.CanQuery = false
-			p.CanTouch = false
-			p.CanCollide = false
-			if hidden then
-				p.Color = C(0, 0, 0)
-				p.Material = Enum.Material.SmoothPlastic
-			end
-			if p:GetAttribute("Tint") and not hidden then
-				table.insert(tints, p)
-			end
-			table.insert(parts, p)
-			table.insert(entries, { offset = core:ToObjectSpace(p.CFrame), spin = p:GetAttribute("Spin"), axis = p:GetAttribute("SpinAxis"), orbit = p:GetAttribute("Orbit") })
-		elseif hidden and (p:IsA("Light") or p:IsA("ParticleEmitter") or p:IsA("Beam") or p:IsA("Trail")) then
-			p.Enabled = false
-		end
-	end
-	if hidden then
-		-- нераскрытый секретный дрон — чёрный силуэт, даже если у деталей есть текстуры
-		new("Highlight", { Adornee = m, FillColor = C(0, 0, 0), FillTransparency = 0, OutlineTransparency = 1, DepthMode = Enum.HighlightDepthMode.Occluded, Parent = m })
-	end
-	st.model = m
-	st.parts = parts
-	st.entries = entries
-	st.cfs = table.create(#parts)
-	-- радужные и секретные дроны переливаются, как в мире
-	st.tints = tints
-	st.rainbow = m:GetAttribute("Rainbow") == true
-	st.secret = m:GetAttribute("Secret") == true
-	st.coreRel = center:ToObjectSpace(core)
-	st.shown = false
-end
-
-local function stageStep()
-	local st = gacha.stage
-	local cam = workspace.CurrentCamera
-	local hole = gacha.showHole
-	local as = hole and hole.AbsoluteSize
-	local frac, tanH, z
-	local show = st.model ~= nil and gacha.win and gacha.win.Visible and cam ~= nil and as.Y > 4 and as.X > 4
-	if show then
-		frac = as.Y / math.max(cam.ViewportSize.Y, 1)
-		tanH = math.tan(math.rad(cam.FieldOfView) / 2)
-		-- глубина, на которой дрон (по диагонали габаритов) занимает почти всю высоту окошка. Пока окно только раскрывается и окошко
-		-- маленькое, дрон пришлось бы ставить далеко и он торчал бы за края окна — тогда он скрыт.
-		z = STAGE_SIZE / (1.15 * frac * 2 * tanH)
-		show = z <= STAGE_SIZE * 10
-		-- передний край дрона не должен заходить за плоскость отсечения камеры (0.1 стада)
-		z = math.max(z, 0.1 + STAGE_SIZE * 0.7)
-	end
-	if show ~= st.shown then
-		st.shown = show
-		if st.model then
-			st.model.Parent = show and cam or nil
-		end
-		if st.back then
-			st.back.Parent = show and cam or nil
-		end
-	end
-	if not show then
-		return
-	end
-	local t = os.clock()
-	local ap = hole.AbsolutePosition
-	local inset = GuiService:GetGuiInset()
-	local ray = cam:ViewportPointToRay(ap.X + as.X / 2 + inset.X, ap.Y + as.Y / 2 + inset.Y)
-	local camCF = cam.CFrame
-	local look = camCF.LookVector
-	-- от самой камеры: начало луча лежит на плоскости отсечения, а не в камере
-	local function at(depth)
-		return camCF.Position + ray.Direction * (depth / ray.Direction:Dot(look))
-	end
-	local rot = camCF.Rotation * CFrame.Angles(0, math.pi, 0)
-	-- дрон повёрнут к камере «лицом» и чуть сверху, медленно вращается и мягко парит
-	local bob = math.sin(t * 1.4) * STAGE_SIZE * 0.035
-	local body = CFrame.new(at(z) + camCF.UpVector * bob) * rot * CFrame.Angles(-STAGE_PITCH, 0, 0) * CFrame.Angles(0, t * 0.7, 0)
-	local core = body * st.coreRel
-	for i, e in ipairs(st.entries) do
-		local cf
-		if e.orbit then
-			cf = core * CFrame.Angles(0, t * e.orbit, 0) * e.offset
-		else
-			cf = core * e.offset
-			if e.spin then
-				local a = t * e.spin
-				cf = cf * (e.axis == "X" and CFrame.Angles(a, 0, 0) or CFrame.Angles(0, a, 0))
-			end
-		end
-		st.cfs[i] = cf
-	end
-	workspace:BulkMoveTo(st.parts, st.cfs, Enum.BulkMoveMode.FireCFrameChanged)
-	if st.rainbow then
-		for k, p in ipairs(st.tints) do
-			p.Color = Config.Rainbow(t, k * 0.06)
-		end
-	elseif st.secret then
-		local pulse = 0.55 + 0.45 * math.abs(math.sin(t * 3))
-		for _, p in ipairs(st.tints) do
-			p.Color = Color3.new(pulse, 0.05 * pulse, 0.06 * pulse)
-		end
-	end
-	-- задник: сразу за дроном, с небольшим запасом закрывает окошко, но не вылезает за край окна гачи
-	local zb = z + STAGE_SIZE * 0.75
-	local h = frac * 2 * tanH * zb * 1.08
-	st.back.Size = Vector3.new(h * as.X / as.Y, h, 0.02)
-	st.back.CFrame = CFrame.new(at(zb)) * rot
-	st.lightAtt.Position = Vector3.new(0, h * 0.25, -(zb - z) - STAGE_SIZE * 0.8)
-	st.light.Range = STAGE_SIZE * 4
-end
+gacha.stage = newStage("ZSS_GachaStage", C(24, 16, 36))
 -- после обновления камеры, чтобы дрон не отставал от неё ни на кадр
-RunService:BindToRenderStep("ZSS_GachaStage", Enum.RenderPriority.Camera.Value + 1, stageStep)
+RunService:BindToRenderStep("ZSS_GachaStage", Enum.RenderPriority.Camera.Value + 1, function()
+	stageStep(gacha.stage, gacha.showHole, gacha.win and gacha.win.Visible)
+end)
 
 local function buildGacha()
 	-- витрина — «окно» в фоне: сквозь него виден настоящий 3D-дрон (см. stageStep)
@@ -2547,7 +2596,7 @@ local function buildGacha()
 		end
 		local r = Config.Rarities[def.rarity]
 		local hidden = def.rarity == "Secret" and not (State.data and (State.data.owned[def.id] or 0) > 0)
-		stageSetModel(def, hidden, r.color)
+		stageSetModel(gacha.stage, def, hidden and "hidden" or "full", r)
 		gacha.showName.Text = (hidden and "???" or def.name) .. "  •  " .. r.label
 		gacha.showName.TextColor3 = r.color
 		gacha.showRainbow = r.rainbow
@@ -3001,8 +3050,7 @@ function UI.Init()
 		local hp = hud.hpBar.bg:FindFirstChildOfClass("UIStroke")
 		hp.Color = hp.Color:Lerp(hud.hpLow and Color3.new(1, 0.25 + 0.25 * math.sin(t * 8), 0.2) or C(70, 80, 70), math.min(1, dt * 12))
 		-- вращение моделей в окнах
-		if inv.win.Visible and inv.dmodel and inv.dmodel.Parent then
-			orbitStep(inv.dmodelBase, t * 0.8)
+		if inv.win.Visible then
 			if inv.drarityRainbow then
 				inv.drarity.TextColor3 = Config.Rainbow(t)
 			end
