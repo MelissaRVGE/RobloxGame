@@ -405,16 +405,24 @@ A.doomsday = function(c)
 end
 
 -- ===== УПРАВЛЕНИЕ РОЕМ =====
-function Drones.Publish(player)
+-- как в BSS: рой появляется только после того, как игрок занял станцию (улей)
+local function hasHive(player)
+	return Drones.HiveIndex ~= nil and Drones.HiveIndex(player) ~= nil
+end
+
+function Drones.Publish(player, launch)
 	local s = swarms[player]
 	if not s then
 		return
 	end
 	local list = {}
-	for _, key in ipairs(s.order) do
-		local d = s.drones[key]
-		if d then
-			table.insert(list, { k = key, id = d.mini and "mini" or d.id })
+	if hasHive(player) then
+		for _, key in ipairs(s.order) do
+			local d = s.drones[key]
+			if d then
+				-- l = true: дрон только что вылетает из соты (клиент рисует вылет из улья)
+				table.insert(list, { k = key, id = d.mini and "mini" or d.id, l = launch or nil })
+			end
 		end
 	end
 	player:SetAttribute("Swarm", HttpService:JSONEncode(list))
@@ -488,6 +496,32 @@ function Drones.SaveEnergy(player)
 			p.energy[uid] = nil
 		end
 	end
+end
+
+-- игрок занял станцию: рой вылетает из сот и летит к нему
+function Drones.Launch(player)
+	local s = swarms[player]
+	local hive = Drones.HiveIndex and Drones.HiveIndex(player)
+	if not s or not hive then
+		return
+	end
+	local now = os.clock()
+	for i, key in ipairs(s.order) do
+		local d = s.drones[key]
+		if d then
+			d.pos = Drones.CellPos(hive, (i - 1) % Config.Hive.maxCells + 1)
+			d.tile = nil
+			d.zombie = nil
+			if d.state ~= "tired" then
+				d.state = "idle"
+			end
+			-- не начинать работу, пока дрон ещё летит от улья
+			d.waitUntil = now + 1.6 + i * 0.12
+		end
+	end
+	Drones.Publish(player, true)
+	-- снять флаг вылета, чтобы позже зашедшие игроки не видели повторный вылет
+	task.delay(3, Drones.Publish, player)
 end
 
 function Drones.Remove(player)
@@ -592,6 +626,10 @@ function Drones.Step(now)
 					char:PivotTo(CFrame.new(Fields.Entrance(field) + Fields.GateDir(field) * 4))
 				end
 				field = nil
+			end
+			-- рой ещё сидит в улье, пока игрок не занял станцию
+			if not hasHive(player) then
+				continue
 			end
 
 			-- истекшие мини-дроны
