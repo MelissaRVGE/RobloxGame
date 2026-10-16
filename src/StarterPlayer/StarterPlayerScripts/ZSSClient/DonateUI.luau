@@ -701,6 +701,7 @@ local function build()
 			CellPadding = UDim2.fromOffset(16, 12),
 			FillDirectionMaxCells = 3,
 			HorizontalAlignment = Enum.HorizontalAlignment.Center,
+			VerticalAlignment = Enum.VerticalAlignment.Center,
 			SortOrder = Enum.SortOrder.LayoutOrder,
 		}),
 	})
