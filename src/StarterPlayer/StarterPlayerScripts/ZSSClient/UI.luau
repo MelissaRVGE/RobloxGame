@@ -1262,8 +1262,9 @@ end
 local STAGE_SIZE = 0.1 -- диаметр дрона на сцене, стадов
 local STAGE_PITCH = math.rad(12)
 
-local function newStage(name, bg, brightness)
-	return { name = name, bg = bg, brightness = brightness or 0.35 }
+-- fill: какую долю высоты окошка занимает дрон по диагонали габаритов
+local function newStage(name, bg, brightness, fill)
+	return { name = name, bg = bg, brightness = brightness or 0.35, fill = fill or 1 / 1.15 }
 end
 
 local function stageBack(st)
@@ -1386,7 +1387,7 @@ local function stageStep(st, hole, visible)
 		tanH = math.tan(math.rad(cam.FieldOfView) / 2)
 		-- глубина, на которой дрон (по диагонали габаритов) занимает почти всю высоту окошка. Пока окно только раскрывается и окошко
 		-- маленькое, дрон пришлось бы ставить далеко и он торчал бы за края окна — тогда он скрыт.
-		z = STAGE_SIZE / (1.15 * frac * 2 * tanH)
+		z = STAGE_SIZE / (frac * 2 * tanH * st.fill)
 		show = z <= STAGE_SIZE * 10
 		-- передний край дрона не должен заходить за плоскость отсечения камеры (0.1 стада)
 		z = math.max(z, 0.1 + STAGE_SIZE * 0.7)
@@ -2178,7 +2179,7 @@ function UI.ToggleInventory()
 	end
 end
 
-inv.stage = newStage("ZSS_InvStage", INV_STAGE_BG, 0.5)
+inv.stage = newStage("ZSS_InvStage", INV_STAGE_BG, 0.5, 1.1)
 RunService:BindToRenderStep("ZSS_InvStage", Enum.RenderPriority.Camera.Value + 1, function()
 	stageStep(inv.stage, inv.dhole, inv.win and inv.win.Visible)
 end)
