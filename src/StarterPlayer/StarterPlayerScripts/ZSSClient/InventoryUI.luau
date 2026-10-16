@@ -17,6 +17,7 @@ local Buffs = require(Shared.BuffsConfig)
 local Remotes = Shared:WaitForChild("Remotes")
 local U = require(script.Parent.U)
 local State = require(script.Parent.State)
+local HS = require(script.Parent.HotbarSlots)
 
 local player = Players.LocalPlayer
 local new = U.new
@@ -25,10 +26,13 @@ local C = Color3.fromRGB
 
 local Inv = {}
 local api
+local refreshHotbarStrip -- полоска хотбара (объявлена ниже)
 local win, scaleObj, body, fitScale
 
 -- ===== РАЗМЕТКА =====
-local W, H = 1100, 580
+local W, H = 1100, 668
+-- полоска хотбара внизу окна: сюда перетаскивают предметы
+local STRIP = { x = 14, y = 576, w = 1072, h = 80 }
 -- персонаж — посередине окна: окошко у центра экрана, и перспектива камеры не растягивает модель
 -- (у края широкого экрана близкий объект виден сбоку и заметно расплывается вширь)
 local MID = { x = 14, y = 72, w = 300, h = 494 }
@@ -331,6 +335,9 @@ end
 
 local function bindTip(obj, getSpec)
 	obj.MouseEnter:Connect(function()
+		if HS.IsDragging() then
+			return
+		end
 		local spec = getSpec()
 		if spec then
 			tip.getSpec = getSpec
@@ -399,7 +406,7 @@ local function gearSpec(item, fromSlot)
 				table.insert(lines, { "✦ " .. b.name, ("+%d ступ. (%d с)"):format(bn, b.time), b.color })
 			end
 		end
-		footer, fcol = "ЛКМ — использовать (или клавиша в хотбаре)", C(130, 220, 255)
+		footer, fcol = "ЛКМ — использовать  •  перетащи в хотбар или наведи и нажми 3–6", C(130, 220, 255)
 	elseif isEquipped(item) then
 		footer = FIXED[item.slot] and "✔ НАДЕТО  •  заменить можно другим предметом" or "✔ НАДЕТО  •  ЛКМ — снять"
 		fcol = C(140, 255, 120)
@@ -439,7 +446,7 @@ local function findSpec(it, n)
 		sub = "НАХОДКА  •  " .. tier.name:upper(),
 		lines = lines,
 		desc = it.desc,
-		footer = u and "ЛКМ — выбрать, затем «Использовать» или «Продать»" or "ЛКМ — выбрать, затем «Продать». Нужна и для крафта в Магазине",
+		footer = u and "ЛКМ — выбрать  •  перетащи в хотбар или наведи и нажми 3–6" or "ЛКМ — выбрать, затем «Продать». Нужна и для крафта в Магазине",
 	}
 end
 
@@ -1528,10 +1535,26 @@ local function updateBuffChips()
 end
 
 -- ===== хранилище =====
+-- ячейку хранилища можно перетащить в хотбар; наведение + клавиша 3–6 тоже кладёт предмет
+local function hotbarSource(btn, getKey, rejectText)
+	HS.AttachSource(btn, getKey, nil, function()
+		local t = rejectText()
+		if t then
+			api.toast(t, "info")
+		end
+	end)
+	btn.MouseEnter:Connect(function()
+		HS.SetHover(getKey())
+	end)
+	btn.MouseLeave:Connect(function()
+		HS.SetHover(nil)
+	end)
+end
+
 local function newCell(parent, order)
 	local c = {}
 	c.btn = api.button({ LayoutOrder = order, BackgroundColor3 = C(255, 255, 255), Text = "", Parent = parent }, function()
-		if c.onClick then
+		if c.onClick and not HS.JustDropped() then
 			c.onClick()
 		end
 	end)
@@ -1676,6 +1699,11 @@ function Inv.RefreshGear(animate)
 			gearCells[i] = c
 			bindTip(c.btn, function()
 				return c.item and gearSpec(c.item)
+			end)
+			hotbarSource(c.btn, function()
+				return HS.ShopKey(c.item)
+			end, function()
+				return c.item and ("«%s» надевается на персонажа — в хотбар кладут расходники и находки"):format(c.item.name)
 			end)
 		end
 		c.btn.Visible = true
@@ -1938,6 +1966,11 @@ local function buildRight(right)
 		bindTip(c.btn, function()
 			return c.entry and findSpec(c.entry.item, c.entry.n)
 		end)
+		hotbarSource(c.btn, function()
+			return c.entry and HS.FindKey(c.entry.item)
+		end, function()
+			return c.entry and ("«%s» нельзя использовать — её можно только продать"):format(c.entry.item.name)
+		end)
 		findCells[i] = c
 	end
 	tabs.findsEmpty = label(tabs.findsPage, { Position = UDim2.fromOffset(10, 40), Size = UDim2.new(1, -20, 0, 80), Text = "Рюкзак пуст.\nСобирай лом и убивай зомби — иногда в кучах попадаются редкие находки. Ночью их вдвое больше!", Font = Enum.Font.GothamBold, TextSize = 14, TextWrapped = true, TextColor3 = T.Muted, Visible = false, ZIndex = 5 })
@@ -2189,6 +2222,7 @@ function Inv.Refresh(d)
 	tabs.findsBtn.Text = ("💎 НАХОДКИ  %d/%d"):format(#list, Items.BagSlots)
 	updateCap(d)
 	updateSlots()
+	refreshHotbarStrip()
 	updatePower()
 	updateStats(true)
 	Inv.RefreshGear(false)
@@ -2214,6 +2248,193 @@ function Inv.Refresh(d)
 		if not first then
 			-- сервер переодевает персонажа — пересобираем 3D-копию, когда новые детали придут на клиент
 			queueRebuild(0.45)
+		end
+	end
+end
+
+-- ======================================================================
+-- ХОТБАР В ОКНЕ: те же 6 ячеек, что внизу экрана. 1–2 — оружие и инструмент (закреплены),
+-- 3–6 — свободные: перетащи сюда любой расходник или используемую находку.
+-- ======================================================================
+local strip = { slots = {} }
+local HB_SLOT, HB_GAP = 64, 10
+
+local function styleStripSlot(e)
+	local color, thick, bg = e.baseColor or C(70, 78, 90), 2, C(26, 30, 36)
+	if e.hoverOn then
+		color, thick, bg = C(140, 255, 110), 4, C(36, 60, 32)
+	elseif e.dragOn then
+		color, thick, bg = C(150, 210, 255), 3, C(30, 40, 52)
+	end
+	U.tween(e.stroke, 0.18, { Color = color, Thickness = thick })
+	U.tween(e.btn, 0.18, { BackgroundColor3 = bg })
+	U.tween(e.scale, 0.2, { Scale = e.hoverOn and 1.12 or 1 }, Enum.EasingStyle.Back)
+	U.tween(e.plus, 0.2, { TextTransparency = e.shown and 1 or (e.dragOn and 0.1 or 0.5) })
+end
+
+local function buildHotbarStrip()
+	local bar = new("Frame", { Position = UDim2.fromOffset(STRIP.x, STRIP.y), Size = UDim2.fromOffset(STRIP.w, STRIP.h), BackgroundColor3 = C(255, 255, 255), Parent = body }, { U.corner(14), U.grad(C(36, 42, 50), C(22, 26, 30), 90) })
+	strip.stroke = U.stroke(C(60, 70, 80), 1.5)
+	strip.stroke.Parent = bar
+	local title = label(bar, { Position = UDim2.fromOffset(16, 10), Size = UDim2.fromOffset(300, 24), Text = "ХОТБАР", TextSize = 20, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = C(255, 255, 255) }, 1.2)
+	new("UIGradient", { Color = ColorSequence.new(C(200, 255, 190), C(110, 220, 80)), Rotation = 90, Parent = title })
+	strip.hint = label(bar, {
+		Position = UDim2.fromOffset(16, 36),
+		Size = UDim2.fromOffset(560, 36),
+		Text = "Перетащи расходник или находку в ячейки 3–6 — или наведи на предмет и нажми 3–6.\nВынеси предмет из ячейки или нажми ПКМ, чтобы освободить её. Ячейки можно менять местами.",
+		Font = Enum.Font.GothamBold,
+		TextSize = 12,
+		TextWrapped = true,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextYAlignment = Enum.TextYAlignment.Top,
+		TextColor3 = T.Muted,
+	})
+	local n = Shop.HotbarWeapons + HS.Free
+	local x0 = STRIP.w - 16 - n * HB_SLOT - (n - 1) * HB_GAP
+	for i = 1, n do
+		local e = {}
+		local fixed = i <= Shop.HotbarWeapons
+		e.btn = new("TextButton", {
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromOffset(x0 + (i - 1) * (HB_SLOT + HB_GAP) + HB_SLOT / 2, STRIP.h / 2),
+			Size = UDim2.fromOffset(HB_SLOT, HB_SLOT),
+			BackgroundColor3 = C(26, 30, 36),
+			Text = "",
+			AutoButtonColor = false,
+			ZIndex = 2,
+			Parent = bar,
+		}, { U.corner(12) })
+		e.stroke = U.stroke(C(70, 78, 90), 2)
+		e.stroke.Parent = e.btn
+		e.scale = U.scaleOf(e.btn)
+		label(e.btn, { Position = UDim2.fromOffset(5, 2), Size = UDim2.fromOffset(16, 16), Text = tostring(i), TextSize = 13, ZIndex = 6 }, 1.5)
+		e.count = label(e.btn, { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -4, 1, -2), Size = UDim2.fromOffset(40, 16), Text = "", TextSize = 13, TextXAlignment = Enum.TextXAlignment.Right, ZIndex = 6 }, 1.5)
+		if fixed then
+			local isTool = Shop.HotbarOrder and Shop.HotbarOrder[i] == "tool"
+			e.slotKey = isTool and "tool" or "weapon"
+			e.vp = itemVp(e.btn, { Position = UDim2.fromOffset(4, 4), Size = UDim2.new(1, -8, 1, -8), ZIndex = 3 })
+			new("TextLabel", {
+				AnchorPoint = Vector2.new(1, 0),
+				Position = UDim2.new(1, -3, 0, 3),
+				Size = UDim2.fromOffset(18, 18),
+				BackgroundColor3 = isTool and C(255, 190, 60) or C(255, 90, 80),
+				Font = Enum.Font.GothamBlack,
+				Text = isTool and "⛏" or "⚔",
+				TextSize = 11,
+				TextColor3 = C(20, 20, 20),
+				ZIndex = 6,
+				Parent = e.btn,
+			}, { U.corner(9) })
+			e.btn.BackgroundTransparency = 0.25
+			bindTip(e.btn, function()
+				local id = equipped(e.slotKey)
+				local it = id and Shop.ById[id]
+				local spec = it and gearSpec(it, true)
+				if spec then
+					spec.footer = isTool and "Ячейка 2 — всегда твой инструмент (меняется в слоте персонажа)" or "Ячейка 1 — всегда твоё оружие (меняется в слоте персонажа)"
+					spec.footerColor = C(255, 200, 120)
+				end
+				return spec
+			end)
+		else
+			local fi = i - Shop.HotbarWeapons
+			e.free = fi
+			e.img = new("ImageLabel", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(46, 46), BackgroundTransparency = 1, ScaleType = Enum.ScaleType.Fit, ImageTransparency = 1, ZIndex = 3, Parent = e.btn })
+			e.imgScale = U.scaleOf(e.img)
+			e.plus = label(e.btn, { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.52), Size = UDim2.fromOffset(30, 30), Text = "+", Font = Enum.Font.GothamBold, TextSize = 30, TextColor3 = C(160, 180, 200), TextTransparency = 0.5, ZIndex = 4 })
+			e.btn.MouseButton2Click:Connect(function()
+				if HS.Key(fi) ~= "" then
+					HS.Assign(fi, "")
+					U.play(U.Sounds.tap, 0.4, 0.8)
+				end
+			end)
+			e.btn.MouseEnter:Connect(function()
+				if not HS.IsDragging() then
+					U.tween(e.scale, 0.15, { Scale = 1.06 }, Enum.EasingStyle.Back)
+				end
+			end)
+			e.btn.MouseLeave:Connect(function()
+				if not HS.IsDragging() then
+					U.tween(e.scale, 0.15, { Scale = 1 })
+				end
+			end)
+			HS.AttachSource(e.btn, function()
+				local k = HS.Key(fi)
+				return k ~= "" and k or nil
+			end, function()
+				return fi
+			end)
+			HS.AddTarget(e.btn, fi, function(on)
+				e.hoverOn = on
+				styleStripSlot(e)
+			end, function(on)
+				e.dragOn = on
+				styleStripSlot(e)
+				if fi == 1 then
+					-- вся полоска подсвечивается, пока что-то тащат
+					U.tween(strip.stroke, 0.2, { Color = on and C(120, 190, 255) or C(60, 70, 80), Thickness = on and 2.5 or 1.5 })
+				end
+			end, function()
+				return win and win.Visible
+			end)
+			bindTip(e.btn, function()
+				local key = HS.Key(fi)
+				local kind, id, it = require(Shared.Hotbar).Parse(key)
+				local spec
+				if kind == "shop" then
+					spec = gearSpec(it)
+				elseif kind == "find" then
+					spec = findSpec(it, HS.Count(key))
+				else
+					return { title = ("Ячейка %d — пусто"):format(i), color = C(150, 170, 190), sub = "СВОБОДНАЯ ЯЧЕЙКА", lines = {}, desc = "Перетащи сюда любой расходник или находку, которую можно использовать.", footer = "Или наведи на предмет в хранилище и нажми " .. i, footerColor = C(130, 220, 255) }
+				end
+				spec.footer = "Клавиша " .. i .. "  •  перетащи в другую ячейку или вынеси, чтобы убрать"
+				spec.footerColor = C(130, 220, 255)
+				return spec
+			end)
+		end
+		strip.slots[i] = e
+	end
+end
+
+function refreshHotbarStrip()
+	if not strip.slots[1] then
+		return
+	end
+	local list = HS.List()
+	for _, e in ipairs(strip.slots) do
+		if e.slotKey then
+			local id = equipped(e.slotKey)
+			if id ~= e.id then
+				e.id = id
+				local it = id and Shop.ById[id]
+				if it then
+					setVp(e.vp, it)
+				end
+				e.stroke.Color = it and gradeOf(it).color or C(70, 78, 90)
+			end
+		else
+			local key = list[e.free] or ""
+			local vis = HS.Visual(key)
+			if key ~= e.id then
+				local first = e.id == nil
+				e.id = key
+				if vis then
+					e.img.Image = vis.image
+					if not first then
+						e.img.ImageTransparency = 1
+						e.imgScale.Scale = 0.4
+						U.tween(e.imgScale, 0.35, { Scale = 1 }, Enum.EasingStyle.Back)
+					end
+				end
+			end
+			local n = vis and HS.Count(key) or 0
+			e.shown = vis ~= nil
+			e.count.Text = vis and ("x" .. n) or ""
+			e.count.TextColor3 = n > 0 and C(255, 255, 255) or C(255, 120, 110)
+			U.tween(e.img, 0.2, { ImageTransparency = vis and (n > 0 and 0 or 0.6) or 1 })
+			e.baseColor = vis and (n > 0 and vis.color or vis.color:Lerp(C(70, 78, 90), 0.65)) or C(70, 78, 90)
+			styleStripSlot(e)
 		end
 	end
 end
@@ -2256,6 +2477,7 @@ local function buildWindow()
 	buildStats(mid)
 	local right = new("Frame", { Position = UDim2.fromOffset(RIGHT.x, RIGHT.y), Size = UDim2.fromOffset(RIGHT.w, RIGHT.h), BackgroundColor3 = C(255, 255, 255), Parent = body }, { U.corner(14), U.grad(C(36, 42, 50), C(22, 26, 30), 90), U.stroke(C(60, 70, 80), 1.5) })
 	buildRight(right)
+	buildHotbarStrip()
 	Inv.SetTab("gear")
 	Inv.SetFilter("all")
 end
@@ -2352,6 +2574,10 @@ function Inv.Init(a)
 	api = a
 	buildWindow()
 	buildTip()
+	-- начали тащить предмет — подсказка не мешает
+	HS.onBegin = function()
+		hideTip()
+	end
 	State.Changed:Connect(function(d)
 		if win.Visible then
 			Inv.Refresh(d)

@@ -352,6 +352,15 @@ function Equipment.Buy(player, id, qty)
 		end
 		p.batteries -= cost
 		p.consum[id] = (p.consum[id] or 0) + qty
+		-- новый расходник сам встаёт в первую свободную ячейку хотбара (потом его можно переложить)
+		local Hotbar = require(RS.ZSS.Hotbar)
+		p.hotbar = Hotbar.Normalize(p.hotbar)
+		if not Hotbar.IndexOf(p.hotbar, id) then
+			local free = Hotbar.FirstEmpty(p.hotbar)
+			if free then
+				p.hotbar[free] = id
+			end
+		end
 		Data.MarkDirty(player)
 		Remotes.FX:FireAllClients("purchase", { owner = player.UserId })
 		return { ok = true, qty = qty }

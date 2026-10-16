@@ -46,6 +46,7 @@ local function defaultProfile()
 		totalBatteries = 0, -- сколько батарей заработано за всё время (для лидерборда)
 		settings = {}, -- настройки игрока из меню
 		playAcc = 0, -- секунды онлайн до следующей награды за время в игре
+		hotbar = { "", "", "", "" }, -- свободные ячейки хотбара 3–6 (ZSS/Hotbar)
 	}
 end
 
@@ -80,6 +81,14 @@ function Data.MaxEquip(p)
 end
 
 local function reconcile(p)
+	-- старые профили: в ячейках 3–6 лежало то же, что раньше было к ним привязано (если есть в запасе)
+	if p.hotbar == nil then
+		local Hotbar = require(RS.ZSS.Hotbar)
+		p.hotbar = {}
+		for i, id in ipairs(Hotbar.Legacy) do
+			p.hotbar[i] = (p.consum and (p.consum[id] or 0) > 0) and id or ""
+		end
+	end
 	local d = defaultProfile()
 	for k, v in pairs(d) do
 		if p[k] == nil then
@@ -262,6 +271,7 @@ function Data.Snapshot(p)
 		equippedList = eqList,
 		items = p.items or {},
 		consum = p.consum or {},
+		hotbar = require(RS.ZSS.Hotbar).Normalize(p.hotbar),
 		gear = p.gear or {},
 		maxSlots = Data.MaxEquip(p),
 		pity = p.pity,
