@@ -127,8 +127,8 @@ local function buildBarriers()
 					return dx * dx + dz * dz < (R + m) ^ 2
 				end
 			else
-				-- квадратное поле: стена вдоль забора (сразу за ним), ворота тоже перекрыты
-				local half = f.size / 2 + 1.2
+				-- квадратное поле: забор стоит на 3 стада дальше плиток; стена сразу за ним, ворота тоже перекрыты
+				local half = f.size / 2 + 4
 				local len = half * 2 + 1
 				table.insert(b.walls, wallPart(folder, CFrame.new(c.X, midY, c.Z - half), Vector3.new(len, h, 1)))
 				table.insert(b.walls, wallPart(folder, CFrame.new(c.X, midY, c.Z + half), Vector3.new(len, h, 1)))
