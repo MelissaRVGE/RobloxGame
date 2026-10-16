@@ -34,6 +34,28 @@ return {
 	hexCell = "rbxassetid://71007904029347",
 	hexLock = "rbxassetid://123716931156624",
 	lootCrate = "rbxassetid://83463150399095",
+	donate = "rbxassetid://76726193159820", -- кнопка «Донат» в HUD
+	-- донат-магазин: иконки предложений (ключи из DonateConfig) и лучи для фона карточек
+	dn = {
+		rail = "rbxassetid://76726193159820",
+		rays = "rbxassetid://132056028348411",
+		turbo = "rbxassetid://97695051726002",
+		bigbag = "rbxassetid://70507329878537",
+		lucky = "rbxassetid://79180010460075",
+		sprint = "rbxassetid://102392315922143",
+		gemtime = "rbxassetid://82368529364569",
+		vip = "rbxassetid://82857020936666",
+		gems1 = "rbxassetid://115349723297458",
+		gems2 = "rbxassetid://90265737048248",
+		gems3 = "rbxassetid://76835046473466",
+		gems4 = "rbxassetid://122429428931058",
+		starter = "rbxassetid://96511038101391",
+		goldcap = "rbxassetid://123052998962040",
+		starcap = "rbxassetid://87208789420420",
+		boosts = "rbxassetid://106575554876653",
+		microconv = "rbxassetid://124409195039093",
+		supershake = "rbxassetid://131872901085460",
+	},
 	-- ресурсы локаций
 	res = {
 		rust = "rbxassetid://81335453438494",
