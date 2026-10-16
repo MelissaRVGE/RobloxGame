@@ -159,6 +159,7 @@ function Hives.Claim(player, i)
 	owners[i] = player
 	player:SetAttribute("ZSS_Hive", i)
 	Hives.Refresh(i)
+	Drones.Launch(player)
 	Remotes.FX:FireAllClients("hiveClaim", { hive = i, owner = player.UserId })
 	return true
 end
@@ -227,7 +228,7 @@ function Hives.Init(dataModule, dronesModule, onCharge)
 					local mine = Hives.Index(player)
 					if not owners[i] then
 						local ok, err = Hives.Claim(player, i)
-						Remotes.Notify:FireClient(player, ok and ("⚡ Теперь станция №" .. i .. " твоя! Нажми E ещё раз, чтобы зарядить дронов") or err, ok and "good" or "bad")
+						Remotes.Notify:FireClient(player, ok and ("⚡ Станция №" .. i .. " твоя! Рой вылетает из сот. Нажми E здесь, чтобы зарядить дронов") or err, ok and "good" or "bad")
 						return
 					end
 					if mine ~= i then

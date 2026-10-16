@@ -77,7 +77,10 @@ local function syncSwarm(plr)
 	local char = plr.Character
 	local hrp = char and char:FindFirstChild("HumanoidRootPart")
 	local keep, order = {}, {}
-	for _, e in ipairs(list) do
+	local hive = plr:GetAttribute("ZSS_Hive")
+	local frame = hive and Config.HiveFrames[hive]
+	local now = os.clock()
+	for idx, e in ipairs(list) do
 		keep[e.k] = true
 		local v = sw.drones[e.k]
 		if v and v.def.id ~= e.id then
@@ -88,7 +91,15 @@ local function syncSwarm(plr)
 			local def = e.id == "mini" and Config.MiniDrone or Config.DroneById[e.id]
 			if def then
 				v = makeVis(def, e.k)
-				if hrp then
+				if e.l and frame then
+					-- вылет из улья: дрон стоит в своей соте и по очереди срывается к игроку
+					local cell = (idx - 1) % Config.Hive.maxCells + 1
+					local home = (frame * Config.CellOffset(cell, 0.9)).Position
+					v.pos = home
+					v.home = home
+					v.homeLook = home + frame.LookVector * 10
+					v.launchAt = now + 0.35 + (idx - 1) * 0.12
+				elseif hrp then
 					v.pos = hrp.Position + Vector3.new(math.random(-3, 3), 3, math.random(-3, 3))
 					if FX then
 						FX.Burst(v.pos, v.color, 12, 0.5, 6)
@@ -135,6 +146,48 @@ local function updateVis(v, i, n, hrp, t, dt)
 	end
 	local mode = v.mode
 	local desired
+	if v.launchAt then
+		if t < v.launchAt then
+			-- ждёт в соте: лёгкое покачивание, лицом наружу
+			v.pos = v.home + Vector3.new(0, math.sin(t * 3 + v.phase) * 0.05, 0)
+			v.cf = CFrame.lookAt(v.pos, v.homeLook, UP)
+			v.look = (v.homeLook - v.pos).Unit
+			return
+		end
+		if not v.launched then
+			v.launched = true
+			v.flyFrom = v.pos
+			v.flyT0 = t
+			if FX then
+				FX.Burst(v.pos, v.color, 8, 0.35, 5)
+			end
+		end
+		-- плавный вылет по дуге: ease-in-out к точке у игрока
+		local k = math.clamp((t - v.flyT0) / 1.4, 0, 1)
+		if k >= 1 then
+			v.launchAt = nil
+		else
+			local e = k < 0.5 and 4 * k * k * k or 1 - (-2 * k + 2) ^ 3 / 2
+			local goal = owner + Vector3.new(math.cos(v.phase) * 3.6, 2.6, math.sin(v.phase) * 3.6)
+			local mid = v.flyFrom:Lerp(goal, 0.5) + Vector3.new(0, 6, 0)
+			local a = v.flyFrom:Lerp(mid, e)
+			local b = mid:Lerp(goal, e)
+			local prevPos = v.pos
+			v.pos = a:Lerp(b, e)
+			local dir = v.pos - prevPos
+			local flat = Vector3.new(dir.X, 0, dir.Z)
+			local look = flat.Magnitude > 1e-3 and flat.Unit or (v.look or Vector3.new(0, 0, -1))
+			if v.look then
+				local bl = v.look:Lerp(look, 1 - math.exp(-dt * 8))
+				if bl.Magnitude > 0.05 then
+					look = bl.Unit
+				end
+			end
+			v.look = look
+			v.cf = CFrame.lookAt(v.pos, v.pos + look, UP) * CFrame.Angles(-math.clamp(dir.Magnitude / math.max(dt, 1e-3) / 45, 0, 0.45), 0, 0)
+			return
+		end
+	end
 	if mode == "travel" and v.target then
 		desired = v.target + Vector3.new(0, 1.4, 0)
 		if (desired - v.pos).Magnitude < 0.5 then

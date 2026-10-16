@@ -80,6 +80,12 @@ local function onPlayerAdded(player)
 	Equipment.Reconcile(p)
 	Drones.Add(player)
 	Data.Sync(player)
+	-- как в BSS: дроны ждут в улье, пока игрок не займёт станцию
+	task.delay(4, function()
+		if player.Parent and not Hives.Index(player) then
+			notify(player, "🤖 Твой рой ждёт на базе: подойди к свободной станции зарядки и нажми E", "info")
+		end
+	end)
 	local function onChar()
 		task.wait(0.3)
 		Equipment.Apply(player)
@@ -579,6 +585,9 @@ if game:GetService("RunService"):IsStudio() then
 			if p then
 				if cmd == "pity" then
 					p.pity[a] = b
+				elseif cmd == "claim" then
+					-- занять станцию a (как нажатие E у свободной станции)
+					Hives.Claim(player, a or 1)
 				elseif cmd == "give" then
 					Data.AddDrone(p, a)
 					Drones.Rebuild(player)
