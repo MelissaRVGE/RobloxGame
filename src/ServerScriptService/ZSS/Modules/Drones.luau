@@ -69,8 +69,20 @@ local function buffMult(s, name, now)
 	return m
 end
 
+local Buffs = require(RS.ZSS.BuffsConfig)
+
+-- сбор дрона: способности роя × «Сбор дронов» со снаряжения × бафф «Смазка роя»
+local function gatherMult(player)
+	return (player:GetAttribute("ZSS_DroneGather") or 1) * Buffs.Mult(player, "dgather")
+end
+
 local function collect(c, d, tile, mult)
-	return Fields.Collect(c.player, tile, d.stats.gather, (mult or 1) * buffMult(c.s, "scrap", c.now))
+	return Fields.Collect(c.player, tile, d.stats.gather, (mult or 1) * buffMult(c.s, "scrap", c.now) * gatherMult(c.player))
+end
+
+-- урон дрона с бонусом «Урон дронов»
+local function droneDamage(c, z, dmg)
+	Zombies.Damage(z, dmg * (c.player:GetAttribute("ZSS_DroneDmg") or 1), c.player)
 end
 
 local function travelTime(d, pos, speedMult)
@@ -109,7 +121,7 @@ A.zap = function(c)
 		return false
 	end
 	fx("zap", { owner = c.player.UserId, key = c.d.key, to = z.root.Position, color = Color3.fromRGB(255, 240, 90) })
-	Zombies.Damage(z, 25, c.player)
+	droneDamage(c, z, 25)
 	return true
 end
 
@@ -123,7 +135,7 @@ A.blades = function(c)
 	end
 	fx("ring", { pos = c.hrp.Position, radius = 12, color = Color3.fromRGB(220, 220, 230), style = "blades" })
 	for _, z in ipairs(zs) do
-		Zombies.Damage(z, 18, c.player)
+		droneDamage(c, z, 18)
 	end
 	return true
 end
@@ -597,7 +609,7 @@ local function stepDrone(c, d)
 			return
 		end
 		if now >= d.t then
-			Zombies.Damage(z, d.stats.damage, c.player)
+			droneDamage(c, z, d.stats.damage)
 			d.hits += 1
 			d.t = now + 0.9 / c.speedMult
 			if d.hits >= 4 then
@@ -647,7 +659,9 @@ function Drones.Step(now)
 				Drones.Publish(player)
 			end
 
-			local c = { player = player, s = s, field = field, hrp = hrp, hum = hum, now = now, speedMult = buffMult(s, "speed", now) }
+			local speedMult = buffMult(s, "speed", now) * (player:GetAttribute("ZSS_DroneSpeed") or 1) * Buffs.Mult(player, "dspeed")
+			local c = { player = player, s = s, field = field, hrp = hrp, hum = hum, now = now, speedMult = speedMult }
+			local stamina = player:GetAttribute("ZSS_DroneEnergy") or 1
 			local dt = math.clamp(now - (s.lastStep or now), 0, 0.5)
 			s.lastStep = now
 			local freed = false
@@ -670,7 +684,7 @@ function Drones.Step(now)
 					end
 				elseif d then
 					if d.state == "travel" or d.state == "gather" or d.state == "attack" then
-						d.energy = math.max(0, d.energy - dt / d.workTime)
+						d.energy = math.max(0, d.energy - dt / (d.workTime * stamina))
 						if d.energy <= 0 then
 							d.state = "tired"
 							d.tile = nil
@@ -823,6 +837,27 @@ function Drones.DockedCount(player)
 		end
 	end
 	return n
+end
+
+-- мини-дроны от расходника (как способность «Рой»)
+function Drones.SpawnMinis(player, n, duration)
+	local s = swarms[player]
+	local char = player.Character
+	local hrp = char and char:FindFirstChild("HumanoidRootPart")
+	if not s or not hrp then
+		return
+	end
+	local now = os.clock()
+	for _ = 1, n do
+		s.miniCounter += 1
+		local key = "m" .. s.miniCounter
+		local d = newDrone(key, "mini", true)
+		d.expires = now + duration
+		d.pos = hrp.Position
+		s.drones[key] = d
+		table.insert(s.order, key)
+	end
+	Drones.Publish(player)
 end
 
 function Drones.AddEnergy(player, amount)

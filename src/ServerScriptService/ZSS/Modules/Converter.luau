@@ -97,7 +97,7 @@ function Converter.Init(dataModule)
 						end
 					end
 					-- бонус переработки от рюкзака: дробная часть копится между тиками
-					local gain = chunk * (player:GetAttribute("ZSS_ConvMult") or 1) + (st.frac or 0)
+					local gain = chunk * (player:GetAttribute("ZSS_ConvMult") or 1) * require(RS.ZSS.BuffsConfig).Mult(player, "convb") + (st.frac or 0)
 					local whole = math.floor(gain)
 					st.frac = gain - whole
 					st.total += whole

@@ -106,6 +106,15 @@ local STAT_LABELS = {
 }
 local STAT_ORDER = { "dmg", "radius", "gather", "cd", "hp", "def", "scrap", "speed", "jump", "heal", "energy", "cap", "conv", "cspeed" }
 local PCT = { def = true, scrap = true, energy = true, cap = true, conv = true, cspeed = true }
+-- доп. характеристики в стиле BSS (общий список в ShopConfig)
+for _, k in ipairs(Shop.StatOrder) do
+	local sd = Shop.StatDefs[k]
+	STAT_LABELS[k] = { sd[1], sd.suffix or "" }
+	PCT[k] = sd.pct or nil
+	if not table.find(STAT_ORDER, k) then
+		table.insert(STAT_ORDER, k)
+	end
+end
 -- слоты, которые нельзя снять (только заменить)
 local FIXED = { weapon = true, tool = true, backpack = true }
 
@@ -119,8 +128,8 @@ local function fmtStat(k, v)
 		return ("+%d%%"):format(math.floor(v * 100 + 0.5))
 	elseif k == "cd" then
 		return ("%.2fс"):format(v)
-	elseif k == "hp" or k == "speed" or k == "jump" then
-		return "+" .. tostring(v)
+	elseif k == "hp" or k == "speed" or k == "jump" or k == "regen" then
+		return "+" .. tostring(v) .. STAT_LABELS[k][2]
 	end
 	return tostring(v)
 end

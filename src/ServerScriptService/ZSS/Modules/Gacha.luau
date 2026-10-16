@@ -48,6 +48,42 @@ function Gacha.RollOne(p)
 	return pool[rng:NextInteger(1, #pool)], rarity, byPity
 end
 
+-- капсула дрона (находка): одна крутка где угодно. minRarity = нижняя граница редкости
+-- (такие капсулы гарант не трогают); без неё — обычная крутка с гарантом.
+function Gacha.Capsule(player, minRarity)
+	local p = Data.Get(player)
+	if not p then
+		return nil
+	end
+	local def, rarity
+	if minRarity and Config.Rarities[minRarity] then
+		rarity = rollRarity()
+		if Config.Rarities[rarity].order < Config.Rarities[minRarity].order then
+			rarity = minRarity
+		end
+		local pool = Config.DronesByRarity[rarity]
+		def = pool[rng:NextInteger(1, #pool)]
+	else
+		def, rarity = Gacha.RollOne(p)
+		p.totalPulls += 1
+	end
+	local isNew = not p.seen[def.id]
+	Data.AddDrone(p, def.id)
+	Drones.Rebuild(player)
+	Data.MarkDirty(player)
+	local rar = Config.Rarities[rarity]
+	Remotes.FX:FireAllClients("aura", { owner = player.UserId, color = rar.color, duration = 2.5, rainbow = rar.rainbow })
+	if rar.order >= 4 then
+		local msg = ("✨ %s открыл капсулу: %s дрон «%s»!"):format(player.DisplayName, rar.label, def.name)
+		for _, other in ipairs(Players:GetPlayers()) do
+			if other ~= player then
+				Remotes.Notify:FireClient(other, msg, rarity)
+			end
+		end
+	end
+	return def, rarity, isNew
+end
+
 function Gacha.Pull(player, count)
 	if count ~= 1 and count ~= 10 then
 		return { ok = false, err = "Неверное число круток" }

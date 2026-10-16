@@ -1728,6 +1728,101 @@ function IB.Backpack(item, box, armored)
 end
 
 -- Модель для превью (перчатки/ботинки парой, шлем с головой-манекеном)
+-- 3D-модели новых расходников: заготовка по типу (kind) + два цвета предмета
+local function consumableModel(m, o)
+	local c1, c2 = o.c1, o.c2
+	local k = o.kind
+	local dark = C(55, 58, 64)
+	if k == "can" then -- канистра-маслёнка с носиком
+		vcyl(m, { len = 1.7, d = 1.3, color = c1, v = "ZSS_D_Metal" })
+		vcyl(m, { len = 0.5, d = 1.34, cf = CFrame.new(0, 0.1, 0), color = c2, mat = M.SmoothPlastic })
+		vcyl(m, { len = 0.25, d = 0.9, cf = CFrame.new(0, 0.95, 0), color = dark, v = "ZSS_D_Metal" })
+		P(m, { size = Vector3.new(0.18, 1.1, 0.18), cf = CFrame.new(0.25, 1.4, 0) * CFrame.Angles(0, 0, -0.6), color = C(190, 190, 195), mat = M.Metal })
+		P(m, { shape = Ball, size = Vector3.one * 0.22, cf = CFrame.new(0.72, 1.75, 0), color = c2, mat = M.Neon })
+	elseif k == "spray" then -- баллончик
+		vcyl(m, { len = 2.2, d = 0.9, color = c1, mat = M.Metal, refl = 0.15 })
+		vcyl(m, { len = 0.5, d = 0.92, cf = CFrame.new(0, -0.6, 0), color = c2, mat = M.SmoothPlastic })
+		P(m, { shape = Ball, size = Vector3.new(0.9, 0.5, 0.9), cf = CFrame.new(0, 1.1, 0), color = c1, mat = M.Metal })
+		vcyl(m, { len = 0.35, d = 0.3, cf = CFrame.new(0, 1.45, 0), color = C(240, 240, 240) })
+		P(m, { size = Vector3.new(0.12, 0.12, 0.3), cf = CFrame.new(0, 1.5, -0.18), color = dark })
+	elseif k == "syringe" then -- шприц-инъектор
+		vcyl(m, { len = 1.9, d = 0.55, color = C(230, 240, 255), mat = M.Glass, tr = 0.35, refl = 0.2 })
+		vcyl(m, { len = 1.3, d = 0.46, cf = CFrame.new(0, -0.2, 0), color = c1, mat = M.Neon, tr = 0.1 })
+		vcyl(m, { len = 0.14, d = 1.0, cf = CFrame.new(0, 0.95, 0), color = dark, v = "ZSSG_W_Carbon" })
+		vcyl(m, { len = 0.7, d = 0.16, cf = CFrame.new(0, 1.35, 0), color = c2, mat = M.Metal })
+		vcyl(m, { len = 0.12, d = 0.6, cf = CFrame.new(0, 1.75, 0), color = c1, mat = M.SmoothPlastic })
+		vcyl(m, { len = 0.8, d = 0.06, cf = CFrame.new(0, -1.35, 0), color = C(220, 225, 235), mat = M.Metal })
+	elseif k == "flare" then -- сигнальная ракета
+		vcyl(m, { len = 2.3, d = 0.6, color = c1, mat = M.SmoothPlastic })
+		vcyl(m, { len = 0.3, d = 0.64, cf = CFrame.new(0, 0.6, 0), color = C(240, 240, 240) })
+		vcyl(m, { len = 0.3, d = 0.64, cf = CFrame.new(0, -0.6, 0), color = C(240, 240, 240) })
+		P(m, { shape = Ball, size = Vector3.one * 0.62, cf = CFrame.new(0, 1.15, 0), color = c2, mat = M.Neon })
+		local f = P(m, { size = Vector3.one * 0.1, cf = CFrame.new(0, 1.3, 0), tr = 1 })
+		emit(f, ColorSequence.new(c2, c1), SPARK_TEX, 14, 0.25, 2.5, 0.5, Vector3.new(0, 3, 0))
+	elseif k == "device" then -- карманный прибор с экраном и антенной
+		P(m, { size = Vector3.new(1.4, 1.9, 0.6), color = c1, v = "ZSS_D_SciFi" })
+		P(m, { size = Vector3.new(1.05, 0.8, 0.06), cf = CFrame.new(0, 0.35, -0.31), color = c2, mat = M.Neon, tr = 0.1 })
+		for i = -1, 1 do
+			P(m, { shape = Ball, size = Vector3.one * 0.22, cf = CFrame.new(i * 0.35, -0.5, -0.3), color = i == 0 and c2 or C(230, 230, 230), mat = i == 0 and M.Neon or M.SmoothPlastic })
+		end
+		vcyl(m, { len = 0.8, d = 0.08, cf = CFrame.new(0.5, 1.3, 0), color = C(200, 200, 205), mat = M.Metal })
+		P(m, { shape = Ball, size = Vector3.one * 0.2, cf = CFrame.new(0.5, 1.72, 0), color = c2, mat = M.Neon })
+	elseif k == "crate" then -- ящик со взрывчаткой
+		P(m, { size = Vector3.new(1.8, 1.6, 1.8), color = c1, mat = M.WoodPlanks })
+		for _, y in ipairs({ -0.55, 0.55 }) do
+			P(m, { size = Vector3.new(1.86, 0.22, 1.86), cf = CFrame.new(0, y, 0), color = dark, v = "ZSS_D_Metal" })
+		end
+		P(m, { size = Vector3.new(1.0, 0.5, 0.05), cf = CFrame.new(0, 0, -0.92), color = c2, v = "ZSS_D_Hazard" })
+		P(m, { shape = Ball, size = Vector3.one * 0.3, cf = CFrame.new(0, 0.95, 0), color = C(255, 60, 40), mat = M.Neon })
+	elseif k == "coin" then -- огромная счастливая гайка
+		local hex = P(m, { shape = Cyl, size = Vector3.new(0.5, 1.9, 1.9), cf = CFrame.Angles(0, math.rad(90), 0), color = c1, mat = M.Metal, refl = 0.25 })
+		hex.Name = "Nut"
+		vcyl(m, { len = 0.55, d = 0.8, cf = CFrame.Angles(math.rad(90), 0, 0), color = C(30, 30, 30) })
+		P(m, { shape = Ball, size = Vector3.one * 0.35, cf = CFrame.new(0.6, 0.6, -0.3), color = c2, mat = M.Neon })
+	elseif k == "box" then -- коробка с ручкой
+		P(m, { size = Vector3.new(1.9, 1.3, 1.4), color = c1, mat = M.Cardboard })
+		P(m, { size = Vector3.new(1.95, 0.2, 1.45), cf = CFrame.new(0, 0.55, 0), color = c2, mat = M.SmoothPlastic })
+		P(m, { size = Vector3.new(0.9, 0.12, 0.12), cf = CFrame.new(0, 0.95, 0), color = dark })
+		for _, x in ipairs({ -0.45, 0.45 }) do
+			P(m, { size = Vector3.new(0.12, 0.35, 0.12), cf = CFrame.new(x, 0.8, 0), color = dark })
+		end
+		P(m, { shape = Ball, size = Vector3.one * 0.4, cf = CFrame.new(0, 0, -0.72), color = c2, mat = M.Neon })
+	elseif k == "tube" then -- тюбик с гелем
+		P(m, { shape = Cyl, size = Vector3.new(2.0, 0.9, 0.9), cf = CFrame.Angles(0, 0, math.rad(90)), color = c2, mat = M.SmoothPlastic })
+		P(m, { size = Vector3.new(1.0, 0.12, 0.6), cf = CFrame.new(0, -1.05, 0), color = c2, mat = M.SmoothPlastic })
+		vcyl(m, { len = 0.4, d = 0.45, cf = CFrame.new(0, 1.15, 0), color = c1, mat = M.SmoothPlastic })
+		P(m, { size = Vector3.new(0.9, 0.9, 0.04), cf = CFrame.new(0, 0, -0.45), color = c1, mat = M.Neon, tr = 0.2 })
+	elseif k == "vial" then -- колба с жидкостью
+		P(m, { shape = Ball, size = Vector3.one * 1.5, cf = CFrame.new(0, -0.3, 0), color = C(230, 240, 255), mat = M.Glass, tr = 0.4, refl = 0.2 })
+		P(m, { shape = Ball, size = Vector3.one * 1.25, cf = CFrame.new(0, -0.38, 0), color = c1, mat = M.Neon, tr = 0.15 })
+		vcyl(m, { len = 0.9, d = 0.45, cf = CFrame.new(0, 0.75, 0), color = C(230, 240, 255), mat = M.Glass, tr = 0.4 })
+		vcyl(m, { len = 0.35, d = 0.52, cf = CFrame.new(0, 1.3, 0), color = c2, mat = M.Wood })
+		local f = P(m, { size = Vector3.one * 0.1, cf = CFrame.new(0, -0.2, 0), tr = 1 })
+		emit(f, c1, SPARK_TEX, 6, 0.18, 1, 0.8, Vector3.new(0, 1, 0))
+	elseif k == "jar" then -- банка с бактериями
+		vcyl(m, { len = 1.6, d = 1.4, color = C(230, 240, 255), mat = M.Glass, tr = 0.45, refl = 0.15 })
+		vcyl(m, { len = 1.2, d = 1.25, cf = CFrame.new(0, -0.15, 0), color = c1, mat = M.Neon, tr = 0.25 })
+		vcyl(m, { len = 0.3, d = 1.5, cf = CFrame.new(0, 0.9, 0), color = c2, v = "ZSS_D_Metal" })
+		for i = 1, 4 do
+			P(m, { shape = Ball, size = Vector3.one * 0.25, cf = CFrame.new(math.cos(i * 1.6) * 0.35, -0.4 + i * 0.22, math.sin(i * 1.6) * 0.35), color = c1:Lerp(C(255, 255, 255), 0.5), mat = M.Neon })
+		end
+	elseif k == "cup" then -- стакан-коктейль с трубочкой
+		vcyl(m, { len = 1.8, d = 1.2, color = C(235, 245, 255), mat = M.Glass, tr = 0.4, refl = 0.15 })
+		vcyl(m, { len = 1.2, d = 1.05, cf = CFrame.new(0, -0.2, 0), color = c1, mat = M.SmoothPlastic, tr = 0.05 })
+		vcyl(m, { len = 0.35, d = 1.08, cf = CFrame.new(0, 0.55, 0), color = c2, mat = M.SmoothPlastic })
+		P(m, { size = Vector3.new(0.12, 1.6, 0.12), cf = CFrame.new(0.25, 1.1, 0) * CFrame.Angles(0, 0, -0.3), color = c2, mat = M.Neon })
+		P(m, { shape = Ball, size = Vector3.one * 0.45, cf = CFrame.new(-0.35, 0.95, 0), color = C(255, 60, 70) })
+	elseif k == "seed" then -- семя-мутант
+		P(m, { shape = Ball, size = Vector3.new(1.3, 1.8, 1.3), color = c1, mat = M.SmoothPlastic })
+		for i = 1, 5 do
+			local a = i / 5 * math.pi * 2
+			P(m, { size = Vector3.new(0.08, 1.4, 0.08), cf = CFrame.new(math.cos(a) * 0.55, 0, math.sin(a) * 0.55) * CFrame.Angles(math.sin(a) * 0.3, 0, -math.cos(a) * 0.3), color = c2, mat = M.Neon })
+		end
+		P(m, { size = Vector3.new(0.15, 0.6, 0.15), cf = CFrame.new(0, 1.1, 0) * CFrame.Angles(0, 0, 0.3), color = C(90, 200, 70) })
+		P(m, { size = Vector3.new(0.5, 0.08, 0.3), cf = CFrame.new(-0.25, 1.3, 0) * CFrame.Angles(0, 0, 0.5), color = C(110, 230, 80) })
+	end
+end
+
 function IB.Consumable(item)
 	local m = newModel(item.id)
 	root(m)
@@ -1747,6 +1842,8 @@ function IB.Consumable(item)
 		vcyl(m, { len = 0.8, d = 0.16, cf = CFrame.new(0, 1.35, 0), color = C(70, 75, 90), v = "ZSSG_W_Carbon" })
 		vcyl(m, { len = 0.12, d = 0.55, cf = CFrame.new(0, 1.78, 0), color = C(70, 75, 90), v = "ZSSG_W_Carbon" })
 		vcyl(m, { len = 0.7, d = 0.06, cf = CFrame.new(0, -1.25, 0), color = C(220, 225, 235), mat = M.Metal })
+	elseif item.model then
+		consumableModel(m, item.model)
 	else
 		P(m, { shape = Ball, size = Vector3.new(1.4, 1.7, 1.4), color = C(90, 120, 50), v = "ZSS_D_Camo" })
 		vcyl(m, { len = 0.5, d = 0.6, cf = CFrame.new(0, 0.95, 0), color = C(150, 150, 155), v = "ZSS_D_Metal" })

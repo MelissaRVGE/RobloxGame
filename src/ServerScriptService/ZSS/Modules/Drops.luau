@@ -73,7 +73,9 @@ function Drops.AddStacks(player, id, n)
 		return 0
 	end
 	local stacks = math.min(Buffs.MaxStacks, Buffs.Stacks(player, id) + (n or 1))
-	local untilT = workspace:GetServerTimeNow() + b.time
+	-- «Длительность баффов» со снаряжения продлевает время
+	local dur = b.time * (player:GetAttribute("ZSS_BuffDur") or 1)
+	local untilT = math.max(workspace:GetServerTimeNow() + dur, player:GetAttribute("ZSS_Buff_" .. id) or 0)
 	player:SetAttribute("ZSS_BuffN_" .. id, stacks)
 	player:SetAttribute("ZSS_Buff_" .. id, untilT)
 	if id == "speed" then
@@ -81,7 +83,7 @@ function Drops.AddStacks(player, id, n)
 		-- по окончании вернуть обычную скорость (если бафф не продлили)
 		local token = {}
 		expiry[player] = token
-		task.delay(b.time + 0.05, function()
+		task.delay(untilT - workspace:GetServerTimeNow() + 0.05, function()
 			if expiry[player] == token and player.Parent then
 				Equipment.RefreshSpeed(player)
 			end
@@ -210,7 +212,7 @@ function Drops.OnActivity(player, cat, pos, field)
 	if last[cat] and now - last[cat] < rule.cooldown then
 		return
 	end
-	if rng:NextNumber() >= rule.chance * Buffs.Mult(player, "luck") then
+	if rng:NextNumber() >= rule.chance * Buffs.Mult(player, "luck") * (player:GetAttribute("ZSS_Luck") or 1) then
 		return
 	end
 	if Drops.CountOnField(field) >= Buffs.Field.perField then

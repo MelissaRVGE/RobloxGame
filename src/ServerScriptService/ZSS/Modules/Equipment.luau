@@ -317,6 +317,18 @@ function Equipment.Apply(player)
 	-- бонусы переработки от рюкзака (читают Переработчик и способность дрона «Переработка»)
 	player:SetAttribute("ZSS_ConvMult", 1 + t.conv)
 	player:SetAttribute("ZSS_ConvSpeed", 1 + t.cspeed)
+	-- доп. характеристики в стиле BSS (читают Дроны, Поля, Зомби, Находки, Баффы)
+	player:SetAttribute("ZSS_Crit", t.crit)
+	player:SetAttribute("ZSS_CritX", t.critx)
+	player:SetAttribute("ZSS_DroneDmg", 1 + t.ddmg)
+	player:SetAttribute("ZSS_DroneGather", 1 + t.dgather)
+	player:SetAttribute("ZSS_ToolGather", 1 + t.tgather)
+	player:SetAttribute("ZSS_InstConv", t.instconv)
+	player:SetAttribute("ZSS_Luck", 1 + t.luck)
+	player:SetAttribute("ZSS_Regen", t.regen)
+	player:SetAttribute("ZSS_DroneEnergy", 1 + t.energy)
+	player:SetAttribute("ZSS_DroneSpeed", 1 + t.dspeed)
+	player:SetAttribute("ZSS_BuffDur", 1 + t.buffdur)
 
 	giveWeapon(player, p)
 end
@@ -463,11 +475,114 @@ function Equipment.Use(player, id)
 				end
 			end
 		end)
+	elseif item.use then
+		local ok, err = Equipment.ApplyUse(player, p, item, hrp, hum)
+		if not ok then
+			if err then
+				Remotes.Notify:FireClient(player, err, "bad")
+			end
+			return
+		end
+	end
+	if item.fx then
+		Remotes.FX:FireAllClients("consume", { owner = player.UserId, id = id, pos = hrp.Position })
 	end
 	lastUse[player] = now
 	p.consum[id] -= 1
 	Data.MarkDirty(player)
 	require(script.Parent.Quests).Event(player, "use", { id = id })
+end
+
+-- ===== УНИВЕРСАЛЬНЫЕ ЭФФЕКТЫ РАСХОДНИКОВ (поле use в ShopConfig) =====
+local rng = Random.new()
+
+function Equipment.SpawnOrbs(player, field, pos, n, cat)
+	local Drops = require(script.Parent.Drops)
+	local c = field.cfg.center
+	local h = field.half - 3
+	for _ = 1, n do
+		local a = rng:NextNumber() * math.pi * 2
+		local d = rng:NextNumber(4, 10)
+		local x = math.clamp(pos.X + math.cos(a) * d, c.X - h, c.X + h)
+		local z = math.clamp(pos.Z + math.sin(a) * d, c.Z - h, c.Z + h)
+		Drops.SpawnBuff(Buffs.Roll(rng, cat), Vector3.new(x, c.Y + 3.2, z), field.cfg.id)
+	end
+end
+
+function Equipment.ApplyUse(player, p, item, hrp, hum)
+	local u = item.use
+	local field = Fields.At(hrp.Position)
+	if u.field and (not field or field.cfg.boss) then
+		return false, ("«%s» работает только на поле с ломом"):format(item.name)
+	end
+	if u.home then
+		local Hives = require(script.Parent.Hives)
+		local i = Hives.Index(player)
+		if not i then
+			return false, "Сначала займи улей на базе"
+		end
+		player.Character:PivotTo(CFrame.new(Hives.FrontPos(i) + Vector3.new(0, 3, 0)))
+	end
+	if u.convert then
+		if (p.scrap or 0) <= 0 then
+			return false, "🎒 Рюкзак пуст — нечего перерабатывать"
+		end
+		local n = Data.TakeScrap(p, p.scrap)
+		local gain = math.floor(n * (player:GetAttribute("ZSS_ConvMult") or 1) * Buffs.Mult(player, "convb"))
+		Data.AddBatteries(player, gain)
+		require(script.Parent.Quests).Event(player, "convert", nil, n)
+		Remotes.Notify:FireClient(player, ("♻ Переработано %d лома → 🔋 +%d"):format(n, gain), "good")
+	end
+	if u.heal then
+		hum.Health = u.heal == "full" and hum.MaxHealth or math.min(hum.MaxHealth, hum.Health + u.heal)
+	end
+	if u.energy then
+		Drones.AddEnergy(player, u.energy)
+	end
+	if u.buffs then
+		local Drops = require(script.Parent.Drops)
+		for bid, n in pairs(u.buffs) do
+			Drops.AddStacks(player, bid, n)
+		end
+	end
+	if u.gold and field then
+		for _, t in ipairs(Fields.TilesNear(field, hrp.Position, u.gold[1])) do
+			Fields.SetGold(t, u.gold[2])
+		end
+	end
+	if u.goldAll and field then
+		for _, t in ipairs(field.tiles) do
+			Fields.SetGold(t, u.goldAll)
+		end
+	end
+	if u.refill and field then
+		for _, t in ipairs(field.tiles) do
+			t.fill = 1
+			Fields.UpdateTile(t)
+		end
+	end
+	if u.orbs and field then
+		Equipment.SpawnOrbs(player, field, hrp.Position, u.orbs[1], u.orbs[2])
+	end
+	if u.minis and field then
+		Drones.SpawnMinis(player, u.minis[1], u.minis[2])
+	end
+	if u.bomb and field then
+		local pos = hrp.Position
+		task.delay(0.6, function()
+			if not player.Parent then
+				return
+			end
+			local tool = Shop.ById[p.gear.tool or ""] or Shop.ById[Shop.DefaultTool]
+			for _, t in ipairs(Fields.TilesNear(field, pos, u.bomb[1])) do
+				Fields.Collect(player, t, tool.stats.gather, u.bomb[2] * (player:GetAttribute("ZSS_ToolGather") or 1))
+			end
+			for _, z in ipairs(Zombies.InRadius(field, pos, u.bomb[1])) do
+				Zombies.Damage(z, u.bomb[3], player)
+			end
+		end)
+	end
+	return true
 end
 
 function Equipment.Init(dataModule, dronesModule, fieldsModule, zombiesModule)
