@@ -32,6 +32,8 @@ make("RemoteFunction", "QuestAction")
 make("RemoteFunction", "BuyCell")
 make("RemoteEvent", "SaveSettings")
 make("RemoteFunction", "RedeemCode")
+make("RemoteFunction", "DonateBuy")
+make("RemoteEvent", "DonateDone")
 local Remotes = remotes
 
 local Modules = script.Parent.Modules
@@ -49,6 +51,8 @@ local Hives = require(Modules.Hives)
 local Converter = require(Modules.Converter)
 local Leaderboard = require(Modules.Leaderboard)
 local Drops = require(Modules.Drops)
+local Donate = require(Modules.Donate)
+local DonateCfg = require(Shared.DonateConfig)
 
 -- максимум игроков на сервере задаётся в настройках игры (Game Settings → Places → Server Size = 6)
 Quests.Init()
@@ -64,6 +68,7 @@ Drops.Init(Data, Fields, Equipment, Drones)
 Boss.Init(Data, Fields, Zombies)
 Converter.Init(Data)
 Leaderboard.Init(Data)
+Donate.Init(Data, Equipment)
 Drones.OnCharged = function(player)
 	Quests.Event(player, "charged")
 end
@@ -79,6 +84,7 @@ end
 local function onPlayerAdded(player)
 	local p = Data.Load(player)
 	Equipment.Reconcile(p)
+	Donate.CheckPasses(player)
 	Drones.Add(player)
 	Data.Sync(player)
 	-- как в BSS: дроны ждут в улье, пока игрок не займёт станцию
@@ -124,8 +130,10 @@ task.spawn(function()
 				p.playAcc = (p.playAcc or 0) + STEP
 				if p.playAcc >= PR.interval then
 					p.playAcc -= PR.interval
-					Data.AddGems(player, PR.gems)
-					notify(player, ("💎 +%d за время в игре! Следующие — через %d мин"):format(PR.gems, math.floor(PR.interval / 60)), "good")
+					-- пропуск «Гем-магнит» умножает награду
+					local gems = PR.gems * math.max(1, DonateCfg.Perk(p.passes, "playGems"))
+					Data.AddGems(player, gems)
+					notify(player, ("💎 +%d за время в игре! Следующие — через %d мин"):format(gems, math.floor(PR.interval / 60)), "good")
 				end
 			end
 		end
@@ -660,6 +668,16 @@ if game:GetService("RunService"):IsStudio() then
 				elseif cmd == "scrap" then
 					Data.TakeScrap(p, p.scrap)
 					Data.AddScrap(player, math.min(a, Data.Capacity(p)), b or "rust")
+				elseif cmd == "donate" then
+					-- выдать предложение доната без оплаты (проверка анимаций и выдачи)
+					Donate.DebugGrant(player, a)
+				elseif cmd == "unpass" then
+					p.passes = {}
+					p.donateOnce = {}
+					for _, o in ipairs(DonateCfg.List) do
+						player:SetAttribute("ZSS_Pass_" .. o.key, nil)
+					end
+					Equipment.Apply(player)
 				elseif cmd == "item" then
 					Data.AddItem(player, a, b or 1)
 				elseif cmd == "allitems" then
