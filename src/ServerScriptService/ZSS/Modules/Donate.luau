@@ -66,7 +66,7 @@ local function celebrate(player, o)
 	Remotes.FX:FireAllClients("aura", { owner = player.UserId, color = o.color, duration = 2.5, rainbow = o.anim == "rainbow" })
 	for _, other in ipairs(Players:GetPlayers()) do
 		if other ~= player then
-			notify(other, ("💖 %s поддержал игру: «%s»!"):format(player.DisplayName, o.name), "Legendary")
+			notify(other, ("💖 %s supported the game: «%s»!"):format(player.DisplayName, o.name), "Legendary")
 		end
 	end
 end
@@ -154,20 +154,20 @@ function Donate.Buy(player, key)
 	local o = typeof(key) == "string" and DC.ByKey[key]
 	local p = Data.Get(player)
 	if not o or not p then
-		return { ok = false, err = "Неизвестное предложение" }
+		return { ok = false, err = "Unknown offer" }
 	end
 	if o.kind == "pass" and p.passes and p.passes[o.key] then
-		return { ok = false, err = "✔ Этот пропуск уже твой" }
+		return { ok = false, err = "✔ You already own this pass" }
 	end
 	if o.once and p.donateOnce and p.donateOnce[o.key] then
-		return { ok = false, err = "Этот набор можно купить только один раз" }
+		return { ok = false, err = "This bundle can only be bought once" }
 	end
 	if not o.id or o.id <= 0 then
-		return { ok = false, err = "⏳ Скоро в продаже!", soon = true }
+		return { ok = false, err = "⏳ Coming soon!", soon = true }
 	end
 	local last = pending[player]
 	if last and os.clock() - last.t < 1 then
-		return { ok = false, err = "Подожди секунду" }
+		return { ok = false, err = "Wait a second" }
 	end
 	pending[player] = { key = o.key, t = os.clock() }
 	local ok = pcall(function()
@@ -178,7 +178,7 @@ function Donate.Buy(player, key)
 		end
 	end)
 	if not ok then
-		return { ok = false, err = "Магазин Roblox не отвечает, попробуй ещё раз" }
+		return { ok = false, err = "Roblox store is not responding, try again" }
 	end
 	return { ok = true }
 end

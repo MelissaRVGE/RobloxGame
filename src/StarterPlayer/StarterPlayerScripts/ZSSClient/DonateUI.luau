@@ -57,7 +57,7 @@ local function styleBuy(card)
 	local o = card.o
 	local b = card.buy
 	if owned(o) then
-		b.Text = o.kind == "pass" and "✔ КУПЛЕНО" or "✔ ПОЛУЧЕНО"
+		b.Text = o.kind == "pass" and "✔ OWNED" or "✔ CLAIMED"
 		U.gradTo(card.buyGrad, C(120, 125, 135), C(70, 74, 82))
 		card.buyStroke.Color = C(170, 175, 185)
 		card.check.Visible = true
@@ -103,9 +103,9 @@ local function buy(card)
 	end)
 	local failed = not ok or not res or not res.ok
 	if failed then
-		api.toast(res and res.err or "Магазин Roblox не отвечает", res and res.soon and "info" or "bad")
+		api.toast(res and res.err or "Roblox store is not responding", res and res.soon and "info" or "bad")
 		-- уведомления наверху может закрывать окно, поэтому ответ видно и на самой кнопке
-		card.note = res and res.soon and "⏳ СКОРО В ПРОДАЖЕ" or "✖ НЕ ВЫШЛО"
+		card.note = res and res.soon and "⏳ COMING SOON" or "✖ FAILED"
 		-- кнопка «качает головой»
 		local b = card.buy
 		for k, r in ipairs({ -6, 5, -3, 0 }) do
@@ -468,7 +468,7 @@ local function animate(card, t, dt)
 end
 
 -- ===== подсказка внизу окна =====
-local DEFAULT_INFO = "Наведи на предложение, чтобы узнать подробности. Оплата — через окно Roblox, без подтверждения ничего не списывается."
+local DEFAULT_INFO = "Hover over an offer to see details. Payment goes through the Roblox window — nothing is charged without your confirmation."
 function DUI.ShowInfo(o)
 	if not footer then
 		return
@@ -619,7 +619,7 @@ local function build()
 		Size = UDim2.fromOffset(520, 40),
 		BackgroundTransparency = 1,
 		Font = Enum.Font.GothamBlack,
-		Text = "ДОНАТ-МАГАЗИН",
+		Text = "DONATION SHOP",
 		TextSize = 34,
 		TextColor3 = C(255, 255, 255),
 		TextXAlignment = Enum.TextXAlignment.Left,
@@ -640,7 +640,7 @@ local function build()
 		Size = UDim2.fromOffset(560, 20),
 		BackgroundTransparency = 1,
 		Font = Enum.Font.GothamBold,
-		Text = "Поддержи игру и получи бонусы 💖",
+		Text = "Support the game and get bonuses 💖",
 		TextSize = 16,
 		TextColor3 = C(215, 195, 255),
 		TextXAlignment = Enum.TextXAlignment.Left,
@@ -803,9 +803,9 @@ function celebrate(key)
 		end)
 		return l
 	end
-	local l1 = line("СПАСИБО ЗА ПОДДЕРЖКУ!", 158, 44, C(255, 225, 120), Enum.Font.GothamBlack, 0.25)
+	local l1 = line("THANK YOU FOR YOUR SUPPORT!", 158, 44, C(255, 225, 120), Enum.Font.GothamBlack, 0.25)
 	new("UIGradient", { Color = ColorSequence.new(C(255, 230, 120), C(255, 130, 200)), Parent = l1 })
-	line("Получено: " .. o.name, 206, 26, C(255, 255, 255), Enum.Font.GothamBlack, 0.4)
+	line("Received: " .. o.name, 206, 26, C(255, 255, 255), Enum.Font.GothamBlack, 0.4)
 	line(o.short, 240, 20, o.color:Lerp(C(255, 255, 255), 0.4), Enum.Font.GothamBold, 0.5)
 	U.play(U.Sounds.fanfare, 0.55, 1)
 	task.delay(0.15, function()
