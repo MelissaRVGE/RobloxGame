@@ -26,6 +26,7 @@ local C = Color3.fromRGB
 
 local Inv = {}
 local api
+local refreshHotbarStrip -- полоска хотбара (объявлена ниже)
 local win, scaleObj, body, fitScale
 
 -- ===== РАЗМЕТКА =====
@@ -2396,7 +2397,7 @@ local function buildHotbarStrip()
 	end
 end
 
-local function refreshHotbarStrip()
+function refreshHotbarStrip()
 	if not strip.slots[1] then
 		return
 	end
