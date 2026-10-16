@@ -13,6 +13,7 @@ local U = require(script.Parent.U)
 local State = require(script.Parent.State)
 local GachaAnim = require(script.Parent.GachaAnim)
 local ShopUI = require(script.Parent.ShopUI)
+local DonateUI = require(script.Parent.DonateUI)
 local BagUI = require(script.Parent.BagUI)
 local QuestUI = require(script.Parent.QuestUI)
 local SettingsUI = require(script.Parent.SettingsUI)
@@ -417,6 +418,7 @@ local function buildHUD()
 		{ key = "map", icon = "teleport", label = "Карта", color = C(255, 90, 80), hot = "M" },
 		{ key = "bag", icon = "bag", label = "Инвентарь", color = C(80, 170, 255), hot = "B" },
 		{ key = "convert", icon = "converter", label = "Переработка", color = C(120, 240, 110), hot = "R" },
+		{ key = "donate", icon = "donate", label = "Донат", color = C(255, 90, 170), hot = "H" },
 	}
 	hud.buttons = {}
 	hud.railFx = {}
@@ -1317,6 +1319,7 @@ function UI.ToggleMap()
 		closeWindow(inv.win, inv.scale)
 		closeWindow(gacha.win, gacha.scale)
 		ShopUI.Close()
+		DonateUI.Close()
 		UI.UpdateMap()
 		openWindow(mapWin.win, mapWin.scale)
 	end
@@ -2267,6 +2270,7 @@ function UI.ToggleInventory()
 	else
 		closeWindow(gacha.win, gacha.scale)
 		ShopUI.Close()
+		DonateUI.Close()
 		openWindow(inv.win, inv.scale)
 		if not inv.selected then
 			local pick = SORTED[#SORTED].id
@@ -2797,6 +2801,8 @@ function UI.OnMenu(key)
 		BagUI.Toggle()
 	elseif key == "convert" then
 		UI.GoConverter()
+	elseif key == "donate" then
+		DonateUI.Toggle()
 	end
 end
 
@@ -2940,6 +2946,7 @@ function UI.Init()
 			closeWindow(gacha.win, gacha.scale)
 			closeWindow(mapWin.win, mapWin.scale)
 			ShopUI.Close()
+			DonateUI.Close()
 		end,
 	})
 	SettingsUI.Init({
@@ -2954,6 +2961,7 @@ function UI.Init()
 			closeWindow(gacha.win, gacha.scale)
 			closeWindow(mapWin.win, mapWin.scale)
 			ShopUI.Close()
+			DonateUI.Close()
 			BagUI.Close()
 			QuestUI.Close()
 		end,
@@ -2978,6 +2986,7 @@ function UI.Init()
 			closeWindow(gacha.win, gacha.scale)
 			closeWindow(mapWin.win, mapWin.scale)
 			ShopUI.Close()
+			DonateUI.Close()
 			BagUI.Close()
 		end,
 	})
@@ -3031,6 +3040,23 @@ function UI.Init()
 
 	Remotes.Notify.OnClientEvent:Connect(UI.Toast)
 	ShopUI.Init(UI.Toast)
+	DonateUI.Init({
+		gui = gui,
+		addScale = addScale,
+		openWindow = openWindow,
+		closeWindow = closeWindow,
+		button = button,
+		toast = UI.Toast,
+		closeOthers = function()
+			closeWindow(inv.win, inv.scale)
+			closeWindow(gacha.win, gacha.scale)
+			closeWindow(mapWin.win, mapWin.scale)
+			ShopUI.Close()
+			BagUI.Close()
+			QuestUI.Close()
+			SettingsUI.Close()
+		end,
+	})
 	HS.toast = UI.Toast
 
 	-- горячие клавиши: Y — инвентарь, G — гача, N — магазин, B — инвентарь, M — карта, Esc — закрыть окна
@@ -3065,6 +3091,8 @@ function UI.Init()
 			UI.GoConverter()
 		elseif input.KeyCode == Enum.KeyCode.P then
 			SettingsUI.Toggle()
+		elseif input.KeyCode == Enum.KeyCode.H then
+			DonateUI.Toggle()
 		elseif input.KeyCode == Enum.KeyCode.Escape then
 			SettingsUI.Close()
 			BagUI.Close()
@@ -3073,12 +3101,14 @@ function UI.Init()
 			closeWindow(gacha.win, gacha.scale)
 			closeWindow(mapWin.win, mapWin.scale)
 			ShopUI.Close()
+			DonateUI.Close()
 		end
 	end)
 
 	ProximityPromptService.PromptTriggered:Connect(function(prompt)
 		if prompt.Name == "GachaPrompt" then
 			ShopUI.Close()
+			DonateUI.Close()
 			UI.OpenGacha()
 		elseif prompt.Name == "ShopPrompt" then
 			closeWindow(inv.win, inv.scale)

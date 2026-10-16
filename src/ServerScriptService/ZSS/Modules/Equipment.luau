@@ -3,6 +3,7 @@ local RS = game:GetService("ReplicatedStorage")
 
 local Config = require(RS.ZSS.Config)
 local Shop = require(RS.ZSS.ShopConfig)
+local DonateCfg = require(RS.ZSS.DonateConfig)
 local IB = require(RS.ZSS.ItemBuilder)
 local Remotes = RS.ZSS.Remotes
 
@@ -303,9 +304,13 @@ function Equipment.Apply(player)
 	local t = Shop.Totals(g)
 	local ratio = hum.MaxHealth > 0 and hum.Health / hum.MaxHealth or 1
 	local perks = p.perks or {}
+	-- пропуска доната (DonateConfig): умеренные прибавки поверх снаряжения
+	local function pass(stat)
+		return DonateCfg.Perk(p.passes, stat)
+	end
 	hum.MaxHealth = 100 + t.hp + (perks.hp or 0)
 	hum.Health = math.max(1, hum.MaxHealth * ratio)
-	char:SetAttribute("ZSS_BaseSpeed", 16 + t.speed)
+	char:SetAttribute("ZSS_BaseSpeed", 16 + t.speed + pass("speed"))
 	Equipment.RefreshSpeed(player)
 	if hum.UseJumpPower then
 		hum.JumpPower = 50 + t.jump * 2.5
@@ -315,16 +320,16 @@ function Equipment.Apply(player)
 	char:SetAttribute("ZSS_DmgMult", 1 - t.def)
 	player:SetAttribute("ZSS_ScrapMult", 1 + t.scrap + (perks.scrap or 0))
 	-- бонусы переработки от рюкзака (читают Переработчик и способность дрона «Переработка»)
-	player:SetAttribute("ZSS_ConvMult", 1 + t.conv)
-	player:SetAttribute("ZSS_ConvSpeed", 1 + t.cspeed)
+	player:SetAttribute("ZSS_ConvMult", 1 + t.conv + pass("conv"))
+	player:SetAttribute("ZSS_ConvSpeed", 1 + t.cspeed + pass("cspeed"))
 	-- доп. характеристики в стиле BSS (читают Дроны, Поля, Зомби, Находки, Баффы)
 	player:SetAttribute("ZSS_Crit", t.crit)
 	player:SetAttribute("ZSS_CritX", t.critx)
 	player:SetAttribute("ZSS_DroneDmg", 1 + t.ddmg)
-	player:SetAttribute("ZSS_DroneGather", 1 + t.dgather)
+	player:SetAttribute("ZSS_DroneGather", 1 + t.dgather + pass("dgather"))
 	player:SetAttribute("ZSS_ToolGather", 1 + t.tgather)
 	player:SetAttribute("ZSS_InstConv", t.instconv)
-	player:SetAttribute("ZSS_Luck", 1 + t.luck)
+	player:SetAttribute("ZSS_Luck", 1 + t.luck + pass("luck"))
 	player:SetAttribute("ZSS_Regen", t.regen)
 	player:SetAttribute("ZSS_DroneEnergy", 1 + t.energy)
 	player:SetAttribute("ZSS_DroneSpeed", 1 + t.dspeed)

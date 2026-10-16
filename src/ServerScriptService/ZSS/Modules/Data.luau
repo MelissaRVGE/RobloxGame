@@ -6,6 +6,7 @@ local RS = game:GetService("ReplicatedStorage")
 
 local Config = require(RS.ZSS.Config)
 local Shop = require(RS.ZSS.ShopConfig)
+local Donate = require(RS.ZSS.DonateConfig)
 local Remotes = RS.ZSS.Remotes
 
 local Data = {}
@@ -47,6 +48,9 @@ local function defaultProfile()
 		settings = {}, -- настройки игрока из меню
 		playAcc = 0, -- секунды онлайн до следующей награды за время в игре
 		hotbar = { "", "", "", "" }, -- свободные ячейки хотбара 3–6 (ZSS/Hotbar)
+		passes = {}, -- купленные пропуска доната: key -> true
+		donateOnce = {}, -- купленные разовые наборы доната
+		receipts = {}, -- PurchaseId последних покупок за Robux (чтобы не выдать дважды)
 	}
 end
 
@@ -138,7 +142,7 @@ end
 -- вместимость = уровень рюкзака × бонус надетой модели рюкзака
 function Data.Capacity(p)
 	local bp = p.gear and Shop.ById[p.gear.backpack or ""]
-	local cap = bp and bp.stats.cap or 0
+	local cap = (bp and bp.stats.cap or 0) + Donate.Perk(p.passes, "cap")
 	return math.floor(Config.BagCapacity(p.bagLevel) * (1 + cap))
 end
 
@@ -272,6 +276,8 @@ function Data.Snapshot(p)
 		items = p.items or {},
 		consum = p.consum or {},
 		hotbar = require(RS.ZSS.Hotbar).Normalize(p.hotbar),
+		passes = p.passes or {},
+		donateOnce = p.donateOnce or {},
 		gear = p.gear or {},
 		maxSlots = Data.MaxEquip(p),
 		pity = p.pity,
@@ -443,6 +449,20 @@ function Data.Save(player)
 	end)
 	saving[player] = nil
 	return ok
+end
+
+-- можно ли сохранять профиль (false, если он не загрузился)
+function Data.CanSave(player)
+	return store ~= nil and canSave[player] == true
+end
+
+-- сохранить прямо сейчас: дождаться идущего автосохранения и записать свежее состояние
+function Data.SaveNow(player)
+	local t0 = os.clock()
+	while saving[player] and os.clock() - t0 < 15 do
+		task.wait(0.2)
+	end
+	return Data.Save(player)
 end
 
 function Data.Release(player)

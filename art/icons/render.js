@@ -1,8 +1,8 @@
-// Рендер svg/*.svg -> png/*.png 256x256 через Chromium (Playwright).
+// Рендер svg/*.svg -> png/*.png 256x256 через Chromium (Playwright). Другие папки: node render.js <svg> <png>
 const { chromium } = require('playwright');
 const fs = require('fs'), path = require('path');
 (async () => {
-  const dir = path.join(__dirname, 'svg'), out = path.join(__dirname, 'png');
+  const dir = path.join(__dirname, process.argv[2] || 'svg'), out = path.join(__dirname, process.argv[3] || 'png');
   fs.mkdirSync(out, { recursive: true });
   const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium', headless: true }).catch(() => chromium.launch());
   const page = await browser.newPage({ viewport: { width: 512, height: 512 }, deviceScaleFactor: 0.5 });
