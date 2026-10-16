@@ -25,19 +25,19 @@ D.Tabs = {
 D.List = {
 	-- ===== ПРОПУСКА =====
 	{
-		key = "turbo", kind = "pass", id = 0, price = 149, tab = "passes",
+		key = "turbo", kind = "pass", id = 2040722493, price = 149, tab = "passes",
 		name = "Турбо-переработка", short = "Переработка в 2 раза быстрее",
 		desc = "Переработчик съедает лом вдвое быстрее. Меньше ждать на площадке — больше времени на полях.",
 		perk = { cspeed = 1 }, color = C(130, 255, 110), anim = "spin",
 	},
 	{
-		key = "lucky", kind = "pass", id = 0, price = 199, tab = "passes",
+		key = "lucky", kind = "pass", id = 2040044750, price = 199, tab = "passes",
 		name = "Счастливый сканер", short = "+25% к шансу находок",
 		desc = "Сканер подсвечивает тайники в кучах лома: находки и ящички падают чаще.",
 		perk = { luck = 0.25 }, color = C(120, 240, 90), anim = "orbit",
 	},
 	{
-		key = "vip", kind = "pass", id = 0, price = 399, tab = "passes", badge = "VIP",
+		key = "vip", kind = "pass", id = 2036955012, price = 399, tab = "passes", badge = "VIP",
 		name = "VIP выжившего", short = "+10% сбор роя и +10% батарей",
 		desc = "Золотой статус: дроны собирают на 10% больше лома, Переработчик даёт на 10% больше батарей.",
 		perk = { dgather = 0.1, conv = 0.1 }, color = C(255, 210, 60), anim = "crown",
