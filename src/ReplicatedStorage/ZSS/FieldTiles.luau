@@ -6,7 +6,7 @@ local RS = game:GetService("ReplicatedStorage")
 local Config = require(RS.ZSS.Config)
 
 local FieldTiles = {}
-FieldTiles.Version = 2
+FieldTiles.Version = 3
 
 -- сетка поля: resId по индексам [ix][iz] (0-based, ix вдоль X, iz вдоль Z)
 function FieldTiles.Layout(cfg, index)
@@ -80,7 +80,7 @@ function FieldTiles.Build(folder, cfg, index, force)
 	local z0 = cfg.center.Z - cfg.size / 2
 	local templates = RS.ZSS:FindFirstChild("FieldResMeshes")
 	local Icons = require(RS.ZSS.Icons)
-	local mat = Enum.Material[cfg.ground and cfg.ground.mat or "Ground"]
+	local mat = Enum.Material[cfg.ground and cfg.ground.mat or "SmoothPlastic"]
 	local base = cfg.ground and cfg.ground.color or Color3.fromRGB(110, 100, 70)
 	local rng = Random.new(index * 104729 + 7)
 	for _, t in ipairs(tilesFolder:GetChildren()) do
@@ -92,8 +92,8 @@ function FieldTiles.Build(folder, cfg, index, force)
 			t.Size = Vector3.new(S, thick, S)
 			t.CFrame = CFrame.new(cx, top - thick / 2, cz)
 			t.Material = mat
-			-- лёгкая шахматка и разброс тона, чтобы читалась сетка, как в BSS
-			local v = ((ix + iz) % 2 == 0 and 1.035 or 0.965) * rng:NextNumber(0.95, 1.05)
+			-- мультяшный вид как в BSS: яркий гладкий грунт, заметная шахматка плиток
+			local v = ((ix + iz) % 2 == 0 and 1.07 or 0.93) * rng:NextNumber(0.97, 1.03)
 			t.Color = Color3.new(math.min(1, base.R * v), math.min(1, base.G * v), math.min(1, base.B * v))
 			t.TopSurface = Enum.SurfaceType.Smooth
 			t.BottomSurface = Enum.SurfaceType.Smooth

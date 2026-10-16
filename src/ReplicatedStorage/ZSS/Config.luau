@@ -233,21 +233,21 @@ end
 -- res = ресурсы поля {id, доля %} (первый — главный); tileMult — средний множитель сбора плиток
 Config.Fields = {
 	{ id = "wasteland", name = "Пустошь", req = 0, mult = 1, center = Vector3.new(-58, 0, 100), size = 48, gate = "east", tier = 0,
-		res = { { "rust", 75 }, { "chips", 25 } }, tileMult = 1.09, ground = { mat = "Ground", color = C(150, 122, 82) },
+		res = { { "rust", 75 }, { "chips", 25 } }, tileMult = 1.09, ground = { mat = "SmoothPlastic", color = C(222, 178, 106) },
 		zombies = { max = 5, hp = 150, damage = 4, reward = 30, speed = 7, name = "Ходок" } },
 	{ id = "deadcity", name = "Мёртвый город", req = 5, mult = 2.5, center = Vector3.new(58, 12, 180), size = 48, gate = "west", tier = 1,
-		res = { { "chips", 65 }, { "rust", 25 }, { "brass", 10 } }, tileMult = 1.17, ground = { mat = "Asphalt", color = C(78, 80, 86) },
+		res = { { "chips", 65 }, { "rust", 25 }, { "brass", 10 } }, tileMult = 1.17, ground = { mat = "SmoothPlastic", color = C(150, 160, 178) },
 		zombies = { max = 6, hp = 400, damage = 9, reward = 90, speed = 8, name = "Горожанин" } },
 	-- низина на 2-м ярусе: поле ниже уровня яруса, вокруг топь и вода
 	{ id = "swamp", name = "Гнилое болото", req = 10, mult = 5, center = Vector3.new(-58, 20, 260), size = 48, gate = "east", tier = 2,
-		res = { { "bio", 100 } }, tileMult = 1.37, ground = { mat = "Mud", color = C(72, 84, 46) },
+		res = { { "bio", 100 } }, tileMult = 1.37, ground = { mat = "SmoothPlastic", color = C(92, 178, 74) },
 		zombies = { max = 7, hp = 900, damage = 14, reward = 200, speed = 7, name = "Утопленник" } },
 	{ id = "radzone", name = "Радиоактивная зона", req = 15, mult = 9, center = Vector3.new(58, 36, 340), size = 48, gate = "west", tier = 3,
-		res = { { "uranium", 65 }, { "bio", 25 }, { "chips", 10 } }, tileMult = 1.34, ground = { mat = "Ground", color = C(92, 108, 44) },
+		res = { { "uranium", 65 }, { "bio", 25 }, { "chips", 10 } }, tileMult = 1.34, ground = { mat = "SmoothPlastic", color = C(132, 204, 62) },
 		zombies = { max = 8, hp = 2000, damage = 20, reward = 400, speed = 9, name = "Мутант" } },
 	-- вершина: последний ярус, главная дорога упирается прямо в ворота
 	{ id = "military", name = "Военная база", req = 25, mult = 16, center = Vector3.new(0, 60, 530), size = 48, gate = "south", tier = 5,
-		res = { { "brass", 70 }, { "rust", 30 } }, tileMult = 1.18, ground = { mat = "Sand", color = C(148, 132, 92) },
+		res = { { "brass", 70 }, { "rust", 30 } }, tileMult = 1.18, ground = { mat = "SmoothPlastic", color = C(190, 178, 112) },
 		zombies = { max = 9, hp = 12000, damage = 30, reward = 1500, speed = 10, name = "Солдат" } },
 	-- логово босса: без лома, один гигантский зомби на 500 000 HP (рассчитан на группу)
 	{ id = "boss", name = "Логово Колосса", req = 20, mult = 0, center = Vector3.new(-70, 48, 430), size = 84, gate = "east", tier = 4, boss = true,
