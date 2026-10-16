@@ -227,6 +227,32 @@ function W.Init()
 			end
 		end
 	end
+	-- новые гнёзда (игрок занял станцию или купил ещё) плавно «вырастают» из стены по очереди
+	if hives then
+		local lastBorn, burst = 0, 0
+		hives.DescendantAdded:Connect(function(m)
+			if not m:IsA("Model") or not m.Name:match("^Slot_%d+$") then
+				return
+			end
+			-- гнёзда, пришедшие одной пачкой, появляются волной друг за другом
+			local now = os.clock()
+			if now - lastBorn > 0.25 then
+				burst = 0
+			end
+			lastBorn = now
+			local delay = burst * 0.07
+			burst += 1
+			task.defer(function()
+				for _, part in ipairs(m:GetChildren()) do
+					if part:IsA("BasePart") then
+						local size = part.Size
+						part.Size = size * 0.02
+						TweenService:Create(part, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out, 0, false, delay), { Size = size }):Play()
+					end
+				end
+			end)
+		end)
+	end
 	-- Лаборатория дронов: бегущие огни, мониторы, прожекторы, разряды пилонов
 	local runway, bars, lamps, teslas = {}, {}, {}, {}
 	local gz = map:FindFirstChild("GachaZone")
