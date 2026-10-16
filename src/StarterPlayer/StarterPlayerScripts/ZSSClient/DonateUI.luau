@@ -25,6 +25,7 @@ local tab = "passes"
 local cards = {} -- key -> card
 local tabs = {} -- key -> { b, fill, label }
 local tabLine
+local gridLayout
 local footer
 local hovered
 local switching = 0
@@ -61,7 +62,8 @@ local function styleBuy(card)
 		card.buyStroke.Color = C(170, 175, 185)
 		card.check.Visible = true
 	else
-		b.Text = card.busy and "• • •" or priceText(o)
+		b.Text = card.note or (card.busy and "• • •") or priceText(o)
+		b.TextSize = card.note and 14 or 20
 		U.gradTo(card.buyGrad, C(110, 235, 90), C(30, 150, 50))
 		card.buyStroke.Color = C(200, 255, 170)
 		card.check.Visible = false
@@ -99,8 +101,11 @@ local function buy(card)
 	local ok, res = pcall(function()
 		return Remotes.DonateBuy:InvokeServer(o.key)
 	end)
-	if not ok or not res or not res.ok then
+	local failed = not ok or not res or not res.ok
+	if failed then
 		api.toast(res and res.err or "Магазин Roblox не отвечает", res and res.soon and "info" or "bad")
+		-- уведомления наверху может закрывать окно, поэтому ответ видно и на самой кнопке
+		card.note = res and res.soon and "⏳ СКОРО В ПРОДАЖЕ" or "✖ НЕ ВЫШЛО"
 		-- кнопка «качает головой»
 		local b = card.buy
 		for k, r in ipairs({ -6, 5, -3, 0 }) do
@@ -110,8 +115,13 @@ local function buy(card)
 		end
 	end
 	-- окно оплаты Roblox открылось (или отказ) — через секунду кнопка снова активна
-	task.delay(ok and res and res.ok and 1.2 or 0.25, function()
+	if failed then
 		card.busy = false
+		styleBuy(card)
+	end
+	task.delay(failed and 1.6 or 1.2, function()
+		card.busy = false
+		card.note = nil
 		styleBuy(card)
 	end)
 end
@@ -540,6 +550,11 @@ local function setTab(key, instant)
 		table.sort(list, function(a, b)
 			return a.o.index < b.o.index
 		end)
+		-- 4 предложения — ровный квадрат 2×2, иначе по 3 в ряд
+		gridLayout.FillDirectionMaxCells = #list == 4 and 2 or 3
+		if not hovered then
+			DUI.ShowInfo(nil)
+		end
 		for i, card in ipairs(list) do
 			card.stroke.Transparency = 1
 			card.scale.Scale = 0
@@ -681,6 +696,7 @@ local function build()
 		Parent = win,
 	}, {
 		new("UIGridLayout", {
+			Name = "Layout",
 			CellSize = UDim2.fromOffset(CW, CH),
 			CellPadding = UDim2.fromOffset(16, 12),
 			FillDirectionMaxCells = 3,
@@ -688,6 +704,7 @@ local function build()
 			SortOrder = Enum.SortOrder.LayoutOrder,
 		}),
 	})
+	gridLayout = grid.Layout
 	for _, o in ipairs(DC.List) do
 		makeCard(grid, o)
 	end
