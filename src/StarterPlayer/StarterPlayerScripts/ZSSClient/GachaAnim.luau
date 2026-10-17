@@ -2351,10 +2351,6 @@ local function summary(results)
 			ZIndex = 6,
 			Parent = front,
 		}, { U.textStroke(C(0, 0, 0), 2) })
-		if rar.rainbow then
-			local g = new("UIGradient", { Color = Config.RainbowSequence, Parent = rl })
-			table.insert(ctx.rainbowGrads, g)
-		end
 		if r.new then
 			new("TextLabel", {
 				AnchorPoint = Vector2.new(1, 0),
