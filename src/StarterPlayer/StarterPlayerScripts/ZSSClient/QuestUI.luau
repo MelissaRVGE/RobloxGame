@@ -1,4 +1,4 @@
--- Квесты NPC (диалог + трекер), Мастерская сот и прогресс переработки
+-- Квесты NPC (диалог + трекер + книга заданий), Мастерская сот и прогресс переработки
 local Players = game:GetService("Players")
 local RS = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -78,7 +78,7 @@ local function buildDialog()
 	dlg.speech = new("TextLabel", { Position = UDim2.fromOffset(18, 84), Size = UDim2.new(1, -36, 0, 92), BackgroundColor3 = C(30, 34, 30), Font = Enum.Font.GothamMedium, TextSize = 15, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top, TextColor3 = C(235, 238, 228), Parent = win }, { U.corner(12), U.pad(10), U.stroke(C(70, 80, 70), 1.2) })
 	dlg.stage = new("TextLabel", { Position = UDim2.fromOffset(18, 184), Size = UDim2.new(1, -36, 0, 26), BackgroundTransparency = 1, Font = Enum.Font.GothamBlack, TextScaled = true, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = C(255, 220, 120), Parent = win }, { U.textStroke(C(0, 0, 0), 1.6) })
 	dlg.goals = new("Frame", { Position = UDim2.fromOffset(18, 216), Size = UDim2.new(1, -36, 0, 170), BackgroundTransparency = 1, Parent = win }, { new("UIListLayout", { Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }) })
-	dlg.reward = new("TextLabel", { Position = UDim2.fromOffset(18, 390), Size = UDim2.new(1, -36, 0, 40), BackgroundColor3 = C(40, 34, 14), Font = Enum.Font.GothamBlack, TextSize = 14, TextWrapped = true, TextColor3 = C(255, 225, 140), Parent = win }, { U.corner(10), U.pad(6), U.stroke(C(255, 200, 80), 1.2, 0.4) })
+	dlg.reward = new("TextLabel", { Position = UDim2.fromOffset(18, 390), Size = UDim2.new(1, -36, 0, 40), BackgroundColor3 = C(40, 34, 14), Font = Enum.Font.GothamBlack, TextScaled = true, TextWrapped = true, TextColor3 = C(255, 225, 140), Parent = win }, { U.corner(10), U.pad(6), U.stroke(C(255, 200, 80), 1.2, 0.4), new("UITextSizeConstraint", { MaxTextSize = 14 }) })
 	dlg.action = api.button({ AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -12), Size = UDim2.fromOffset(280, 48), BackgroundColor3 = T.Accent, Font = Enum.Font.GothamBlack, TextSize = 19, TextColor3 = C(20, 30, 10), Text = "", Parent = win }, function()
 		QuestUI.DoAction()
 	end)
@@ -182,12 +182,14 @@ function QuestUI.Open(npcId)
 	if api.closeOthers then
 		api.closeOthers()
 	end
+	QuestUI.CloseBook()
 	openNpc = npcId
 	api.openWindow(dlg.win, dlg.scale)
 	QuestUI.Refresh()
 end
 
 function QuestUI.Close()
+	QuestUI.CloseBook()
 	if dlg.win then
 		api.closeWindow(dlg.win, dlg.scale)
 	end
@@ -244,8 +246,51 @@ local function rewardChip(parent, image, text, color, order)
 	new("TextLabel", { Size = UDim2.fromOffset(0, 18), AutomaticSize = Enum.AutomaticSize.X, BackgroundTransparency = 1, Font = Enum.Font.GothamBlack, TextSize = 12, TextColor3 = color, Text = text, LayoutOrder = 2, Parent = chip })
 end
 
-local function makeCard(npc, q, order)
-	local card = new("Frame", { Name = "Card", Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundColor3 = C(16, 19, 24), BackgroundTransparency = 0.12, LayoutOrder = order, Visible = not tracker.collapsed, Parent = tracker.frame }, {
+-- плашки награды задания (батареи, гемы, находки для крафта, расходники, бонус)
+local function addRewardChips(parent, r, perkText)
+	local o = 0
+	if r.batteries then
+		o += 1
+		rewardChip(parent, Icons.battery, U.fmt(r.batteries), C(190, 255, 110), o)
+	end
+	if r.gems then
+		o += 1
+		rewardChip(parent, Icons.gem, tostring(r.gems), C(130, 225, 255), o)
+	end
+	-- находки по редкости: сначала простые материалы, потом редкие
+	local ids = {}
+	for id in pairs(r.items or {}) do
+		table.insert(ids, id)
+	end
+	table.sort(ids, function(a, b)
+		local ia, ib = Items.ById[a], Items.ById[b]
+		return (ia and ia.index or 0) < (ib and ib.index or 0)
+	end)
+	for _, id in ipairs(ids) do
+		o += 1
+		local it = Items.ById[id]
+		local col = it and Items.Tiers[it.tier] and Items.Tiers[it.tier].color:Lerp(C(255, 255, 255), 0.35) or C(255, 220, 160)
+		rewardChip(parent, Icons.items[id], "x" .. r.items[id], col, o)
+	end
+	for id, n in pairs(r.consum or {}) do
+		o += 1
+		rewardChip(parent, Icons[id], "x" .. n, C(255, 220, 160), o)
+	end
+	if perkText then
+		o += 1
+		rewardChip(parent, Icons.trophy, "БОНУС", C(255, 210, 80), o)
+	end
+end
+
+local function rewardRow(card, r, perkText, order)
+	local rw = new("Frame", { Size = UDim2.new(1, 0, 0, 20), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, LayoutOrder = order or 50, Parent = card }, { new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Wraps = true, Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder }) })
+	addRewardChips(rw, r, perkText)
+	return rw
+end
+
+local function makeCard(npc, q, order, parent, subText)
+	parent = parent or tracker.frame
+	local card = new("Frame", { Name = "Card", Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundColor3 = C(16, 19, 24), BackgroundTransparency = 0.12, LayoutOrder = order, Visible = parent ~= tracker.frame or not tracker.collapsed, Parent = parent }, {
 		U.corner(10),
 		U.pad(8),
 		new("UIListLayout", { Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder }),
@@ -254,7 +299,7 @@ local function makeCard(npc, q, order)
 	st.Parent = card
 	new("UIGradient", { Rotation = 0, Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, npc.color:Lerp(C(255, 255, 255), 0.2)), ColorSequenceKeypoint.new(0.08, C(255, 255, 255)), ColorSequenceKeypoint.new(1, C(255, 255, 255)) }), Parent = card })
 	new("TextLabel", { Size = UDim2.new(1, 0, 0, 17), BackgroundTransparency = 1, Font = Enum.Font.GothamBlack, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = C(255, 255, 255), Text = q.title, TextTruncate = Enum.TextTruncate.AtEnd, LayoutOrder = 0, Parent = card }, { U.textStroke(C(0, 0, 0), 1.2) })
-	new("TextLabel", { Size = UDim2.new(1, 0, 0, 13), BackgroundTransparency = 1, Font = Enum.Font.GothamBold, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = npc.color:Lerp(C(255, 255, 255), 0.35), Text = npc.name .. " • " .. npc.role, LayoutOrder = 1, Parent = card })
+	new("TextLabel", { Size = UDim2.new(1, 0, 0, 13), BackgroundTransparency = 1, Font = Enum.Font.GothamBold, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = npc.color:Lerp(C(255, 255, 255), 0.35), Text = subText or (npc.name .. " • " .. npc.role), LayoutOrder = 1, Parent = card })
 	local goals = {}
 	for i, g in ipairs(q.goals) do
 		local row = new("Frame", { Size = UDim2.new(1, 0, 0, 20), BackgroundTransparency = 1, LayoutOrder = 1 + i, Parent = card })
@@ -264,32 +309,26 @@ local function makeCard(npc, q, order)
 		local num = new("TextLabel", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 0, 0, 0), Size = UDim2.fromOffset(62, 16), BackgroundTransparency = 1, Font = Enum.Font.GothamBlack, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Right, TextColor3 = C(255, 255, 255), Text = "", Parent = row })
 		goals[i] = { bar = bar, txt = txt, num = num, g = g }
 	end
-	-- награда
-	local rw = new("Frame", { Size = UDim2.new(1, 0, 0, 20), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, LayoutOrder = 50, Parent = card }, { new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Wraps = true, Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder }) })
-	local r = q.reward
-	local o = 0
-	if r.batteries then
-		o += 1
-		rewardChip(rw, Icons.battery, U.fmt(r.batteries), C(190, 255, 110), o)
-	end
-	if r.gems then
-		o += 1
-		rewardChip(rw, Icons.gem, tostring(r.gems), C(130, 225, 255), o)
-	end
-	for id, n in pairs(r.items or {}) do
-		o += 1
-		rewardChip(rw, Icons.items[id], "x" .. n, C(255, 220, 160), o)
-	end
-	for id, n in pairs(r.consum or {}) do
-		o += 1
-		rewardChip(rw, Icons[id], "x" .. n, C(255, 220, 160), o)
-	end
-	if q.perkText then
-		o += 1
-		rewardChip(rw, Icons.trophy, "БОНУС", C(255, 210, 80), o)
-	end
+	rewardRow(card, q.reward, q.perkText, 50)
 	local ready = new("TextLabel", { Size = UDim2.new(1, 0, 0, 16), BackgroundTransparency = 1, Font = Enum.Font.GothamBlack, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = C(150, 255, 120), Text = "✔ Готово! Вернись к " .. npc.name, Visible = false, LayoutOrder = 60, Parent = card })
 	return { card = card, goals = goals, stroke = st, ready = ready, npc = npc }
+end
+
+-- прогресс целей на карточке плавно подтягивается к новым значениям
+local function updateCard(c, v)
+	for i, gr in ipairs(c.goals) do
+		local cur = math.min(v.goals and v.goals[i] or 0, gr.g.n)
+		local done = cur >= gr.g.n
+		local goalN = gr.g.n
+		U.tween(gr.bar, 0.35, { Size = UDim2.fromScale(math.clamp(cur / math.max(goalN, 1), 0, 1), 1), BackgroundColor3 = done and C(120, 230, 80) or c.npc.color })
+		U.countTo(gr.num, cur, function(x)
+			return U.fmt(x) .. "/" .. U.fmt(goalN)
+		end, 0.35)
+		U.tween(gr.num, 0.25, { TextColor3 = done and C(150, 255, 120) or C(255, 255, 255) })
+		U.tween(gr.txt, 0.25, { TextColor3 = done and C(160, 220, 150) or C(225, 228, 220) })
+	end
+	c.ready.Visible = v.ready == true
+	U.tween(c.stroke, 0.25, { Color = v.ready and C(140, 255, 100) or c.npc.color })
 end
 
 local function refreshTracker()
@@ -327,19 +366,7 @@ local function refreshTracker()
 	for _, a in ipairs(active) do
 		local c = tracker.cards[a.npc.id]
 		if c then
-			for i, gr in ipairs(c.goals) do
-				local cur = math.min(a.v.goals and a.v.goals[i] or 0, gr.g.n)
-				local done = cur >= gr.g.n
-				local goalN = gr.g.n
-				U.tween(gr.bar, 0.35, { Size = UDim2.fromScale(math.clamp(cur / math.max(goalN, 1), 0, 1), 1), BackgroundColor3 = done and C(120, 230, 80) or a.npc.color })
-				U.countTo(gr.num, cur, function(v)
-					return U.fmt(v) .. "/" .. U.fmt(goalN)
-				end, 0.35)
-				U.tween(gr.num, 0.25, { TextColor3 = done and C(150, 255, 120) or C(255, 255, 255) })
-				U.tween(gr.txt, 0.25, { TextColor3 = done and C(160, 220, 150) or C(225, 228, 220) })
-			end
-			c.ready.Visible = a.v.ready == true
-			U.tween(c.stroke, 0.25, { Color = a.v.ready and C(140, 255, 100) or a.npc.color })
+			updateCard(c, a.v)
 		end
 	end
 end
@@ -348,6 +375,334 @@ function QuestUI.SetVisible(on)
 	trackerVisible = on
 	if tracker.frame then
 		tracker.frame.Visible = on
+	end
+end
+
+-- ===== КНИГА ЗАДАНИЙ (кнопка «Задания» в левом меню, как в BSS) =====
+-- Вкладки «Активные» и «Выполненные», фильтр по NPC, карточки с прогрессом и наградой.
+local book = { tab = "active", filter = nil, cards = {}, sig = nil }
+local BOOK_W, BOOK_H, BOOK_H_MOBILE = 430, 600, 450
+
+local function bookCounts(d)
+	local done, total, active, ready = 0, 0, 0, 0
+	for _, npc in ipairs(Q.NPCs) do
+		local v = d and d.quests and d.quests[npc.id]
+		total += #npc.quests
+		if v then
+			done += math.clamp(v.stage - 1, 0, #npc.quests)
+			if v.active then
+				active += 1
+				if v.ready then
+					ready += 1
+				end
+			end
+		end
+	end
+	return done, total, active, ready
+end
+
+-- сколько заданий можно сдать прямо сейчас (для значка на кнопке меню)
+function QuestUI.ReadyCount()
+	local _, _, _, ready = bookCounts(State.data)
+	return ready
+end
+
+local function npcChip(npc, i)
+	local W = (BOOK_W - 24 - 3 * 6) / 4
+	local b = api.button({ Size = UDim2.fromOffset(W, 70), BackgroundColor3 = C(22, 26, 32), BackgroundTransparency = 0.05, Text = "", AutoButtonColor = false, LayoutOrder = i, Parent = book.strip }, function()
+		book.filter = book.filter ~= npc.id and npc.id or nil
+		QuestUI.RefreshBook()
+	end)
+	U.corner(12).Parent = b
+	local st = U.stroke(npc.color, 1.5, 0.55)
+	st.Parent = b
+	local tint = new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = npc.color, BackgroundTransparency = 1, BorderSizePixel = 0, Parent = b }, { U.corner(12), new("UIGradient", { Rotation = 90, Transparency = NumberSequence.new(0.4, 1) }) })
+	local av = new("Frame", { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 6), Size = UDim2.fromOffset(28, 28), BackgroundColor3 = npc.color, ZIndex = 2, Parent = b }, { U.round(), U.stroke(C(255, 255, 255), 1.5, 0.3) })
+	new("TextLabel", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Font = Enum.Font.GothamBlack, TextSize = 15, TextColor3 = C(20, 20, 20), Text = utf8.char(utf8.codepoint(npc.name, 1)), ZIndex = 3, Parent = av })
+	-- в подписи — имя без звания («Доктор Лиза» → «Лиза»)
+	local short = npc.name:match("(%S+)$") or npc.name
+	new("TextLabel", { Position = UDim2.fromOffset(2, 36), Size = UDim2.new(1, -4, 0, 14), BackgroundTransparency = 1, Font = Enum.Font.GothamBlack, TextSize = 12, TextColor3 = npc.color:Lerp(C(255, 255, 255), 0.45), Text = short, TextTruncate = Enum.TextTruncate.AtEnd, ZIndex = 2, Parent = b }, { U.textStroke(C(0, 0, 0), 1.2) })
+	local barBg = new("Frame", { Position = UDim2.new(0, 8, 1, -14), Size = UDim2.new(1, -46, 0, 6), BackgroundColor3 = C(40, 44, 52), BorderSizePixel = 0, ZIndex = 2, Parent = b }, { U.round() })
+	local bar = new("Frame", { Size = UDim2.fromScale(0, 1), BackgroundColor3 = npc.color, BorderSizePixel = 0, ZIndex = 2, Parent = barBg }, { U.round() })
+	local num = new("TextLabel", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -6, 1, -19), Size = UDim2.fromOffset(36, 16), BackgroundTransparency = 1, Font = Enum.Font.GothamBlack, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Right, TextColor3 = C(235, 235, 235), Text = "0/15", ZIndex = 2, Parent = b })
+	-- значок «!» (можно взять) или «✔» (можно сдать)
+	local badge = new("TextLabel", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(1, -8, 0, 8), Size = UDim2.fromOffset(18, 18), BackgroundColor3 = C(255, 200, 40), Font = Enum.Font.GothamBlack, TextSize = 12, TextColor3 = C(20, 20, 20), Text = "!", Visible = false, ZIndex = 4, Parent = b }, { U.round() })
+	b.MouseEnter:Connect(function()
+		U.tween(st, 0.15, { Transparency = 0 })
+	end)
+	b.MouseLeave:Connect(function()
+		U.tween(st, 0.15, { Transparency = book.filter == npc.id and 0 or 0.55 })
+	end)
+	book.chips[npc.id] = { b = b, st = st, tint = tint, bar = bar, num = num, badge = badge, npc = npc }
+end
+
+local function buildBook()
+	local win = new("Frame", {
+		Name = "QuestBook",
+		AnchorPoint = Vector2.new(0, 0.5),
+		Position = UDim2.new(0, 380, 0.5, 10),
+		Size = UDim2.fromOffset(BOOK_W, BOOK_H),
+		BackgroundColor3 = T.Bg,
+		Visible = false,
+		ZIndex = 20,
+		Parent = api.gui,
+	}, { U.corner(18), U.grad(C(255, 255, 255), C(165, 170, 165), 90) })
+	book.win = win
+	book.scale = api.addScale(win)
+	local wst = U.stroke(C(255, 255, 255), 3)
+	wst.Parent = win
+	book.strokeGrad = new("UIGradient", { Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, C(255, 200, 80)), ColorSequenceKeypoint.new(0.5, C(255, 240, 190)), ColorSequenceKeypoint.new(1, C(255, 140, 60)) }), Parent = wst })
+	-- шапка
+	local header = new("Frame", { Size = UDim2.new(1, 0, 0, 64), BackgroundColor3 = C(60, 40, 12), Parent = win }, { U.corner(18), U.grad(C(255, 255, 255), C(170, 140, 100), 90) })
+	new("ImageLabel", { BackgroundTransparency = 1, Image = Icons.glow, ImageColor3 = C(255, 200, 80), ImageTransparency = 0.35, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(36, 32), Size = UDim2.fromOffset(80, 80), Parent = header })
+	book.icon = new("ImageLabel", { BackgroundTransparency = 1, Image = Icons.quest, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(36, 32), Size = UDim2.fromOffset(48, 48), ScaleType = Enum.ScaleType.Fit, ZIndex = 2, Parent = header })
+	local title = new("TextLabel", { Position = UDim2.fromOffset(68, 6), Size = UDim2.new(1, -130, 0, 32), BackgroundTransparency = 1, Font = Enum.Font.GothamBlack, TextScaled = true, TextXAlignment = Enum.TextXAlignment.Left, Text = "ЗАДАНИЯ", TextColor3 = C(255, 255, 255), Parent = header }, { U.textStroke(C(40, 20, 0), 2), new("UITextSizeConstraint", { MaxTextSize = 28 }) })
+	new("UIGradient", { Rotation = 90, Color = ColorSequence.new(C(255, 245, 200), C(255, 170, 40)), Parent = title })
+	book.sub = new("TextLabel", { Position = UDim2.fromOffset(69, 38), Size = UDim2.new(1, -130, 0, 18), BackgroundTransparency = 1, Font = Enum.Font.GothamBold, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = C(255, 225, 170), Text = "", Parent = header })
+	local close = api.button({ AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -12, 0.5, 0), Size = UDim2.fromOffset(42, 42), BackgroundColor3 = T.Danger, Font = Enum.Font.GothamBlack, Text = "X", TextSize = 20, TextColor3 = C(255, 255, 255), Parent = header }, function()
+		QuestUI.CloseBook()
+	end)
+	U.corner(10).Parent = close
+	-- NPC: прогресс цепочки и фильтр
+	book.strip = new("Frame", { Position = UDim2.fromOffset(12, 74), Size = UDim2.new(1, -24, 0, 70), BackgroundTransparency = 1, Parent = win }, {
+		new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder }),
+	})
+	book.chips = {}
+	for i, npc in ipairs(Q.NPCs) do
+		npcChip(npc, i)
+	end
+	-- вкладки с плавно переезжающей подложкой
+	local tabs = new("Frame", { Position = UDim2.fromOffset(12, 152), Size = UDim2.new(1, -24, 0, 38), BackgroundColor3 = C(14, 16, 20), BackgroundTransparency = 0.1, Parent = win }, { U.corner(12), U.stroke(C(70, 76, 86), 1.2) })
+	book.tabPill = new("Frame", { Position = UDim2.new(0, 3, 0, 3), Size = UDim2.new(0.5, -6, 1, -6), BackgroundColor3 = C(255, 255, 255), Parent = tabs }, { U.corner(10) })
+	book.tabGrad = new("UIGradient", { Rotation = 90, Color = ColorSequence.new(C(255, 210, 90), C(230, 140, 40)), Parent = book.tabPill })
+	book.tabBtns = {}
+	for i, key in ipairs({ "active", "done" }) do
+		local tb = api.button({ Position = UDim2.new((i - 1) * 0.5, 0, 0, 0), Size = UDim2.new(0.5, 0, 1, 0), BackgroundTransparency = 1, Font = Enum.Font.GothamBlack, TextSize = 15, TextColor3 = C(255, 255, 255), Text = "", ZIndex = 3, Parent = tabs }, function()
+			if book.tab ~= key then
+				book.tab = key
+				QuestUI.RefreshBook()
+			end
+		end)
+		book.tabBtns[key] = tb
+	end
+	-- список карточек
+	book.list = new("ScrollingFrame", {
+		Position = UDim2.fromOffset(12, 198),
+		Size = UDim2.new(1, -16, 1, -210),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ScrollBarThickness = 6,
+		ScrollBarImageColor3 = C(255, 200, 80),
+		ScrollBarImageTransparency = 0.3,
+		CanvasSize = UDim2.new(),
+		AutomaticCanvasSize = Enum.AutomaticSize.Y,
+		ScrollingDirection = Enum.ScrollingDirection.Y,
+		Parent = win,
+	}, {
+		new("UIListLayout", { Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }),
+		new("UIPadding", { PaddingRight = UDim.new(0, 10), PaddingTop = UDim.new(0, 2), PaddingBottom = UDim.new(0, 8), PaddingLeft = UDim.new(0, 1) }),
+	})
+	book.empty = new("TextLabel", { Size = UDim2.new(1, 0, 0, 80), BackgroundTransparency = 1, Font = Enum.Font.GothamBold, TextSize = 14, TextWrapped = true, TextColor3 = T.Muted, Text = "", Visible = false, LayoutOrder = 0, Parent = book.list })
+	-- иконка в шапке мягко покачивается
+	RunService.RenderStepped:Connect(function()
+		if win.Visible then
+			local t = os.clock()
+			book.icon.Rotation = math.sin(t * 1.6) * 6
+			book.strokeGrad.Rotation = (t * 50) % 360
+		end
+	end)
+end
+
+-- компактная карточка: выполненное задание, новое задание у NPC или завершённая цепочка
+local function smallCard(npc, order, titleText, subText, reward, perkText, kind)
+	local card = new("Frame", { Name = "Card", Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundColor3 = kind == "done" and C(18, 26, 18) or C(16, 19, 24), BackgroundTransparency = 0.12, LayoutOrder = order, Parent = book.list }, {
+		U.corner(10),
+		U.pad(8),
+		new("UIListLayout", { Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder }),
+	})
+	U.stroke(kind == "done" and C(120, 220, 90) or npc.color, 1.4, kind == "new" and 0.2 or 0.45).Parent = card
+	local head = new("Frame", { Size = UDim2.new(1, 0, 0, 17), BackgroundTransparency = 1, LayoutOrder = 0, Parent = card })
+	local mark = kind == "done" and "✔" or kind == "new" and "!" or "★"
+	new("TextLabel", { Size = UDim2.fromOffset(18, 17), BackgroundColor3 = kind == "done" and C(110, 210, 80) or C(255, 200, 40), Font = Enum.Font.GothamBlack, TextSize = 11, TextColor3 = C(20, 20, 20), Text = mark, Parent = head }, { U.corner(5) })
+	new("TextLabel", { Position = UDim2.fromOffset(24, 0), Size = UDim2.new(1, -24, 1, 0), BackgroundTransparency = 1, Font = Enum.Font.GothamBlack, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = kind == "done" and C(200, 240, 190) or C(255, 255, 255), Text = titleText, TextTruncate = Enum.TextTruncate.AtEnd, Parent = head }, { U.textStroke(C(0, 0, 0), 1.2) })
+	new("TextLabel", { Size = UDim2.new(1, 0, 0, 13), BackgroundTransparency = 1, Font = Enum.Font.GothamBold, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = npc.color:Lerp(C(255, 255, 255), 0.35), Text = subText, TextTruncate = Enum.TextTruncate.AtEnd, LayoutOrder = 1, Parent = card })
+	if reward then
+		rewardRow(card, reward, perkText, 2)
+	end
+	return card
+end
+
+local function bookSection(npc, order, text)
+	local f = new("Frame", { Name = "Card", Size = UDim2.new(1, 0, 0, 24), BackgroundTransparency = 1, LayoutOrder = order, Parent = book.list })
+	new("Frame", { AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 0, 0.5, 0), Size = UDim2.fromOffset(10, 10), BackgroundColor3 = npc.color, Parent = f }, { U.round() })
+	new("TextLabel", { Position = UDim2.fromOffset(16, 0), Size = UDim2.new(1, -16, 1, 0), BackgroundTransparency = 1, Font = Enum.Font.GothamBlack, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = npc.color:Lerp(C(255, 255, 255), 0.4), Text = text, Parent = f }, { U.textStroke(C(0, 0, 0), 1.2) })
+	return f
+end
+
+function QuestUI.RefreshBook()
+	if not book.win or not book.win.Visible then
+		return
+	end
+	local d = State.data
+	local quests = d and d.quests or {}
+	local done, total, active, ready = bookCounts(d)
+	book.sub.Text = ("Выполнено %d из %d  •  активных %d"):format(done, total, active) .. (ready > 0 and ("  •  можно сдать %d"):format(ready) or "")
+	-- NPC-плашки
+	for _, npc in ipairs(Q.NPCs) do
+		local c = book.chips[npc.id]
+		local v = quests[npc.id] or { stage = 1 }
+		local n = math.clamp(v.stage - 1, 0, #npc.quests)
+		U.tween(c.bar, 0.35, { Size = UDim2.fromScale(n / #npc.quests, 1) })
+		c.num.Text = ("%d/%d"):format(n, #npc.quests)
+		local sel = book.filter == npc.id
+		U.tween(c.tint, 0.2, { BackgroundTransparency = sel and 0.55 or 1 })
+		U.tween(c.st, 0.2, { Transparency = sel and 0 or 0.55, Thickness = sel and 2.5 or 1.5 })
+		local badge = v.ready and "✔" or (not v.active and not v.done) and "!" or nil
+		if badge then
+			c.badge.Text = badge
+			c.badge.BackgroundColor3 = v.ready and C(120, 230, 80) or C(255, 200, 40)
+		end
+		U.fadeVisible(c.badge, badge ~= nil, 0.2)
+	end
+	-- вкладки: подложка переезжает к выбранной
+	local nActive, nDone = 0, 0
+	for _, npc in ipairs(Q.NPCs) do
+		if not book.filter or book.filter == npc.id then
+			local v = quests[npc.id] or { stage = 1 }
+			nDone += math.clamp(v.stage - 1, 0, #npc.quests)
+			if not v.done then
+				nActive += 1
+			end
+		end
+	end
+	book.tabBtns.active.Text = ("АКТИВНЫЕ (%d)"):format(nActive)
+	book.tabBtns.done.Text = ("ВЫПОЛНЕННЫЕ (%d)"):format(nDone)
+	U.tween(book.tabPill, 0.25, { Position = UDim2.new(book.tab == "active" and 0 or 0.5, 3, 0, 3) }, Enum.EasingStyle.Quart)
+	U.tween(book.tabBtns.active, 0.2, { TextColor3 = book.tab == "active" and C(40, 22, 0) or C(220, 220, 220) })
+	U.tween(book.tabBtns.done, 0.2, { TextColor3 = book.tab == "done" and C(40, 22, 0) or C(220, 220, 220) })
+
+	-- состав списка меняется только при смене вкладки/фильтра или взятии/сдаче задания
+	local sig = book.tab .. ":" .. tostring(book.filter)
+	for _, npc in ipairs(Q.NPCs) do
+		local v = quests[npc.id] or {}
+		sig ..= ";" .. npc.id .. tostring(v.stage) .. tostring(v.active)
+	end
+	if sig ~= book.sig then
+		local tabChanged = book.lastTab ~= book.tab or book.lastFilter ~= book.filter
+		book.sig, book.lastTab, book.lastFilter = sig, book.tab, book.filter
+		for _, ch in ipairs(book.list:GetChildren()) do
+			if ch.Name == "Card" then
+				ch:Destroy()
+			end
+		end
+		book.cards = {}
+		local made = {}
+		local order = 0
+		local function add(inst)
+			order += 1
+			inst.LayoutOrder = order
+			table.insert(made, inst)
+		end
+		for _, npc in ipairs(Q.NPCs) do
+			if not book.filter or book.filter == npc.id then
+				local v = quests[npc.id] or { stage = 1 }
+				local q = npc.quests[v.stage]
+				if book.tab == "active" then
+					local stageText = ("%s  •  задание %d/%d"):format(npc.name, v.stage, #npc.quests)
+					if q and v.active then
+						local c = makeCard(npc, q, 0, book.list, stageText)
+						book.cards[npc.id] = c
+						add(c.card)
+					elseif q then
+						add(smallCard(npc, 0, q.title, "Новое задание  •  поговори с: " .. npc.name, q.reward, q.perkText, "new"))
+					else
+						add(smallCard(npc, 0, "Все задания выполнены!", npc.name .. "  •  цепочка пройдена " .. #npc.quests .. "/" .. #npc.quests, nil, nil, "chain"))
+					end
+				else
+					local last = math.clamp(v.stage - 1, 0, #npc.quests)
+					if last > 0 then
+						add(bookSection(npc, 0, ("%s  —  %d/%d"):format(npc.name, last, #npc.quests)))
+						for k = last, 1, -1 do
+							local dq = npc.quests[k]
+							add(smallCard(npc, 0, dq.title, ("Задание %d/%d"):format(k, #npc.quests), dq.reward, dq.perkText, "done"))
+						end
+					end
+				end
+			end
+		end
+		book.empty.Text = book.tab == "active" and "Нет заданий." or "Ты ещё не сдал ни одного задания.\nПоговори с жителями базы — у них есть работа!"
+		U.fadeVisible(book.empty, #made == 0, 0.2)
+		-- карточки появляются по очереди, плавно
+		for i, inst in ipairs(made) do
+			inst.Visible = false
+			if i <= 12 then
+				task.delay((i - 1) * 0.035, function()
+					if inst.Parent then
+						U.fadeVisible(inst, true, 0.22)
+					end
+				end)
+			else
+				inst.Visible = true
+			end
+		end
+		if tabChanged then
+			book.list.CanvasPosition = Vector2.zero
+		end
+	end
+	for _, npc in ipairs(Q.NPCs) do
+		local c = book.cards[npc.id]
+		local v = quests[npc.id]
+		if c and v then
+			updateCard(c, v)
+		end
+	end
+end
+
+-- окно — справа от левой колонки HUD (на телефоне — по центру)
+local function placeBook()
+	if book.mobile then
+		book.win.AnchorPoint = Vector2.new(0.5, 0.5)
+		book.win.Position = UDim2.fromScale(0.5, 0.5)
+		book.win.Size = UDim2.fromOffset(BOOK_W, BOOK_H_MOBILE)
+	else
+		local x = api.hudRight and api.hudRight() or 370
+		book.win.AnchorPoint = Vector2.new(0, 0.5)
+		book.win.Position = UDim2.new(0, x + 14, 0.5, 14)
+		book.win.Size = UDim2.fromOffset(BOOK_W, BOOK_H)
+	end
+end
+
+function QuestUI.OpenBook()
+	if not book.win then
+		return
+	end
+	if api.closeOthers then
+		api.closeOthers()
+	end
+	if dlg.win then
+		api.closeWindow(dlg.win, dlg.scale)
+	end
+	if cells.win then
+		api.closeWindow(cells.win, cells.scale)
+	end
+	openNpc = nil
+	placeBook()
+	book.sig = nil
+	api.openWindow(book.win, book.scale)
+	QuestUI.RefreshBook()
+end
+
+function QuestUI.CloseBook()
+	if book.win then
+		api.closeWindow(book.win, book.scale)
+	end
+end
+
+function QuestUI.ToggleBook()
+	if book.win and U.isOpen(book.win, book.scale) then
+		QuestUI.CloseBook()
+	else
+		QuestUI.OpenBook()
 	end
 end
 
@@ -525,6 +880,10 @@ function QuestUI.PlaceTracker(y, animate)
 end
 
 function QuestUI.ApplyLayout(mobile)
+	book.mobile = mobile
+	if book.win and book.win.Visible then
+		placeBook()
+	end
 	if tracker.frame then
 		tracker.mobile = mobile
 		tracker.frame.Position = mobile and UDim2.fromOffset(6, 160) or UDim2.fromOffset(12, desktopTop)
@@ -539,12 +898,14 @@ function QuestUI.Init(a)
 	api = a
 	buildDialog()
 	buildTracker()
+	buildBook()
 	buildCells()
 	buildConv()
 	local function onData()
 		refreshTracker()
 		refreshMarkers()
 		QuestUI.Refresh()
+		QuestUI.RefreshBook()
 		refreshCells()
 		updateConv()
 	end

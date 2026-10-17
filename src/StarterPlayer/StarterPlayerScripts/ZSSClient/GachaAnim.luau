@@ -8,6 +8,8 @@ local Players = game:GetService("Players")
 local RS = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
+local ContextActionService = game:GetService("ContextActionService")
+local UIS = game:GetService("UserInputService")
 
 local Shared = RS:WaitForChild("ZSS")
 local Config = require(Shared.Config)
@@ -2190,7 +2192,7 @@ local function reveal(r, final)
 		Size = UDim2.fromOffset(500, 26),
 		BackgroundTransparency = 1,
 		Font = Enum.Font.GothamBold,
-		Text = final and "Нажми, чтобы забрать" or "Нажми, чтобы продолжить",
+		Text = (final and "Нажми, чтобы забрать" or "Нажми, чтобы продолжить") .. (UIS.KeyboardEnabled and "  •  Пробел" or ""),
 		TextSize = 18,
 		TextColor3 = C(200, 200, 200),
 		ZIndex = 9,
@@ -2583,23 +2585,52 @@ local function run(results, opts)
 	catcher.Activated:Connect(function()
 		ctx.clicked = true
 	end)
+	-- на клавиатуре у кнопки есть подсказка-клавиша «ПРОБЕЛ»
+	local keyHint = UIS.KeyboardEnabled
 	ctx.skipBtn = new("TextButton", {
 		AnchorPoint = Vector2.new(1, 0),
 		Position = UDim2.new(1, -20, 0, 20),
-		Size = UDim2.fromOffset(170, 44),
+		Size = UDim2.fromOffset(keyHint and 250 or 170, 44),
 		BackgroundColor3 = C(30, 34, 30),
 		BackgroundTransparency = 0.2,
-		Text = "ПРОПУСТИТЬ ⏭",
+		Text = keyHint and "" or "ПРОПУСТИТЬ ⏭",
 		Font = Enum.Font.GothamBold,
 		TextSize = 16,
 		TextColor3 = C(230, 230, 230),
 		ZIndex = 30,
 		Parent = gui,
 	}, { U.corner(10), U.stroke(C(130, 230, 60), 2) })
-	ctx.skipBtn.Activated:Connect(function()
+	if keyHint then
+		new("TextLabel", { Position = UDim2.fromOffset(14, 0), Size = UDim2.new(1, -110, 1, 0), BackgroundTransparency = 1, Font = Enum.Font.GothamBold, TextSize = 16, TextColor3 = C(230, 230, 230), TextXAlignment = Enum.TextXAlignment.Left, Text = "ПРОПУСТИТЬ ⏭", ZIndex = 31, Parent = ctx.skipBtn })
+		-- клавиша-«колпачок»: светлая крышка над тёмным торцом
+		local cap = new("Frame", { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -10, 0.5, -1), Size = UDim2.fromOffset(86, 26), BackgroundColor3 = C(120, 130, 120), ZIndex = 31, Parent = ctx.skipBtn }, { U.corner(6) })
+		new("TextLabel", { Size = UDim2.new(1, 0, 1, -3), BackgroundColor3 = C(235, 240, 230), Font = Enum.Font.GothamBlack, TextSize = 12, TextColor3 = C(30, 34, 30), Text = "ПРОБЕЛ", ZIndex = 32, Parent = cap }, { U.corner(6) })
+	end
+	local function doSkip()
+		if ctx.skip then
+			return
+		end
 		ctx.skip = true
+		ctx.skipAt = os.clock()
 		ctx.skipBtn.Visible = false
 		stopSfx(0.12)
+	end
+	ctx.skipBtn.Activated:Connect(doSkip)
+	-- Пробел / Enter (A на геймпаде): пока видна кнопка — пропуск анимации, дальше — «продолжить/забрать».
+	-- Клавиша перехватывается целиком, чтобы персонаж не прыгал под анимацией.
+	ContextActionService:BindActionAtPriority("ZSS_GachaSkip", function(_, state)
+		if state == Enum.UserInputState.Begin then
+			if ctx.skipBtn.Visible and not ctx.skip then
+				doSkip()
+			elseif os.clock() - (ctx.skipAt or 0) > 0.35 then
+				-- небольшая пауза после пропуска, чтобы двойное нажатие не закрыло итог раньше, чем его увидят
+				ctx.clicked = true
+			end
+		end
+		return Enum.ContextActionResult.Sink
+	end, false, Enum.ContextActionPriority.High.Value + 100, Enum.KeyCode.Space, Enum.KeyCode.Return, Enum.KeyCode.KeypadEnter, Enum.KeyCode.ButtonA)
+	table.insert(ctx.cleanupUI, function()
+		ContextActionService:UnbindAction("ZSS_GachaSkip")
 	end)
 
 	-- общий покадровый апдейт
