@@ -2994,10 +2994,6 @@ function UI.Init()
 	QuestUI.Init({
 		gui = gui,
 		addScale = addScale,
-		-- правый край панели валюты: книга заданий открывается рядом с левой колонкой HUD
-		hudRight = function()
-			return hud.panel.AbsolutePosition.X + hud.panel.AbsoluteSize.X
-		end,
 		openWindow = openWindow,
 		closeWindow = closeWindow,
 		button = button,
