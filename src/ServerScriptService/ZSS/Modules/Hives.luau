@@ -119,11 +119,11 @@ function Hives.Refresh(i)
 	local prompt = model:FindFirstChild("ChargePrompt", true)
 	if prompt then
 		if owner then
-			prompt.ActionText = "Зарядить / забрать дронов"
-			prompt.ObjectText = "⚡ Станция №" .. i .. " • " .. owner.DisplayName
+			prompt.ActionText = "Charge / collect drones"
+			prompt.ObjectText = "⚡ Station #" .. i .. " • " .. owner.DisplayName
 		else
-			prompt.ActionText = "Занять станцию"
-			prompt.ObjectText = "⚡ Станция зарядки №" .. i
+			prompt.ActionText = "Claim station"
+			prompt.ObjectText = "⚡ Charging Station #" .. i
 		end
 	end
 	local plate = model:FindFirstChild("NamePlate", true)
@@ -132,10 +132,10 @@ function Hives.Refresh(i)
 		local name = gui:FindFirstChild("Owner", true)
 		local sub = gui:FindFirstChild("Sub", true)
 		if name then
-			name.Text = owner and owner.DisplayName or "СВОБОДНО"
+			name.Text = owner and owner.DisplayName or "FREE"
 		end
 		if sub then
-			sub.Text = owner and ("⚡ Гнёзда: %d / %d"):format(slots, Config.Hive.maxCells) or "Подойди и займи (E)"
+			sub.Text = owner and ("⚡ Cells: %d / %d"):format(slots, Config.Hive.maxCells) or "Walk up and claim (E)"
 		end
 	end
 	model:SetAttribute("OwnerId", owner and owner.UserId or 0)
@@ -151,10 +151,10 @@ end
 -- игрок сам подходит к свободной станции и занимает её
 function Hives.Claim(player, i)
 	if Hives.Index(player) then
-		return false, "У тебя уже есть станция №" .. Hives.Index(player)
+		return false, "You already have station #" .. Hives.Index(player)
 	end
 	if owners[i] then
-		return false, "Эта станция уже занята"
+		return false, "This station is already taken"
 	end
 	owners[i] = player
 	player:SetAttribute("ZSS_Hive", i)
@@ -184,7 +184,7 @@ function Hives.BuyCell(player, qty)
 	local char = player.Character
 	local hrp = char and char:FindFirstChild("HumanoidRootPart")
 	if not hrp or (hrp.Position - Config.CellShop.center).Magnitude > Config.CellShop.radius + 6 then
-		return { ok = false, err = "Гнёзда покупаются в Мастерской у станций зарядки" }
+		return { ok = false, err = "Cells are sold at the Workshop by the charging stations" }
 	end
 	qty = math.clamp(math.floor(tonumber(qty) or 1), 1, 10)
 	local bought = 0
@@ -203,14 +203,14 @@ function Hives.BuyCell(player, qty)
 	end
 	if bought == 0 then
 		if (p.dockSlots or 3) >= Config.Hive.maxCells then
-			return { ok = false, err = "Станция уже полностью застроена (50/50)" }
+			return { ok = false, err = "The station is already fully built (50/50)" }
 		end
-		return { ok = false, err = ("🔋 Нужно %d батарей"):format(Config.CellCost((p.dockSlots or 3) + 1)) }
+		return { ok = false, err = ("🔋 You need %d batteries"):format(Config.CellCost((p.dockSlots or 3) + 1)) }
 	end
 	Data.MarkDirty(player)
 	Hives.RefreshPlayer(player)
 	Remotes.FX:FireAllClients("purchase", { owner = player.UserId })
-	return { ok = true, msg = ("⚡ Куплено гнёзд: %d. Теперь %d / %d"):format(bought, p.dockSlots, Config.Hive.maxCells) }
+	return { ok = true, msg = ("⚡ Cells bought: %d. Now %d / %d"):format(bought, p.dockSlots, Config.Hive.maxCells) }
 end
 
 function Hives.Init(dataModule, dronesModule, onCharge)
@@ -228,11 +228,11 @@ function Hives.Init(dataModule, dronesModule, onCharge)
 					local mine = Hives.Index(player)
 					if not owners[i] then
 						local ok, err = Hives.Claim(player, i)
-						Remotes.Notify:FireClient(player, ok and ("⚡ Станция №" .. i .. " твоя! Рой вылетает из сот. Нажми E здесь, чтобы зарядить дронов") or err, ok and "good" or "bad")
+						Remotes.Notify:FireClient(player, ok and ("⚡ Station #" .. i .. " is yours! Your swarm is flying out of the cells. Press E here to charge drones") or err, ok and "good" or "bad")
 						return
 					end
 					if mine ~= i then
-						Remotes.Notify:FireClient(player, "Это станция игрока " .. owners[i].DisplayName .. (mine and (". Твоя — №" .. mine) or ""), "bad")
+						Remotes.Notify:FireClient(player, "This station belongs to " .. owners[i].DisplayName .. (mine and (". Yours is #" .. mine) or ""), "bad")
 						return
 					end
 					onCharge(player)

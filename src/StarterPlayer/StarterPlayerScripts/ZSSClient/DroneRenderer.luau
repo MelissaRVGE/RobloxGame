@@ -371,7 +371,7 @@ function Renderer.Init(fx)
 		if #failed == 0 then
 			return
 		end
-		warn("[ZSS] Меши дронов не загрузились, рисуем процедурно:", table.concat(failed, ", "))
+		warn("[ZSS] Drone meshes failed to load, drawing procedurally:", table.concat(failed, ", "))
 		local set = {}
 		for _, id in ipairs(failed) do
 			set[id] = true

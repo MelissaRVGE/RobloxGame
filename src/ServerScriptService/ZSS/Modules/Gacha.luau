@@ -74,7 +74,7 @@ function Gacha.Capsule(player, minRarity)
 	local rar = Config.Rarities[rarity]
 	Remotes.FX:FireAllClients("aura", { owner = player.UserId, color = rar.color, duration = 2.5, rainbow = rar.rainbow })
 	if rar.order >= 4 then
-		local msg = ("✨ %s открыл капсулу: %s дрон «%s»!"):format(player.DisplayName, rar.label, def.name)
+		local msg = ("✨ %s opened a capsule: %s drone “%s”!"):format(player.DisplayName, rar.label, def.name)
 		for _, other in ipairs(Players:GetPlayers()) do
 			if other ~= player then
 				Remotes.Notify:FireClient(other, msg, rarity)
@@ -86,23 +86,23 @@ end
 
 function Gacha.Pull(player, count)
 	if count ~= 1 and count ~= 10 then
-		return { ok = false, err = "Неверное число круток" }
+		return { ok = false, err = "Invalid number of pulls" }
 	end
 	local p = Data.Get(player)
 	if not p then
-		return { ok = false, err = "Данные ещё загружаются..." }
+		return { ok = false, err = "Data is still loading..." }
 	end
 	if busy[player] then
-		return { ok = false, err = "Подожди..." }
+		return { ok = false, err = "Wait..." }
 	end
 	local char = player.Character
 	local hrp = char and char:FindFirstChild("HumanoidRootPart")
 	if not hrp or (hrp.Position - Config.GachaZone.center).Magnitude > Config.GachaZone.radius + 10 then
-		return { ok = false, err = "Крутить гачу можно только в Лаборатории дронов!" }
+		return { ok = false, err = "You can only pull the gacha in the Drone Lab!" }
 	end
 	local cost = count == 10 and Config.Pull10Cost or Config.PullCost
 	if (p.gems or 0) < cost then
-		return { ok = false, err = ("💎 Не хватает гемов! Нужно %d, у тебя %d"):format(cost, p.gems or 0) }
+		return { ok = false, err = ("💎 Not enough gems! You need %d, you have %d"):format(cost, p.gems or 0) }
 	end
 
 	busy[player] = true
@@ -124,7 +124,7 @@ function Gacha.Pull(player, count)
 	for _, r in ipairs(results) do
 		local rar = Config.Rarities[r.rarity]
 		if rar.order >= 4 then
-			local msg = ("✨ %s выбил %s дрона «%s»!"):format(player.DisplayName, rar.label, Config.DroneById[r.id].name)
+			local msg = ("✨ %s pulled a %s drone “%s”!"):format(player.DisplayName, rar.label, Config.DroneById[r.id].name)
 			for _, other in ipairs(Players:GetPlayers()) do
 				if other ~= player then
 					Remotes.Notify:FireClient(other, msg, r.rarity)
@@ -144,7 +144,7 @@ function Gacha.BuyGems(player, index)
 		return { ok = false, err = "bad" }
 	end
 	if p.batteries < pack.cost then
-		return { ok = false, err = ("🔋 Нужно %d батарей"):format(pack.cost) }
+		return { ok = false, err = ("🔋 You need %d batteries"):format(pack.cost) }
 	end
 	p.batteries -= pack.cost
 	p.gems = (p.gems or 0) + pack.gems

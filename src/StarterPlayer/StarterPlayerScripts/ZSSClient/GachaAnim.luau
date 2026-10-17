@@ -1478,7 +1478,7 @@ local function cutIn(r)
 		Size = UDim2.new(0, 520, 0, bandH * 0.16),
 		BackgroundTransparency = 1,
 		Font = Enum.Font.GothamBlack,
-		Text = secret and "☠ ОНО ВЫРВАЛОСЬ НАРУЖУ ☠" or ("★"):rep(order) .. "  НОВЫЙ ДРОН!",
+		Text = secret and "☠ IT BROKE FREE ☠" or ("★"):rep(order) .. "  NEW DRONE!",
 		TextScaled = true,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		TextColor3 = secret and C(255, 90, 100) or C(255, 250, 225),
@@ -1586,7 +1586,7 @@ local function bannerSlam(rarity)
 		Rotation = -4,
 		BackgroundTransparency = 1,
 		Font = Enum.Font.FredokaOne,
-		Text = secret and "☠ СЕКРЕТНЫЙ ДРОН ☠" or (legend and "★ ЛЕГЕНДАРНЫЙ ДРОН ★" or "✦ МИФИЧЕСКИЙ ДРОН ✦"),
+		Text = secret and "☠ SECRET DRONE ☠" or (legend and "★ LEGENDARY DRONE ★" or "✦ MYTHIC DRONE ✦"),
 		TextSize = 220,
 		TextTransparency = 1,
 		TextColor3 = secret and C(255, 40, 50) or (legend and C(255, 250, 225) or C(255, 255, 255)),
@@ -2183,7 +2183,7 @@ local function reveal(r, final)
 		badge("NEW!", C(160, 255, 70))
 	end
 	if r.pity then
-		badge("ГАРАНТ!", C(255, 200, 40))
+		badge("GUARANTEED!", C(255, 200, 40))
 	end
 
 	-- подсказка
@@ -2193,7 +2193,7 @@ local function reveal(r, final)
 		Size = UDim2.fromOffset(500, 26),
 		BackgroundTransparency = 1,
 		Font = Enum.Font.GothamBold,
-		Text = (final and "Нажми, чтобы забрать" or "Нажми, чтобы продолжить") .. (UIS.KeyboardEnabled and ("  •  " .. Keybinds.Name(Keybinds.Get("gachaSkip"))) or ""),
+		Text = (final and "Tap to claim" or "Tap to continue") .. (UIS.KeyboardEnabled and ("  •  " .. Keybinds.Name(Keybinds.Get("gachaSkip"))) or ""),
 		TextSize = 18,
 		TextColor3 = C(200, 200, 200),
 		ZIndex = 9,
@@ -2235,7 +2235,7 @@ local function summary(results)
 		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
 		Font = Enum.Font.GothamBlack,
-		Text = "★ РЕЗУЛЬТАТ ×10 ★",
+		Text = "★ RESULTS ×10 ★",
 		TextSize = 36,
 		TextColor3 = C(255, 255, 255),
 		ZIndex = 7,
@@ -2494,7 +2494,7 @@ local function summary(results)
 		Position = UDim2.fromScale(0.5, 0.9),
 		Size = UDim2.fromOffset(240, 58),
 		BackgroundColor3 = C(130, 230, 60),
-		Text = "ЗАБРАТЬ",
+		Text = "CLAIM",
 		Font = Enum.Font.GothamBlack,
 		TextSize = 26,
 		TextColor3 = C(20, 30, 15),
@@ -2587,7 +2587,7 @@ local function run(results, opts)
 	-- на клавиатуре у кнопки есть подсказка-клавиша (по умолчанию «ПРОБЕЛ», меняется в настройках)
 	local function skipKeyCap()
 		local kc = Keybinds.Get("gachaSkip")
-		return kc == Enum.KeyCode.Space and "ПРОБЕЛ" or Keybinds.Name(kc):upper()
+		return kc == Enum.KeyCode.Space and "SPACE" or Keybinds.Name(kc):upper()
 	end
 	local keyHint = UIS.KeyboardEnabled
 	ctx.skipBtn = new("TextButton", {
@@ -2596,7 +2596,7 @@ local function run(results, opts)
 		Size = UDim2.fromOffset(keyHint and 250 or 170, 44),
 		BackgroundColor3 = C(30, 34, 30),
 		BackgroundTransparency = 0.2,
-		Text = keyHint and "" or "ПРОПУСТИТЬ ⏭",
+		Text = keyHint and "" or "SKIP ⏭",
 		Font = Enum.Font.GothamBold,
 		TextSize = 16,
 		TextColor3 = C(230, 230, 230),
@@ -2604,7 +2604,7 @@ local function run(results, opts)
 		Parent = gui,
 	}, { U.corner(10), U.stroke(C(130, 230, 60), 2) })
 	if keyHint then
-		new("TextLabel", { Position = UDim2.fromOffset(14, 0), Size = UDim2.new(1, -110, 1, 0), BackgroundTransparency = 1, Font = Enum.Font.GothamBold, TextSize = 16, TextColor3 = C(230, 230, 230), TextXAlignment = Enum.TextXAlignment.Left, Text = "ПРОПУСТИТЬ ⏭", ZIndex = 31, Parent = ctx.skipBtn })
+		new("TextLabel", { Position = UDim2.fromOffset(14, 0), Size = UDim2.new(1, -110, 1, 0), BackgroundTransparency = 1, Font = Enum.Font.GothamBold, TextSize = 16, TextColor3 = C(230, 230, 230), TextXAlignment = Enum.TextXAlignment.Left, Text = "SKIP ⏭", ZIndex = 31, Parent = ctx.skipBtn })
 		-- клавиша-«колпачок»: светлая крышка над тёмным торцом
 		local cap = new("Frame", { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -10, 0.5, -1), Size = UDim2.fromOffset(86, 26), BackgroundColor3 = C(120, 130, 120), ZIndex = 31, Parent = ctx.skipBtn }, { U.corner(6) })
 		new("TextLabel", { Size = UDim2.new(1, 0, 1, -3), BackgroundColor3 = C(235, 240, 230), Font = Enum.Font.GothamBlack, TextSize = 12, TextColor3 = C(30, 34, 30), Text = skipKeyCap(), ZIndex = 32, Parent = cap }, { U.corner(6) })
@@ -2901,7 +2901,7 @@ function GA.Play(results, opts, onDone)
 	task.spawn(function()
 		local ok, err = pcall(run, results, opts or {})
 		if not ok then
-			warn("[ZSS] Ошибка анимации гачи:", err)
+			warn("[ZSS] Gacha animation error:", err)
 			if ctx and ctx.cleanupUI then
 				for _, f in ipairs(ctx.cleanupUI) do
 					pcall(f)

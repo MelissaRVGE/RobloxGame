@@ -348,8 +348,8 @@ local function buildHUD()
 		table.insert(hud.chips, c)
 		return value, c
 	end
-	hud.bat, hud.batChip = makeChip(8, "battery", C(170, 255, 80), "БАТАРЕИ")
-	hud.gems, hud.gemChip = makeChip(180, "gem", C(100, 215, 255), "ГЕМЫ")
+	hud.bat, hud.batChip = makeChip(8, "battery", C(170, 255, 80), "BATTERIES")
+	hud.gems, hud.gemChip = makeChip(180, "gem", C(100, 215, 255), "GEMS")
 	hud.scrapBar = makeBar(panel, UDim2.fromOffset(16, 68), UDim2.new(1, -28, 0, 32), C(170, 255, 90), C(70, 160, 30), "bag")
 	-- ресурсы по видам: 5 равных ячеек в ряд (не налезают друг на друга)
 	local resRow = new("Frame", { Position = UDim2.fromOffset(8, 106), Size = UDim2.new(1, -16, 0, 36), BackgroundTransparency = 1, Parent = panel }, {
@@ -396,7 +396,7 @@ local function buildHUD()
 		Size = UDim2.new(1, 0, 0, 32),
 		BackgroundColor3 = C(255, 170, 30),
 		Font = Enum.Font.GothamBlack,
-		Text = "⚡ ЗАРЯДИТЬ ДРОНОВ",
+		Text = "⚡ CHARGE DRONES",
 		TextSize = 15,
 		TextColor3 = C(30, 20, 0),
 		Visible = false,
@@ -404,7 +404,7 @@ local function buildHUD()
 		Parent = panel,
 	}, function()
 		Remotes.Teleport:FireServer("station")
-		UI.Toast("⚡ Станции зарядки у южной стены базы: займи свободную и нажми E у пульта", "info")
+		UI.Toast("⚡ Charging stations are by the south wall of the base: claim a free one and press E at the console", "info")
 	end)
 	U.corner(8).Parent = hud.chargeBtn
 	hud.chargeBtn:GetPropertyChangedSignal("Visible"):Connect(function()
@@ -436,13 +436,13 @@ local function buildHUD()
 		SortOrder = Enum.SortOrder.LayoutOrder,
 	})
 	local items = {
-		{ key = "drones", icon = "drones", label = "Дроны", color = C(130, 230, 60), hot = "Y" },
-		{ key = "gacha", icon = "gacha", label = "Гача", color = C(190, 90, 255), hot = "G" },
-		{ key = "shop", icon = "shop", label = "Магазин", color = C(255, 190, 80), hot = "N" },
-		{ key = "map", icon = "teleport", label = "Карта", color = C(255, 90, 80), hot = "M" },
-		{ key = "bag", icon = "bag", label = "Инвентарь", color = C(80, 170, 255), hot = "B" },
-		{ key = "convert", icon = "converter", label = "Переработка", color = C(120, 240, 110), hot = "R" },
-		{ key = "quests", icon = "quest", label = "Задания", color = C(255, 200, 80), hot = "Q" },
+		{ key = "drones", icon = "drones", label = "Drones", color = C(130, 230, 60), hot = "Y" },
+		{ key = "gacha", icon = "gacha", label = "Gacha", color = C(190, 90, 255), hot = "G" },
+		{ key = "shop", icon = "shop", label = "Shop", color = C(255, 190, 80), hot = "N" },
+		{ key = "map", icon = "teleport", label = "Map", color = C(255, 90, 80), hot = "M" },
+		{ key = "bag", icon = "bag", label = "Inventory", color = C(80, 170, 255), hot = "B" },
+		{ key = "convert", icon = "converter", label = "Recycling", color = C(120, 240, 110), hot = "R" },
+		{ key = "quests", icon = "quest", label = "Quests", color = C(255, 200, 80), hot = "Q" },
 		{ key = "donate", icon = "donate", label = "Donate", color = C(255, 90, 170), hot = "H" },
 	}
 	hud.buttons = {}
@@ -785,7 +785,7 @@ local function buildHUD()
 			slot.MouseEnter:Connect(function()
 				entry.mouseOn = true
 				local vis = HS.Visual(HS.Key(fi))
-				entry.pill.Text = vis and vis.name or "Пусто — перетащи сюда предмет из инвентаря (B)"
+				entry.pill.Text = vis and vis.name or "Empty. Drag an item here from the inventory (B)"
 				U.fadeVisible(entry.pill, true, 0.15)
 			end)
 			slot.MouseLeave:Connect(function()
@@ -1005,7 +1005,7 @@ function UI.UpdateEnergyHUD()
 		end
 	end
 	if hud.energyLow then
-		hud.chargeBtn.Text = ("⚡ Разряжено дронов: %d  •  ЗАРЯДИТЬ"):format(tired)
+		hud.chargeBtn.Text = ("⚡ Drones out of charge: %d  •  CHARGE"):format(tired)
 	end
 end
 
@@ -1019,13 +1019,13 @@ local function updateHUD(d)
 	hud.full = full
 	if full then
 		U.countTo(hud.scrap, d.scrap, function()
-			return "РЮКЗАК ПОЛОН — к Переработчику!"
+			return "BACKPACK FULL! Go to the Recycler"
 		end)
 		U.gradTo(hud.fillGrad, C(255, 190, 60), C(220, 90, 20))
 	else
 		local cap = d.capacity
 		U.countTo(hud.scrap, d.scrap, function(v)
-			return ("Рюкзак: %s / %s"):format(U.fmt(v), U.fmt(cap))
+			return ("Backpack: %s / %s"):format(U.fmt(v), U.fmt(cap))
 		end, 0.25)
 		U.gradTo(hud.fillGrad, C(170, 255, 90), C(70, 160, 30))
 	end
@@ -1093,7 +1093,7 @@ local function watchHealth(char)
 		U.tween(hud.hpBar.fill, 0.2, { Size = UDim2.fromScale(math.max(r, 0.02), 1) })
 		local maxHp = hum.MaxHealth
 		U.countTo(hud.hpBar.text, math.max(0, math.ceil(hum.Health)), function(v)
-			return ("Здоровье: %d / %d"):format(math.ceil(v), maxHp)
+			return ("Health: %d / %d"):format(math.ceil(v), maxHp)
 		end, 0.25)
 		if r < 0.3 then
 			U.gradTo(hud.hpBar.grad, C(255, 200, 80), C(220, 40, 20))
@@ -1193,7 +1193,7 @@ function UI.RefreshHotbar()
 					end
 				end
 				if e.mouseOn then
-					e.pill.Text = vis and vis.name or "Пусто — перетащи сюда предмет из инвентаря (B)"
+					e.pill.Text = vis and vis.name or "Empty. Drag an item here from the inventory (B)"
 				end
 			end
 			local n = vis and HS.Count(key) or 0
@@ -1282,7 +1282,7 @@ local function buildMap()
 		Size = UDim2.new(1, -130, 1, 0),
 		BackgroundTransparency = 1,
 		Font = Enum.Font.GothamBlack,
-		Text = "КАРТА • БЫСТРОЕ ПЕРЕМЕЩЕНИЕ",
+		Text = "MAP • FAST TRAVEL",
 		TextSize = 22,
 		TextColor3 = T.Text,
 		TextXAlignment = Enum.TextXAlignment.Left,
@@ -1318,10 +1318,10 @@ local function buildMap()
 		fieldsById[f.id] = f
 	end
 	local entries = {
-		{ id = "base", name = "База выживших", desc = "Переработчик лома", icon = "base" },
-		{ id = "station", name = "Станция зарядки", desc = "Гнёзда для зарядки дронов (на базе)", icon = "energy" },
-		{ id = "gacha", name = "Лаборатория дронов", desc = "Гача: новые дроны", icon = "gacha" },
-		{ id = "shop", name = "Магазин", desc = "Оружие, инструменты, снаряжение", icon = "shop" },
+		{ id = "base", name = "Survivor Base", desc = "Scrap Recycler", icon = "base" },
+		{ id = "station", name = "Charging Station", desc = "Cells for charging drones (at the base)", icon = "energy" },
+		{ id = "gacha", name = "Drone Lab", desc = "Gacha: new drones", icon = "gacha" },
+		{ id = "shop", name = "Shop", desc = "Weapons, tools, gear", icon = "shop" },
 	}
 	for _, loc in ipairs(Config.Locations) do
 		if loc.field then
@@ -1362,7 +1362,7 @@ local function buildMap()
 			Size = UDim2.fromOffset(140, 42),
 			BackgroundColor3 = C(200, 60, 50),
 			Font = Enum.Font.GothamBlack,
-			Text = "ПЕРЕЙТИ",
+			Text = "GO",
 			TextSize = 16,
 			TextColor3 = C(255, 255, 255),
 			Parent = row,
@@ -1371,7 +1371,7 @@ local function buildMap()
 			local f = e.field
 			local have = State.data and State.data.equippedTotal or 0
 			if f and have < (f.req or 0) then
-				UI.Toast(("🔒 «%s» откроется, когда в рое будет %d дронов (сейчас %d)"):format(f.name, f.req, have), "bad")
+				UI.Toast(("🔒 “%s” unlocks when your swarm has %d drones (now %d)"):format(f.name, f.req, have), "bad")
 				return
 			end
 			Remotes.Teleport:FireServer(e.id)
@@ -1388,9 +1388,9 @@ function UI.UpdateMap()
 		local f = r.e.field
 		if f then
 			local ok = d and d.equippedTotal >= f.req
-			local h = f.tier and ("ярус " .. (f.tier + 1)) or "равнина"
-			r.desc.Text = ok and ('<font color="#8CFF5A">✔ Доступно</font>  •  лом x%s  •  %s'):format(tostring(f.mult), h)
-				or ('<font color="#FF6A5A">🔒 Нужно %d дронов</font>  •  лом x%s  •  %s'):format(f.req, tostring(f.mult), h)
+			local h = f.tier and ("tier " .. (f.tier + 1)) or "plains"
+			r.desc.Text = ok and ('<font color="#8CFF5A">✔ Unlocked</font>  •  scrap x%s  •  %s'):format(tostring(f.mult), h)
+				or ('<font color="#FF6A5A">🔒 Needs %d drones</font>  •  scrap x%s  •  %s'):format(f.req, tostring(f.mult), h)
 			r.go.BackgroundColor3 = ok and C(200, 60, 50) or C(80, 80, 80)
 		end
 	end
@@ -1730,7 +1730,7 @@ local function applyFilter(animate)
 		U.tween(b, 0.15, { BackgroundTransparency = on and 0 or 0.65 })
 		U.tween(b:FindFirstChildOfClass("UIStroke"), 0.15, { Thickness = on and 2.5 or 1 })
 	end
-	inv.ownedToggle.Text = (inv.onlyOwned and "☑" or "☐") .. " Только мои"
+	inv.ownedToggle.Text = (inv.onlyOwned and "☑" or "☐") .. " Owned only"
 	U.tween(inv.ownedToggle, 0.15, { TextColor3 = inv.onlyOwned and T.Accent or T.Muted })
 end
 
@@ -1762,7 +1762,7 @@ local function buildInventory()
 		Size = UDim2.new(0, 330, 1, 0),
 		BackgroundTransparency = 1,
 		Font = Enum.Font.GothamBlack,
-		Text = "🤖 ИНВЕНТАРЬ ДРОНОВ",
+		Text = "🤖 DRONE INVENTORY",
 		TextSize = 24,
 		TextColor3 = T.Text,
 		TextXAlignment = Enum.TextXAlignment.Left,
@@ -1784,7 +1784,7 @@ local function buildInventory()
 		Size = UDim2.fromOffset(190, 40),
 		BackgroundColor3 = T.AccentDark,
 		Font = Enum.Font.GothamBlack,
-		Text = "⚡ ЛУЧШИЕ В РОЙ",
+		Text = "⚡ EQUIP BEST",
 		TextSize = 15,
 		TextColor3 = C(255, 255, 255),
 	}, function()
@@ -1797,7 +1797,7 @@ local function buildInventory()
 		Size = UDim2.fromOffset(180, 40),
 		BackgroundColor3 = C(110, 40, 35),
 		Font = Enum.Font.GothamBlack,
-		Text = "СНЯТЬ ВСЕХ",
+		Text = "REMOVE ALL",
 		TextSize = 15,
 		TextColor3 = C(255, 255, 255),
 	}, function()
@@ -1823,7 +1823,7 @@ local function buildInventory()
 		Size = UDim2.fromOffset(640, 20),
 		BackgroundTransparency = 1,
 		Font = Enum.Font.GothamBlack,
-		Text = "РОЙ 0 / 25  •  нажми на дрона в слоте, чтобы снять его",
+		Text = "SWARM 0 / 25  •  click a drone in a slot to remove it",
 		TextSize = 14,
 		TextColor3 = T.Accent,
 		TextXAlignment = Enum.TextXAlignment.Left,
@@ -1929,7 +1929,7 @@ local function buildInventory()
 		Parent = win,
 	}, { new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 5), SortOrder = Enum.SortOrder.LayoutOrder }) })
 	inv.filterButtons = {}
-	local fdefs = { { "All", "ВСЕ", T.Accent } }
+	local fdefs = { { "All", "ALL", T.Accent } }
 	for i = #Config.RarityOrder, 1, -1 do
 		local key = Config.RarityOrder[i]
 		table.insert(fdefs, { key, Config.Rarities[key].label, Config.Rarities[key].color })
@@ -1958,7 +1958,7 @@ local function buildInventory()
 		BackgroundTransparency = 1,
 		BackgroundColor3 = C(0, 0, 0),
 		Font = Enum.Font.GothamBold,
-		Text = "☐ Только мои",
+		Text = "☐ Owned only",
 		TextSize = 13,
 		TextColor3 = T.Muted,
 		LayoutOrder = 99,
@@ -2059,7 +2059,7 @@ local function buildInventory()
 			Size = UDim2.new(0.5, -7, 0, 28),
 			BackgroundColor3 = T.AccentDark,
 			Font = Enum.Font.GothamBlack,
-			Text = "+ РОЙ",
+			Text = "+ SWARM",
 			TextSize = 13,
 			TextColor3 = C(255, 255, 255),
 		}, function()
@@ -2071,7 +2071,7 @@ local function buildInventory()
 			Size = UDim2.new(0.5, -7, 0, 28),
 			BackgroundColor3 = C(110, 40, 35),
 			Font = Enum.Font.GothamBlack,
-			Text = "− СНЯТЬ",
+			Text = "− REMOVE",
 			TextSize = 13,
 			TextColor3 = C(255, 255, 255),
 		}, function()
@@ -2181,7 +2181,7 @@ local function buildInventory()
 		Size = UDim2.new(0.5, -15, 0, 44),
 		BackgroundColor3 = T.AccentDark,
 		Font = Enum.Font.GothamBlack,
-		Text = "+ В РОЙ",
+		Text = "+ TO SWARM",
 		TextSize = 17,
 		TextColor3 = C(255, 255, 255),
 	}, function()
@@ -2195,7 +2195,7 @@ local function buildInventory()
 		Size = UDim2.new(0.5, -15, 0, 44),
 		BackgroundColor3 = C(110, 40, 35),
 		Font = Enum.Font.GothamBlack,
-		Text = "− СНЯТЬ",
+		Text = "− REMOVE",
 		TextSize = 17,
 		TextColor3 = C(255, 255, 255),
 	}, function()
@@ -2240,23 +2240,23 @@ function UI.SelectDrone(id)
 	inv.drarityRainbow = r.rainbow
 	U.tween(inv.detailStroke, 0.2, { Color = r.color })
 	if hidden then
-		inv.ddesc.Text = "Секретный дрон. Выбей его, чтобы узнать больше..."
+		inv.ddesc.Text = "Secret drone. Pull it to find out more..."
 		inv.dstats.Text = "⚙ ?   ⚔ ?   » ?"
 		inv.dability.Text = "<b>★ ???</b>"
 	else
 		inv.ddesc.Text = def.desc
 		local base = Config.RarityStats[def.rarity]
 		local m = def.mods or {}
-		inv.dstats.Text = ("⚙ Сбор: %d    ⚔ Урон: %d    » Скор.: %d"):format(
+		inv.dstats.Text = ("⚙ Gather: %d    ⚔ Damage: %d    » Speed: %d"):format(
 			math.floor(base.gather * (m.gather or 1) + 0.5),
 			math.floor(base.damage * (m.damage or 1) + 0.5),
 			base.speed
 		)
 		local ab = def.ability
-		local cd = ab.passive and "пассивная" or ("перезарядка %dс"):format(ab.cd)
+		local cd = ab.passive and "passive" or ("cooldown %ds"):format(ab.cd)
 		inv.dability.Text = ('<font color="#FFB020"><b>★ %s</b></font> <font color="#8A9488">(%s)</font>\n%s'):format(ab.name, cd, ab.desc)
 	end
-	inv.dcount.Text = ("В коллекции: %d   •   В рое: %d"):format(owned, eq)
+	inv.dcount.Text = ("In collection: %d   •   In swarm: %d"):format(owned, eq)
 	local d = State.data
 	local canPlus = d and owned > eq and d.equippedTotal < d.maxSlots
 	U.tween(inv.plus, 0.15, { BackgroundTransparency = canPlus and 0 or 0.6 })
@@ -2305,7 +2305,7 @@ local function updateSlots(d)
 			U.tween(s.slot, 0.2, { BackgroundTransparency = locked and 0.45 or 0 })
 		end
 	end
-	inv.slotsTitle.Text = ("РОЙ %d / %d  •  нажми на дрона в слоте, чтобы снять его"):format(d.equippedTotal, d.maxSlots)
+	inv.slotsTitle.Text = ("SWARM %d / %d  •  click a drone in a slot to remove it"):format(d.equippedTotal, d.maxSlots)
 	if UI.UpdateSlotEnergy then
 		UI.UpdateSlotEnergy()
 	end
@@ -2428,7 +2428,7 @@ local function buildGacha()
 		Size = UDim2.new(1, 0, 0, 18),
 		BackgroundTransparency = 1,
 		Font = Enum.Font.GothamBold,
-		Text = "ЛАБОРАТОРИЯ ДРОНОВ • 20 ДРОНОВ В ПУЛЕ",
+		Text = "DRONE LAB • 20 DRONES IN THE POOL",
 		TextSize = 13,
 		TextColor3 = T.Muted,
 		Parent = left,
@@ -2470,7 +2470,7 @@ local function buildGacha()
 		Size = UDim2.new(1, 0, 0, 18),
 		BackgroundTransparency = 1,
 		Font = Enum.Font.GothamBlack,
-		Text = "ШАНСЫ ВЫПАДЕНИЯ",
+		Text = "DROP CHANCES",
 		TextSize = 13,
 		TextColor3 = T.Muted,
 		TextXAlignment = Enum.TextXAlignment.Left,
@@ -2566,7 +2566,7 @@ local function buildGacha()
 		Size = UDim2.new(1, 0, 0, 18),
 		BackgroundTransparency = 1,
 		Font = Enum.Font.GothamBlack,
-		Text = "🛡 ГАРАНТ",
+		Text = "🛡 PITY",
 		TextSize = 15,
 		TextColor3 = T.Text,
 		TextXAlignment = Enum.TextXAlignment.Left,
@@ -2578,7 +2578,7 @@ local function buildGacha()
 		Size = UDim2.new(0.6, 0, 0, 18),
 		BackgroundTransparency = 1,
 		Font = Enum.Font.GothamBold,
-		Text = "Всего круток: 0",
+		Text = "Total pulls: 0",
 		TextSize = 13,
 		TextColor3 = T.Muted,
 		TextXAlignment = Enum.TextXAlignment.Right,
@@ -2642,7 +2642,7 @@ local function buildGacha()
 		Size = UDim2.new(1, 0, 0, 14),
 		BackgroundTransparency = 1,
 		Font = Enum.Font.Gotham,
-		Text = "Счётчик сбрасывается, когда выпадает эта редкость или выше",
+		Text = "The counter resets when this rarity or higher drops",
 		TextSize = 11,
 		TextColor3 = T.Muted,
 		TextXAlignment = Enum.TextXAlignment.Left,
@@ -2695,7 +2695,7 @@ local function buildGacha()
 		BackgroundColor3 = C(20, 40, 60),
 		BackgroundTransparency = 0.2,
 		Font = Enum.Font.GothamBold,
-		Text = "💎 Гемы: квесты NPC на базе • победа над Колоссом • редкие находки",
+		Text = "💎 Gems: NPC quests at the base • defeating the Colossus • rare finds",
 		TextSize = 12,
 		TextWrapped = true,
 		TextColor3 = C(200, 235, 255),
@@ -2722,7 +2722,7 @@ local function buildGacha()
 			Size = UDim2.new(1, 0, 0, 30),
 			BackgroundTransparency = 1,
 			Font = Enum.Font.GothamBlack,
-			Text = "КРУТИТЬ ×" .. count,
+			Text = "PULL ×" .. count,
 			TextSize = 24,
 			TextColor3 = C(255, 255, 255),
 			Parent = b,
@@ -2766,14 +2766,14 @@ local function buildGacha()
 		BackgroundTransparency = 1,
 		BackgroundColor3 = C(0, 0, 0),
 		Font = Enum.Font.GothamBold,
-		Text = "☐ Быстрая анимация",
+		Text = "☐ Fast animation",
 		TextSize = 14,
 		TextColor3 = T.Muted,
 		Parent = right,
 	})
 	fastBtn.Activated:Connect(function()
 		gacha.fast = not gacha.fast
-		fastBtn.Text = (gacha.fast and "☑" or "☐") .. " Быстрая анимация"
+		fastBtn.Text = (gacha.fast and "☑" or "☐") .. " Fast animation"
 		fastBtn.TextColor3 = gacha.fast and T.Accent or T.Muted
 	end)
 
@@ -2811,10 +2811,10 @@ local function updateGacha(d)
 	U.countTo(gacha.balance, d.gems or 0, function(v)
 		return "💎 " .. U.fmt(v) .. "    🔋 " .. U.fmt(bats)
 	end)
-	gacha.total.Text = "Всего круток: " .. U.fmt(d.totalPulls)
+	gacha.total.Text = "Total pulls: " .. U.fmt(d.totalPulls)
 	for key, bar in pairs(gacha.pityBars) do
 		local v = d.pity[key] or 0
-		bar.val.Text = ("%d / %d  •  осталось %d"):format(v, bar.pulls, bar.pulls - v)
+		bar.val.Text = ("%d / %d  •  %d left"):format(v, bar.pulls, bar.pulls - v)
 		U.tween(bar.fill, 0.3, { Size = UDim2.fromScale(math.clamp(v / bar.pulls, 0, 1), 1) })
 	end
 	U.tween(gacha.b1, 0.2, { BackgroundTransparency = (d.gems or 0) >= Config.PullCost and 0 or 0.5 })
@@ -2832,11 +2832,11 @@ function UI.Pull(count)
 	end)
 	pulling = false
 	if not ok or type(res) ~= "table" then
-		UI.Toast("Ошибка связи с сервером", "bad")
+		UI.Toast("Server connection error", "bad")
 		return
 	end
 	if not res.ok then
-		UI.Toast(res.err or "Не получилось", "bad")
+		UI.Toast(res.err or "Didn't work", "bad")
 		return
 	end
 	closeWindow(gacha.win, gacha.scale)
@@ -2876,7 +2876,7 @@ function UI.OnMenu(key)
 			UI.OpenGacha()
 		else
 			Remotes.Teleport:FireServer("gacha")
-			UI.Toast("🎰 Лаборатория дронов! Подойди к Дрон-капсуле и нажми E", "Epic")
+			UI.Toast("🎰 Drone Lab! Walk up to the Drone Capsule and press E", "Epic")
 		end
 	elseif key == "shop" then
 		if ShopUI.InZone() then
@@ -2885,7 +2885,7 @@ function UI.OnMenu(key)
 			ShopUI.Open()
 		else
 			Remotes.Teleport:FireServer("shop")
-			UI.Toast("🛒 Магазин! Подойди к прилавку и нажми E", "Legendary")
+			UI.Toast("🛒 Shop! Walk up to the counter and press E", "Legendary")
 		end
 	elseif key == "map" then
 		UI.ToggleMap()
@@ -2909,7 +2909,7 @@ function UI.GoConverter()
 	local hrp = char and char:FindFirstChild("HumanoidRootPart")
 	local pad = Config.Converter.pad
 	if hrp and Vector3.new(hrp.Position.X - pad.X, 0, hrp.Position.Z - pad.Z).Magnitude <= Config.Converter.radius then
-		UI.Toast("♻ Ты уже на площадке — нажми E у Переработчика", "info")
+		UI.Toast("♻ You're already on the pad. Press E at the Recycler", "info")
 		return
 	end
 	if os.clock() - lastConvTp < 2 then
@@ -2926,7 +2926,7 @@ function UI.GoConverter()
 		flash:Destroy()
 	end)
 	Remotes.Teleport:FireServer("converter")
-	UI.Toast("♻ Переработчик! Нажми E, чтобы превратить ресурсы в батареи", "good")
+	UI.Toast("♻ Recycler! Press E to turn resources into batteries", "good")
 end
 
 -- ===== БАННЕР ЗОНЫ =====
@@ -3002,12 +3002,12 @@ local function zoneTick()
 			local d = State.data
 			local ok = not d or d.equippedTotal >= zone.req
 			if zone.boss then
-				showBanner("☠ " .. zone.name, ok and ("Босс на %s HP • за победу — гемы и редкие находки"):format(U.fmt(zone.zombies.hp)) or ("Нужно %d дронов в рое!"):format(zone.req), ok and C(255, 120, 80) or T.Danger)
+				showBanner("☠ " .. zone.name, ok and ("Boss with %s HP • defeat it for gems and rare finds"):format(U.fmt(zone.zombies.hp)) or ("Needs %d drones in your swarm!"):format(zone.req), ok and C(255, 120, 80) or T.Danger)
 			else
-			showBanner("☣ " .. zone.name, ok and ("Лом x%s  •  Зомби: %s"):format(tostring(zone.mult), zone.zombies.name) or ("Нужно %d дронов в рое!"):format(zone.req), ok and T.Accent or T.Danger)
+			showBanner("☣ " .. zone.name, ok and ("Scrap x%s  •  Zombies: %s"):format(tostring(zone.mult), zone.zombies.name) or ("Needs %d drones in your swarm!"):format(zone.req), ok and T.Accent or T.Danger)
 			end
 		elseif inGacha then
-			showBanner("🎰 ЛАБОРАТОРИЯ ДРОНОВ", "Подойди к капсуле и нажми E", T.Gacha)
+			showBanner("🎰 DRONE LAB", "Walk up to the capsule and press E", T.Gacha)
 		end
 	end
 	if U.isOpen(gacha.win, gacha.scale) and not inGacha and not GachaAnim.IsPlaying() then
@@ -3107,13 +3107,13 @@ function UI.Init()
 	})
 	FXmod.OnItemDrop = function(it)
 		if it.consum then
-			UI.Toast("🧪 Расходник: " .. it.name .. " (" .. ItemsCfg.Tiers[it.tier].name .. ")", it.tier)
+			UI.Toast("🧪 Consumable: " .. it.name .. " (" .. ItemsCfg.Tiers[it.tier].name .. ")", it.tier)
 			return
 		end
-		UI.Toast("🎒 В рюкзак: " .. it.name .. " (" .. ItemsCfg.Tiers[it.tier].name .. ")", it.tier)
+		UI.Toast("🎒 To backpack: " .. it.name .. " (" .. ItemsCfg.Tiers[it.tier].name .. ")", it.tier)
 	end
 	FXmod.OnLootSpawn = function(it)
-		UI.Toast((it.c and "🧪 Выпал расходник: " or "📦 Выпала находка: ") .. it.name .. " — подойди и подбери!", it.tier)
+		UI.Toast((it.c and "🧪 Consumable dropped: " or "📦 Find dropped: ") .. it.name .. ". Go pick it up!", it.tier)
 	end
 	FXmod.OnBossReward = BagUI.ShowBossReward
 	hookHotbarContainers()
@@ -3238,7 +3238,7 @@ function UI.Init()
 				HS.Assign(n - HS.First + 1, hk)
 				U.play(U.Sounds.chime, 0.35, 1.2)
 				local vis = HS.Visual(hk)
-				UI.Toast(("«%s» → ячейка %d"):format(vis and vis.name or "?", n), "good")
+				UI.Toast(("“%s” → slot %d"):format(vis and vis.name or "?", n), "good")
 			else
 				UI.UseSlot(n)
 			end

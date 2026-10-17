@@ -383,7 +383,7 @@ local function onDeath(z)
 	local night = Loot.IsNight() and Config.DayNight.rewardMult or 1
 	local pos = z.root.Position
 	Remotes.FX:FireAllClients("bossdeath", { pos = pos })
-	Remotes.Notify:FireAllClients("☠ Колосс повержен! Награды выданы участникам битвы", "boss")
+	Remotes.Notify:FireAllClients("☠ The Colossus has fallen! Rewards given to everyone in the fight", "boss")
 	for plr, dmg in pairs(z.contrib) do
 		local share = total > 0 and dmg / total or 0
 		if plr.Parent and share >= BC.minShare then
@@ -421,7 +421,7 @@ local function onDeath(z)
 	workspace:SetAttribute("ZSS_BossRespawn", workspace:GetServerTimeNow() + BC.respawnTime)
 	task.delay(BC.respawnTime, function()
 		Boss.Spawn()
-		Remotes.Notify:FireAllClients("☠ Колосс вновь пробудился в своём логове!", "boss")
+		Remotes.Notify:FireAllClients("☠ The Colossus has awakened in its lair again!", "boss")
 	end)
 end
 

@@ -135,7 +135,7 @@ function Fields.Collect(player, tile, base, mult)
 		local now = os.clock()
 		if not lastFullWarn[player] or now - lastFullWarn[player] > 6 then
 			lastFullWarn[player] = now
-			Remotes.Notify:FireClient(player, "🎒 Рюкзак полон! Отнеси ресурсы к Переработчику на базе.", "bad")
+			Remotes.Notify:FireClient(player, "🎒 Backpack full! Take your resources to the Recycler at the base.", "bad")
 		end
 	end
 	return added

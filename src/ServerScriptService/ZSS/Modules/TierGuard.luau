@@ -79,7 +79,7 @@ local function kickBack(player, char, hrp, target, tier)
 		lastWarn[player] = now
 		local p = Data.Get(player)
 		local have = p and #p.equipped or 0
-		Remotes.Notify:FireClient(player, ("🔒 Эта локация откроется, когда в рое будет %d дронов (сейчас %d)"):format(NEED[tier], have), "bad")
+		Remotes.Notify:FireClient(player, ("🔒 This location unlocks when your swarm has %d drones (now %d)"):format(NEED[tier], have), "bad")
 	end
 end
 

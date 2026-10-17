@@ -66,7 +66,7 @@ local function celebrate(player, o)
 	Remotes.FX:FireAllClients("aura", { owner = player.UserId, color = o.color, duration = 2.5, rainbow = o.anim == "rainbow" })
 	for _, other in ipairs(Players:GetPlayers()) do
 		if other ~= player then
-			notify(other, ("💖 %s supported the game: «%s»!"):format(player.DisplayName, o.name), "Legendary")
+			notify(other, ("💖 %s supported the game: “%s”!"):format(player.DisplayName, o.name), "Legendary")
 		end
 	end
 end
@@ -130,7 +130,7 @@ local function processReceipt(info)
 	if not table.find(p.receipts, pid) then
 		local o = DC.ByProduct[info.ProductId]
 		if not o then
-			warn("[ZSS] Донат: неизвестный товар", info.ProductId)
+			warn("[ZSS] Donate: unknown product", info.ProductId)
 			return Enum.ProductPurchaseDecision.NotProcessedYet
 		end
 		grant(player, p, o)
@@ -227,7 +227,7 @@ function Donate.Init(dataModule, equipmentModule)
 			end
 		end
 		if n > 0 then
-			print(("[ZSS] Донат: %d предложений без id (кнопки покажут «скоро в продаже») — см. DonateConfig"):format(n))
+			print(("[ZSS] Donate: %d offers without an id (buttons will show “coming soon”), see DonateConfig"):format(n))
 		end
 	end
 end

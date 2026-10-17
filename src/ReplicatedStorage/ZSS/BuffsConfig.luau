@@ -10,17 +10,17 @@ local B = {}
 -- Сферы падают реже, но держатся дольше: следующая успевает упасть до конца таймера, поэтому x10 реально набрать.
 B.MaxStacks = 10
 B.List = {
-	{ id = "speed", name = "Ускорение", short = "СКОРОСТЬ", desc = "скорость бега", time = 45, per = 0.05, weight = 30, cat = "gather", color = C(80, 230, 255) },
-	{ id = "scrap", name = "Щедрый сбор", short = "РЕСУРСЫ", desc = "добыча ресурсов", time = 60, per = 0.1, weight = 22, cat = "gather", color = C(255, 160, 60) },
-	{ id = "rage", name = "Ярость роя", short = "УРОН", desc = "урон дронов и оружия", time = 45, per = 0.05, weight = 18, cat = "combat", color = C(255, 80, 50) },
-	{ id = "luck", name = "Удача", short = "УДАЧА", desc = "шанс находок", time = 100, per = 0.2, weight = 12, cat = "gather", color = C(110, 240, 90) },
-	{ id = "heal", name = "Аптечка", short = "ЛЕЧЕНИЕ", desc = "Сразу +50 здоровья", time = 0, value = 50, weight = 10, cat = "combat", color = C(255, 90, 100) },
-	{ id = "charge", name = "Батарея роя", short = "ЗАРЯД +25%", desc = "Сразу +25% энергии всем дронам", time = 0, value = 0.25, weight = 8, cat = "gather", color = C(90, 170, 255) },
+	{ id = "speed", name = "Speed Boost", short = "SPEED", desc = "run speed", time = 45, per = 0.05, weight = 30, cat = "gather", color = C(80, 230, 255) },
+	{ id = "scrap", name = "Rich Harvest", short = "RESOURCES", desc = "resource gathering", time = 60, per = 0.1, weight = 22, cat = "gather", color = C(255, 160, 60) },
+	{ id = "rage", name = "Swarm Rage", short = "DAMAGE", desc = "drone and weapon damage", time = 45, per = 0.05, weight = 18, cat = "combat", color = C(255, 80, 50) },
+	{ id = "luck", name = "Luck", short = "LUCK", desc = "find chance", time = 100, per = 0.2, weight = 12, cat = "gather", color = C(110, 240, 90) },
+	{ id = "heal", name = "Medkit", short = "HEAL", desc = "Instantly +50 health", time = 0, value = 50, weight = 10, cat = "combat", color = C(255, 90, 100) },
+	{ id = "charge", name = "Swarm Battery", short = "CHARGE +25%", desc = "Instantly +25% energy to all drones", time = 0, value = 0.25, weight = 8, cat = "gather", color = C(90, 170, 255) },
 	-- баффы только от расходников (cat = "item": сферами не падают)
-	{ id = "dgather", name = "Смазка роя", short = "СБОР ДРОНОВ", desc = "сбор лома дронами", time = 300, per = 0.05, weight = 0, cat = "item", color = C(240, 200, 70) },
-	{ id = "convb", name = "Ферментация", short = "ПЕРЕРАБОТКА", desc = "батареи с переработки", time = 600, per = 0.05, weight = 0, cat = "item", color = C(150, 255, 90) },
-	{ id = "crit", name = "Прицел", short = "КРИТ", desc = "шанс крита (+2% за ступень)", time = 120, per = 0.02, weight = 0, cat = "item", color = C(255, 110, 70) },
-	{ id = "dspeed", name = "Турбо роя", short = "СКОРОСТЬ РОЯ", desc = "скорость дронов", time = 300, per = 0.04, weight = 0, cat = "item", color = C(255, 150, 40) },
+	{ id = "dgather", name = "Swarm Grease", short = "DRONE GATHER", desc = "drone scrap gathering", time = 300, per = 0.05, weight = 0, cat = "item", color = C(240, 200, 70) },
+	{ id = "convb", name = "Fermentation", short = "RECYCLING", desc = "batteries from recycling", time = 600, per = 0.05, weight = 0, cat = "item", color = C(150, 255, 90) },
+	{ id = "crit", name = "Aim", short = "CRIT", desc = "crit chance (+2% per stack)", time = 120, per = 0.02, weight = 0, cat = "item", color = C(255, 110, 70) },
+	{ id = "dspeed", name = "Swarm Turbo", short = "SWARM SPEED", desc = "drone speed", time = 300, per = 0.04, weight = 0, cat = "item", color = C(255, 150, 40) },
 }
 B.ById = {}
 for i, b in ipairs(B.List) do

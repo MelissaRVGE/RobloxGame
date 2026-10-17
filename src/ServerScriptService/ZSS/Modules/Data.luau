@@ -335,12 +335,12 @@ local function updateLeaderstats(player, p)
 	if not ls then
 		return
 	end
-	ls["Батареи"].Value = p.batteries
+	ls["Batteries"].Value = p.batteries
 	local count = 0
 	for _ in pairs(p.drones) do
 		count += 1
 	end
-	ls["Дроны"].Value = count
+	ls["Drones"].Value = count
 end
 
 function Data.Sync(player)
@@ -410,14 +410,14 @@ local function withRetry(what, fn)
 		end
 		task.wait(attempt * 1.5)
 	end
-	warn(("[ZSS] %s: не удалось после повторов: %s"):format(what, tostring(last)))
+	warn(("[ZSS] %s: failed after retries: %s"):format(what, tostring(last)))
 	return false, last
 end
 
 function Data.Load(player)
 	local p, ok = nil, true
 	if store then
-		local success, res = withRetry("загрузка профиля " .. player.UserId, function()
+		local success, res = withRetry("loading profile " .. player.UserId, function()
 			return store:GetAsync("u" .. player.UserId)
 		end)
 		if success then
@@ -426,7 +426,7 @@ function Data.Load(player)
 			-- если профиль не загрузился, НЕ сохраняем поверх (иначе сотрём старый прогресс)
 			ok = false
 			if player.Parent then
-				Remotes.Notify:FireClient(player, "⚠ Не удалось загрузить прогресс. Перезайди — иначе эта сессия не сохранится.", "bad")
+				Remotes.Notify:FireClient(player, "⚠ Couldn't load your progress. Rejoin, or this session won't be saved.", "bad")
 			end
 		end
 	else
@@ -447,10 +447,10 @@ function Data.Load(player)
 	local ls = Instance.new("Folder")
 	ls.Name = "leaderstats"
 	local b = Instance.new("IntValue")
-	b.Name = "Батареи"
+	b.Name = "Batteries"
 	b.Parent = ls
 	local d = Instance.new("IntValue")
-	d.Name = "Дроны"
+	d.Name = "Drones"
 	d.Parent = ls
 	ls.Parent = player
 
@@ -476,11 +476,11 @@ function Data.Save(player)
 	local bad = {}
 	local clean = sanitize(p, 0, "p", bad)
 	if #bad > 0 then
-		warn("[ZSS] В профиле были несохраняемые данные (пропущены):", table.concat(bad, ", "))
+		warn("[ZSS] Profile had unsavable data (skipped):", table.concat(bad, ", "))
 	end
 	clean.savedAt = os.time()
 	clean.version = 2
-	local ok = withRetry("сохранение профиля " .. player.UserId, function()
+	local ok = withRetry("saving profile " .. player.UserId, function()
 		store:UpdateAsync("u" .. player.UserId, function()
 			return clean
 		end)

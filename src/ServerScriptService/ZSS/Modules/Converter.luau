@@ -33,7 +33,7 @@ function Converter.Stop(player, reason)
 	active[player] = nil
 	player:SetAttribute("ZSS_Converting", false)
 	if st.total > 0 then
-		Remotes.Notify:FireClient(player, ("♻ Переработано: +%d 🔋%s"):format(st.total, reason and (" (" .. reason .. ")") or ""), "good")
+		Remotes.Notify:FireClient(player, ("♻ Recycled: +%d 🔋%s"):format(st.total, reason and (" (" .. reason .. ")") or ""), "good")
 	end
 	Remotes.FX:FireAllClients("convertEnd", { owner = player.UserId })
 end
@@ -44,15 +44,15 @@ function Converter.Start(player)
 		return
 	end
 	if active[player] then
-		Converter.Stop(player, "остановлено")
+		Converter.Stop(player, "stopped")
 		return
 	end
 	if not onPad(player) then
-		Remotes.Notify:FireClient(player, "♻ Встань на площадку Переработчика", "bad")
+		Remotes.Notify:FireClient(player, "♻ Stand on the Recycler pad", "bad")
 		return
 	end
 	if p.scrap <= 0 then
-		Remotes.Notify:FireClient(player, "🎒 Рюкзак пуст — собери ресурсы на полях!", "bad")
+		Remotes.Notify:FireClient(player, "🎒 Your backpack is empty. Collect resources in the fields!", "bad")
 		return
 	end
 	active[player] = { total = 0, start = p.scrap }
@@ -75,7 +75,7 @@ function Converter.Init(dataModule)
 				if not p or not player.Parent then
 					active[player] = nil
 				elseif not onPad(player) then
-					Converter.Stop(player, "ты ушёл с площадки")
+					Converter.Stop(player, "you left the pad")
 				elseif p.scrap <= 0 then
 					Converter.Stop(player)
 				else

@@ -91,7 +91,7 @@ function HS.Use(slot)
 		return false
 	end
 	if HS.Count(key) <= 0 then
-		HS.toast(kind == "shop" and ("Нет «%s» — купи в Магазине"):format(it.name) or ("Нет «%s» в рюкзаке"):format(it.name), "bad")
+		HS.toast(kind == "shop" and ("No “%s”. Buy it in the Shop"):format(it.name) or ("No “%s” in your backpack"):format(it.name), "bad")
 		return false
 	end
 	if kind == "shop" then
@@ -102,7 +102,7 @@ function HS.Use(slot)
 				return Remotes.BagAction:InvokeServer("use", id)
 			end)
 			if ok and res then
-				HS.toast(res.ok and (res.msg or "Готово") or (res.err or "Не получилось"), res.ok and "good" or "bad")
+				HS.toast(res.ok and (res.msg or "Done") or (res.err or "Didn't work"), res.ok and "good" or "bad")
 			end
 		end)
 	end

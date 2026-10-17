@@ -117,30 +117,30 @@ function QuestUI.Refresh()
 	end
 	local q = npc.quests[v.stage]
 	if not q then
-		dlg.speech.Text = "Спасибо тебе. Без тебя мы бы не справились. Все мои задания выполнены!"
-		dlg.stage.Text = ("✔ ЦЕПОЧКА ЗАВЕРШЕНА (%d/%d)"):format(#npc.quests, #npc.quests)
-		dlg.reward.Text = npc.quests[#npc.quests].perkText and ("🏅 Получен бонус: " .. npc.quests[#npc.quests].perkText) or ""
-		dlg.action.Text = "ЗАКРЫТЬ"
+		dlg.speech.Text = "Thank you. We couldn't have done it without you. All my quests are complete!"
+		dlg.stage.Text = ("✔ CHAIN COMPLETE (%d/%d)"):format(#npc.quests, #npc.quests)
+		dlg.reward.Text = npc.quests[#npc.quests].perkText and ("🏅 Bonus received: " .. npc.quests[#npc.quests].perkText) or ""
+		dlg.action.Text = "CLOSE"
 		dlg.action.BackgroundColor3 = C(90, 100, 90)
 		dlg.mode = "close"
 		return
 	end
 	dlg.speech.Text = (v.stage == 1 and not v.active) and (npc.greet .. "\n\n" .. q.text) or q.text
-	dlg.stage.Text = ("ЗАДАНИЕ %d/%d: %s"):format(v.stage, #npc.quests, q.title:upper())
+	dlg.stage.Text = ("QUEST %d/%d: %s"):format(v.stage, #npc.quests, q.title:upper())
 	for i, g in ipairs(q.goals) do
 		goalRow(g, v.active and v.goals and v.goals[i] or 0, i)
 	end
-	dlg.reward.Text = "🎁 Награда: " .. rewardText(q.reward) .. (q.perkText and ("\n🏅 " .. q.perkText) or "")
+	dlg.reward.Text = "🎁 Reward: " .. rewardText(q.reward) .. (q.perkText and ("\n🏅 " .. q.perkText) or "")
 	if not v.active then
-		dlg.action.Text = "📜 ВЗЯТЬ ЗАДАНИЕ"
+		dlg.action.Text = "📜 TAKE QUEST"
 		dlg.action.BackgroundColor3 = C(255, 200, 80)
 		dlg.mode = "accept"
 	elseif v.ready then
-		dlg.action.Text = "✔ СДАТЬ ЗАДАНИЕ"
+		dlg.action.Text = "✔ HAND IN QUEST"
 		dlg.action.BackgroundColor3 = T.Accent
 		dlg.mode = "turnin"
 	else
-		dlg.action.Text = "В ПРОЦЕССЕ…"
+		dlg.action.Text = "IN PROGRESS…"
 		dlg.action.BackgroundColor3 = C(80, 90, 80)
 		dlg.mode = "close"
 	end
@@ -167,7 +167,7 @@ function QuestUI.DoAction()
 				end
 			end
 		else
-			api.toast(res.err or "Не получилось", "bad")
+			api.toast(res.err or "Didn't work", "bad")
 		end
 	end
 	task.wait(0.25)
@@ -241,7 +241,7 @@ local function addRewardChips(parent, r, perkText)
 	end
 	if perkText then
 		o += 1
-		rewardChip(parent, Icons.trophy, "БОНУС", C(255, 210, 80), o)
+		rewardChip(parent, Icons.trophy, "BONUS", C(255, 210, 80), o)
 	end
 end
 
@@ -272,7 +272,7 @@ local function makeCard(npc, q, order, parent, subText)
 		goals[i] = { bar = bar, txt = txt, num = num, g = g }
 	end
 	rewardRow(card, q.reward, q.perkText, 50)
-	local ready = new("TextLabel", { Size = UDim2.new(1, 0, 0, 16), BackgroundTransparency = 1, Font = Enum.Font.GothamBlack, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = C(150, 255, 120), Text = "✔ Готово! Вернись к " .. npc.name, Visible = false, LayoutOrder = 60, Parent = card })
+	local ready = new("TextLabel", { Size = UDim2.new(1, 0, 0, 16), BackgroundTransparency = 1, Font = Enum.Font.GothamBlack, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = C(150, 255, 120), Text = "✔ Done! Return to " .. npc.name, Visible = false, LayoutOrder = 60, Parent = card })
 	return { card = card, goals = goals, stroke = st, ready = ready, npc = npc }
 end
 
@@ -371,7 +371,7 @@ local function buildBook()
 	local header = new("Frame", { Size = UDim2.new(1, 0, 0, 64), BackgroundColor3 = C(60, 40, 12), Parent = win }, { U.corner(18), U.grad(C(255, 255, 255), C(170, 140, 100), 90) })
 	new("ImageLabel", { BackgroundTransparency = 1, Image = Icons.glow, ImageColor3 = C(255, 200, 80), ImageTransparency = 0.35, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(36, 32), Size = UDim2.fromOffset(80, 80), Parent = header })
 	book.icon = new("ImageLabel", { BackgroundTransparency = 1, Image = Icons.quest, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(36, 32), Size = UDim2.fromOffset(48, 48), ScaleType = Enum.ScaleType.Fit, ZIndex = 2, Parent = header })
-	local title = new("TextLabel", { AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 68, 0.5, 0), Size = UDim2.new(1, -130, 0, 34), BackgroundTransparency = 1, Font = Enum.Font.GothamBlack, TextScaled = true, TextXAlignment = Enum.TextXAlignment.Left, Text = "ЗАДАНИЯ", TextColor3 = C(255, 255, 255), Parent = header }, { U.textStroke(C(40, 20, 0), 2), new("UITextSizeConstraint", { MaxTextSize = 28 }) })
+	local title = new("TextLabel", { AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 68, 0.5, 0), Size = UDim2.new(1, -130, 0, 34), BackgroundTransparency = 1, Font = Enum.Font.GothamBlack, TextScaled = true, TextXAlignment = Enum.TextXAlignment.Left, Text = "QUESTS", TextColor3 = C(255, 255, 255), Parent = header }, { U.textStroke(C(40, 20, 0), 2), new("UITextSizeConstraint", { MaxTextSize = 28 }) })
 	new("UIGradient", { Rotation = 90, Color = ColorSequence.new(C(255, 245, 200), C(255, 170, 40)), Parent = title })
 	local close = api.button({ AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -12, 0.5, 0), Size = UDim2.fromOffset(42, 42), BackgroundColor3 = T.Danger, Font = Enum.Font.GothamBlack, Text = "X", TextSize = 20, TextColor3 = C(255, 255, 255), Parent = header }, function()
 		QuestUI.CloseBook()
@@ -487,8 +487,8 @@ function QuestUI.RefreshBook()
 			end
 		end
 	end
-	book.tabBtns.active.Text = ("АКТИВНЫЕ (%d)"):format(nActive)
-	book.tabBtns.done.Text = ("ВЫПОЛНЕННЫЕ (%d)"):format(nDone)
+	book.tabBtns.active.Text = ("ACTIVE (%d)"):format(nActive)
+	book.tabBtns.done.Text = ("COMPLETED (%d)"):format(nDone)
 	U.tween(book.tabPill, 0.25, { Position = UDim2.new(book.tab == "active" and 0 or 0.5, 3, 0, 3) }, Enum.EasingStyle.Quart)
 	U.tween(book.tabBtns.active, 0.2, { TextColor3 = book.tab == "active" and C(40, 22, 0) or C(220, 220, 220) })
 	U.tween(book.tabBtns.done, 0.2, { TextColor3 = book.tab == "done" and C(40, 22, 0) or C(220, 220, 220) })
@@ -520,15 +520,15 @@ function QuestUI.RefreshBook()
 				local v = quests[npc.id] or { stage = 1 }
 				local q = npc.quests[v.stage]
 				if book.tab == "active" then
-					local stageText = ("%s  •  задание %d/%d"):format(npc.name, v.stage, #npc.quests)
+					local stageText = ("%s  •  quest %d/%d"):format(npc.name, v.stage, #npc.quests)
 					if q and v.active then
 						local c = makeCard(npc, q, 0, book.list, stageText)
 						book.cards[npc.id] = c
 						add(c.card)
 					elseif q then
-						add(smallCard(npc, 0, q.title, "Новое задание  •  поговори с: " .. npc.name, q.reward, q.perkText, "new"))
+						add(smallCard(npc, 0, q.title, "New quest  •  talk to: " .. npc.name, q.reward, q.perkText, "new"))
 					else
-						add(smallCard(npc, 0, "Все задания выполнены!", npc.name .. "  •  цепочка пройдена " .. #npc.quests .. "/" .. #npc.quests, nil, nil, "chain"))
+						add(smallCard(npc, 0, "All quests complete!", npc.name .. "  •  chain completed " .. #npc.quests .. "/" .. #npc.quests, nil, nil, "chain"))
 					end
 				else
 					local last = math.clamp(v.stage - 1, 0, #npc.quests)
@@ -536,13 +536,13 @@ function QuestUI.RefreshBook()
 						add(bookSection(npc, 0, ("%s  —  %d/%d"):format(npc.name, last, #npc.quests)))
 						for k = last, 1, -1 do
 							local dq = npc.quests[k]
-							add(smallCard(npc, 0, dq.title, ("Задание %d/%d"):format(k, #npc.quests), dq.reward, dq.perkText, "done"))
+							add(smallCard(npc, 0, dq.title, ("Quest %d/%d"):format(k, #npc.quests), dq.reward, dq.perkText, "done"))
 						end
 					end
 				end
 			end
 		end
-		book.empty.Text = book.tab == "active" and "Нет заданий." or "Ты ещё не сдал ни одного задания.\nПоговори с жителями базы — у них есть работа!"
+		book.empty.Text = book.tab == "active" and "No quests." or "You haven't handed in any quests yet.\nTalk to the people at the base. They have work for you!"
 		U.fadeVisible(book.empty, #made == 0, 0.2)
 		-- карточки появляются по очереди, плавно
 		for i, inst in ipairs(made) do
@@ -661,7 +661,7 @@ local function buildCells()
 	cells.scale = api.addScale(win)
 	local header = new("Frame", { Size = UDim2.new(1, 0, 0, 62), BackgroundColor3 = C(60, 40, 10), Parent = win }, { U.corner(18), U.grad(C(255, 255, 255), C(180, 150, 110), 90) })
 	new("ImageLabel", { BackgroundTransparency = 1, Image = Icons.energy, ImageColor3 = C(255, 255, 255), Size = UDim2.fromOffset(50, 44), Position = UDim2.fromOffset(12, 9), Parent = header })
-	local title = new("TextLabel", { Position = UDim2.fromOffset(72, 6), Size = UDim2.new(1, -140, 0, 32), BackgroundTransparency = 1, Font = Enum.Font.GothamBlack, TextScaled = true, TextXAlignment = Enum.TextXAlignment.Left, Text = "МАСТЕРСКАЯ СОТ", TextColor3 = C(255, 255, 255), Parent = header }, { U.textStroke(C(40, 20, 0), 2) })
+	local title = new("TextLabel", { Position = UDim2.fromOffset(72, 6), Size = UDim2.new(1, -140, 0, 32), BackgroundTransparency = 1, Font = Enum.Font.GothamBlack, TextScaled = true, TextXAlignment = Enum.TextXAlignment.Left, Text = "CELL WORKSHOP", TextColor3 = C(255, 255, 255), Parent = header }, { U.textStroke(C(40, 20, 0), 2) })
 	new("UIGradient", { Rotation = 90, Color = ColorSequence.new(C(255, 245, 200), C(255, 170, 40)), Parent = title })
 	cells.sub = new("TextLabel", { Position = UDim2.fromOffset(73, 38), Size = UDim2.new(1, -140, 0, 18), BackgroundTransparency = 1, Font = Enum.Font.GothamBold, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = C(255, 225, 170), Parent = header })
 	local close = api.button({ AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -12, 0.5, 0), Size = UDim2.fromOffset(42, 42), BackgroundColor3 = T.Danger, Font = Enum.Font.GothamBlack, Text = "X", TextSize = 20, TextColor3 = C(255, 255, 255), Parent = header }, function()
@@ -672,7 +672,7 @@ local function buildCells()
 	new("UIGradient", { Rotation = 90, Color = ColorSequence.new(C(255, 240, 190), C(255, 175, 50)), Parent = cells.count })
 	local barBg = new("Frame", { Position = UDim2.fromOffset(20, 126), Size = UDim2.new(1, -40, 0, 22), BackgroundColor3 = C(20, 16, 10), Parent = win }, { U.corner(8), U.stroke(C(90, 70, 40), 1.4) })
 	cells.bar = new("Frame", { Size = UDim2.fromScale(0.1, 1), BackgroundColor3 = C(255, 255, 255), Parent = barBg }, { U.corner(8), U.grad(C(255, 215, 110), C(220, 130, 20), 90) })
-	cells.info = new("TextLabel", { Position = UDim2.fromOffset(20, 156), Size = UDim2.new(1, -40, 0, 64), BackgroundTransparency = 1, Font = Enum.Font.GothamMedium, TextSize = 14, TextWrapped = true, TextColor3 = C(230, 225, 215), Text = "Каждое гнездо на твоей станции заряжает одного дрона. Остальные дроны ждут своей очереди. С каждым новым гнездом цена растёт.", Parent = win })
+	cells.info = new("TextLabel", { Position = UDim2.fromOffset(20, 156), Size = UDim2.new(1, -40, 0, 64), BackgroundTransparency = 1, Font = Enum.Font.GothamMedium, TextSize = 14, TextWrapped = true, TextColor3 = C(230, 225, 215), Text = "Each cell at your station charges one drone. The other drones wait their turn. The price goes up with every new cell.", Parent = win })
 	local function buy(qty)
 		local ok, res = pcall(function()
 			return Remotes.BuyCell:InvokeServer(qty)
@@ -702,15 +702,15 @@ local function refreshCells()
 	end
 	local slots = d.dockSlots or Config.Hive.startCells
 	local hive = player:GetAttribute("ZSS_Hive")
-	cells.sub.Text = hive and ("Твоя станция: №" .. hive) or "Сначала займи свободную станцию у южной стены"
-	cells.count.Text = ("ГНЁЗДА: %d / %d"):format(slots, Config.Hive.maxCells)
+	cells.sub.Text = hive and ("Your station: #" .. hive) or "First claim a free station by the south wall"
+	cells.count.Text = ("CELLS: %d / %d"):format(slots, Config.Hive.maxCells)
 	cells.bar.Size = UDim2.fromScale(math.clamp(slots / Config.Hive.maxCells, 0.02, 1), 1)
 	if slots >= Config.Hive.maxCells then
-		cells.buy1.Text = "СТАНЦИЯ ЗАПОЛНЕНА"
+		cells.buy1.Text = "STATION FULL"
 		cells.buy5.Text = "—"
 		cells.buy1.BackgroundColor3 = C(80, 80, 80)
 		cells.buy5.BackgroundColor3 = C(80, 80, 80)
-		cells.hint.Text = "Все 50 гнёзд куплены!"
+		cells.hint.Text = "All 50 cells bought!"
 		return
 	end
 	local c1 = Config.CellCost(slots + 1)
@@ -718,11 +718,11 @@ local function refreshCells()
 	for k = 1, math.min(5, Config.Hive.maxCells - slots) do
 		c5 += Config.CellCost(slots + k)
 	end
-	cells.buy1.Text = ("+1 ГНЕЗДО\n🔋 %s"):format(U.fmt(c1))
-	cells.buy5.Text = ("+%d ГНЁЗД\n🔋 %s"):format(math.min(5, Config.Hive.maxCells - slots), U.fmt(c5))
+	cells.buy1.Text = ("+1 CELL\n🔋 %s"):format(U.fmt(c1))
+	cells.buy5.Text = ("+%d CELLS\n🔋 %s"):format(math.min(5, Config.Hive.maxCells - slots), U.fmt(c5))
 	cells.buy1.BackgroundColor3 = d.batteries >= c1 and C(255, 190, 60) or C(110, 95, 70)
 	cells.buy5.BackgroundColor3 = d.batteries >= c5 and C(230, 140, 40) or C(110, 85, 60)
-	cells.hint.Text = ("Следующее гнездо №%d • у тебя 🔋 %s"):format(slots + 1, U.fmt(d.batteries))
+	cells.hint.Text = ("Next cell #%d • you have 🔋 %s"):format(slots + 1, U.fmt(d.batteries))
 end
 
 function QuestUI.OpenCells()
@@ -747,7 +747,7 @@ local function buildConv()
 	}, { U.corner(14), U.stroke(C(120, 255, 90), 2.5) })
 	conv.frame = f
 	conv.scale = api.addScale(f)
-	conv.title = new("TextLabel", { Position = UDim2.fromOffset(12, 4), Size = UDim2.new(1, -24, 0, 20), BackgroundTransparency = 1, Font = Enum.Font.GothamBlack, TextSize = 16, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = C(180, 255, 150), Text = "♻ ПЕРЕРАБОТКА ЛОМА…", Parent = f }, { U.textStroke(C(0, 0, 0), 1.4) })
+	conv.title = new("TextLabel", { Position = UDim2.fromOffset(12, 4), Size = UDim2.new(1, -24, 0, 20), BackgroundTransparency = 1, Font = Enum.Font.GothamBlack, TextSize = 16, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = C(180, 255, 150), Text = "♻ RECYCLING SCRAP…", Parent = f }, { U.textStroke(C(0, 0, 0), 1.4) })
 	local bg = new("Frame", { Position = UDim2.fromOffset(12, 28), Size = UDim2.new(1, -24, 0, 16), BackgroundColor3 = C(5, 10, 5), Parent = f }, { U.corner(8) })
 	conv.fill = new("Frame", { Size = UDim2.fromScale(0, 1), BackgroundColor3 = C(255, 255, 255), Parent = bg }, { U.corner(8), U.grad(C(190, 255, 140), C(70, 190, 40), 90) })
 	conv.text = new("TextLabel", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Font = Enum.Font.GothamBlack, TextSize = 12, TextColor3 = C(255, 255, 255), ZIndex = 3, Parent = bg }, { U.textStroke(C(0, 0, 0), 1.2) })
@@ -773,7 +773,7 @@ local function updateConv()
 	local left = d and d.scrap or 0
 	U.tween(conv.fill, 0.3, { Size = UDim2.fromScale(math.clamp(1 - left / start, 0, 1), 1) })
 	U.countTo(conv.text, left, function(v)
-		return ("осталось ресурсов: %s  •  не сходи с площадки"):format(U.fmt(v))
+		return ("resources left: %s  •  stay on the pad"):format(U.fmt(v))
 	end, 0.3)
 end
 

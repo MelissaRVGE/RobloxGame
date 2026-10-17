@@ -3,40 +3,40 @@ local C = Color3.fromRGB
 local I = {}
 
 I.Tiers = {
-	Common = { order = 1, name = "Обычный", color = C(200, 200, 200), weight = 600 },
-	Uncommon = { order = 2, name = "Необычный", color = C(110, 220, 80), weight = 250 },
-	Rare = { order = 3, name = "Редкий", color = C(60, 150, 255), weight = 110 },
-	Epic = { order = 4, name = "Эпический", color = C(180, 80, 255), weight = 34 },
-	Legendary = { order = 5, name = "Легендарный", color = C(255, 190, 30), weight = 6 },
+	Common = { order = 1, name = "Common", color = C(200, 200, 200), weight = 600 },
+	Uncommon = { order = 2, name = "Uncommon", color = C(110, 220, 80), weight = 250 },
+	Rare = { order = 3, name = "Rare", color = C(60, 150, 255), weight = 110 },
+	Epic = { order = 4, name = "Epic", color = C(180, 80, 255), weight = 34 },
+	Legendary = { order = 5, name = "Legendary", color = C(255, 190, 30), weight = 6 },
 }
 I.TierOrder = { "Common", "Uncommon", "Rare", "Epic", "Legendary" }
 
 -- use: heal / speed / energy / gems (что делает при использовании); value — цена продажи в батареях
 I.List = {
-	{ id = "nut", name = "Ржавая гайка", tier = "Common", value = 40, desc = "Когда-то держала мост. Теперь держит только ржавчину." },
-	{ id = "wire", name = "Медная проволока", tier = "Common", value = 60, desc = "Моток меди — ценная вещь для пайки дронов." },
-	{ id = "oldbattery", name = "Старая батарейка", tier = "Common", value = 50, desc = "Почти села. Почти." },
-	{ id = "cans", name = "Консервы", tier = "Common", value = 70, use = { heal = 30 }, desc = "Тушёнка 2019 года. Восстанавливает 30 здоровья." },
-	{ id = "tooth", name = "Зуб зомби", tier = "Common", value = 55, desc = "Трофей. Не спрашивай, откуда." },
-	{ id = "cog", name = "Шестерёнка", tier = "Uncommon", value = 150, desc = "Идеально подойдёт для ремонта винтов." },
-	{ id = "chip", name = "Микросхема", tier = "Uncommon", value = 220, desc = "Мозг старого робота-пылесоса." },
-	{ id = "energydrink", name = "Энергетик", tier = "Uncommon", value = 180, use = { speed = 8, time = 30 }, desc = "+8 к скорости на 30 секунд." },
-	{ id = "bandage", name = "Бинты", tier = "Uncommon", value = 160, use = { heal = 70 }, desc = "Восстанавливают 70 здоровья." },
-	{ id = "dogtag", name = "Жетон выжившего", tier = "Uncommon", value = 260, desc = "Имя стёрто. Он сражался до конца." },
-	{ id = "dronecell", name = "Аккумулятор дрона", tier = "Rare", value = 600, use = { energy = 0.35 }, desc = "Подзаряжает весь рой на 35%." },
-	{ id = "slime", name = "Слизь мутанта", tier = "Rare", value = 700, desc = "Светится и немного шевелится. Учёные заплатят." },
-	{ id = "radcrystal", name = "Радиоактивный кристалл", tier = "Rare", value = 900, desc = "Тёплый на ощупь. Лучше не держать в кармане." },
-	{ id = "keycard", name = "Ключ-карта", tier = "Rare", value = 1000, desc = "Доступ уровня А. От какой двери — загадка." },
-	{ id = "gemshard", name = "Осколок гема", tier = "Rare", value = 400, use = { gems = 1 }, desc = "Используй, чтобы получить 1 гем. Десять осколков — одна крутка." },
-	{ id = "blueprint", name = "Чертёж дрона", tier = "Epic", value = 2500, use = { gems = 2 }, desc = "Используй, чтобы получить 2 гема." },
-	{ id = "plutonium", name = "Плутониевый стержень", tier = "Epic", value = 4000, use = { energy = 1 }, desc = "Полностью заряжает весь рой." },
-	{ id = "mutantheart", name = "Сердце мутанта", tier = "Epic", value = 5000, use = { heal = 9999 }, desc = "Всё ещё бьётся. Полностью восстанавливает здоровье." },
-	{ id = "goldbar", name = "Золотой слиток", tier = "Legendary", value = 15000, desc = "Из хранилища падшего банка. Дорого продаётся." },
+	{ id = "nut", name = "Rusty Nut", tier = "Common", value = 40, desc = "It once held up a bridge. Now it only holds rust." },
+	{ id = "wire", name = "Copper Wire", tier = "Common", value = 60, desc = "A coil of copper, valuable for soldering drones." },
+	{ id = "oldbattery", name = "Old Battery", tier = "Common", value = 50, desc = "Almost dead. Almost." },
+	{ id = "cans", name = "Canned Food", tier = "Common", value = 70, use = { heal = 30 }, desc = "Canned stew from 2019. Restores 30 health." },
+	{ id = "tooth", name = "Zombie Tooth", tier = "Common", value = 55, desc = "A trophy. Don't ask where it came from." },
+	{ id = "cog", name = "Gear Wheel", tier = "Uncommon", value = 150, desc = "Perfect for repairing rotors." },
+	{ id = "chip", name = "Microchip", tier = "Uncommon", value = 220, desc = "The brain of an old robot vacuum." },
+	{ id = "energydrink", name = "Energy Drink", tier = "Uncommon", value = 180, use = { speed = 8, time = 30 }, desc = "+8 speed for 30 seconds." },
+	{ id = "bandage", name = "Bandages", tier = "Uncommon", value = 160, use = { heal = 70 }, desc = "Restore 70 health." },
+	{ id = "dogtag", name = "Survivor Tag", tier = "Uncommon", value = 260, desc = "The name is worn off. They fought to the end." },
+	{ id = "dronecell", name = "Drone Battery Pack", tier = "Rare", value = 600, use = { energy = 0.35 }, desc = "Recharges the whole swarm by 35%." },
+	{ id = "slime", name = "Mutant Slime", tier = "Rare", value = 700, desc = "It glows and wiggles a little. Scientists will pay for it." },
+	{ id = "radcrystal", name = "Radioactive Crystal", tier = "Rare", value = 900, desc = "Warm to the touch. Better not keep it in your pocket." },
+	{ id = "keycard", name = "Keycard", tier = "Rare", value = 1000, desc = "Level A access. Which door it opens is a mystery." },
+	{ id = "gemshard", name = "Gem Shard", tier = "Rare", value = 400, use = { gems = 1 }, desc = "Use it to get 1 gem. Ten shards make one pull." },
+	{ id = "blueprint", name = "Drone Blueprint", tier = "Epic", value = 2500, use = { gems = 2 }, desc = "Use it to get 2 gems." },
+	{ id = "plutonium", name = "Plutonium Rod", tier = "Epic", value = 4000, use = { energy = 1 }, desc = "Fully charges the whole swarm." },
+	{ id = "mutantheart", name = "Mutant Heart", tier = "Epic", value = 5000, use = { heal = 9999 }, desc = "Still beating. Fully restores health." },
+	{ id = "goldbar", name = "Gold Bar", tier = "Legendary", value = 15000, desc = "From the vault of a fallen bank. Sells for a lot." },
 	-- капсулы дронов (аналог Королевского желе и яиц): бесплатная крутка гачи где угодно
-	{ id = "capsule", name = "Капсула прошивки", tier = "Epic", value = 3000, w = 0.2, use = { pull = true }, desc = "Перепрошивает случайного дрона из гачи. Считается как обычная крутка (с гарантом)." },
-	{ id = "goldcapsule", name = "Золотая капсула", tier = "Legendary", value = 12000, w = 0.15, use = { pull = "Epic" }, desc = "Дрон из гачи редкости «Эпический» или выше." },
-	{ id = "starcapsule", name = "Звёздная капсула", tier = "Legendary", value = 25000, w = 0.03, use = { pull = "Legendary" }, desc = "Дрон из гачи редкости «Легендарный» или выше. Сияет даже днём." },
-	{ id = "omegacore", name = "Ядро «Омега»", tier = "Legendary", value = 30000, use = { gems = 5 }, desc = "Источник силы секретного дрона. Даёт 5 гемов — но лучшие вещи крафтятся именно из него." },
+	{ id = "capsule", name = "Firmware Capsule", tier = "Epic", value = 3000, w = 0.2, use = { pull = true }, desc = "Flashes a random drone from the gacha. Counts as a normal pull (with pity)." },
+	{ id = "goldcapsule", name = "Gold Capsule", tier = "Legendary", value = 12000, w = 0.15, use = { pull = "Epic" }, desc = "A gacha drone of Epic rarity or higher." },
+	{ id = "starcapsule", name = "Star Capsule", tier = "Legendary", value = 25000, w = 0.03, use = { pull = "Legendary" }, desc = "A gacha drone of Legendary rarity or higher. Shines even in daylight." },
+	{ id = "omegacore", name = "Omega Core", tier = "Legendary", value = 30000, use = { gems = 5 }, desc = "The power source of a secret drone. Gives 5 gems, but the best items are crafted from it." },
 }
 
 I.ById = {}

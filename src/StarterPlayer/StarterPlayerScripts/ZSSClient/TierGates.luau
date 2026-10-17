@@ -63,7 +63,7 @@ local function update()
 			if beam then
 				for _, t in ipairs(beam:GetDescendants()) do
 					if t:IsA("TextLabel") and t.Name == "Title" then
-						t.Text = (open and "✔ " or "🔒 ") .. req .. " ДРОНОВ"
+						t.Text = (open and "✔ " or "🔒 ") .. req .. " DRONES"
 					end
 				end
 			end
@@ -204,7 +204,7 @@ local function glowStep(dt)
 				if dist < HINT_DIST and os.clock() - lastHint > HINT_CD and UI and UI.Toast then
 					lastHint = os.clock()
 					local have = State.data and State.data.equippedTotal or 0
-					UI.Toast(("🔒 «%s» откроется, когда в рое будет %d дронов (сейчас %d)"):format(b.cfg.name, b.cfg.req, have), "bad")
+					UI.Toast(("🔒 “%s” unlocks when your swarm has %d drones (now %d)"):format(b.cfg.name, b.cfg.req, have), "bad")
 				end
 			end
 			local cur = glow[w]
