@@ -439,8 +439,8 @@ end
 local function buildBook()
 	local win = new("Frame", {
 		Name = "QuestBook",
-		AnchorPoint = Vector2.new(0, 0.5),
-		Position = UDim2.new(0, 380, 0.5, 10),
+		AnchorPoint = Vector2.new(1, 0.5),
+		Position = UDim2.new(1, -14, 0.5, 14),
 		Size = UDim2.fromOffset(BOOK_W, BOOK_H),
 		BackgroundColor3 = T.Bg,
 		Visible = false,
@@ -456,9 +456,8 @@ local function buildBook()
 	local header = new("Frame", { Size = UDim2.new(1, 0, 0, 64), BackgroundColor3 = C(60, 40, 12), Parent = win }, { U.corner(18), U.grad(C(255, 255, 255), C(170, 140, 100), 90) })
 	new("ImageLabel", { BackgroundTransparency = 1, Image = Icons.glow, ImageColor3 = C(255, 200, 80), ImageTransparency = 0.35, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(36, 32), Size = UDim2.fromOffset(80, 80), Parent = header })
 	book.icon = new("ImageLabel", { BackgroundTransparency = 1, Image = Icons.quest, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(36, 32), Size = UDim2.fromOffset(48, 48), ScaleType = Enum.ScaleType.Fit, ZIndex = 2, Parent = header })
-	local title = new("TextLabel", { Position = UDim2.fromOffset(68, 6), Size = UDim2.new(1, -130, 0, 32), BackgroundTransparency = 1, Font = Enum.Font.GothamBlack, TextScaled = true, TextXAlignment = Enum.TextXAlignment.Left, Text = "ЗАДАНИЯ", TextColor3 = C(255, 255, 255), Parent = header }, { U.textStroke(C(40, 20, 0), 2), new("UITextSizeConstraint", { MaxTextSize = 28 }) })
+	local title = new("TextLabel", { AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 68, 0.5, 0), Size = UDim2.new(1, -130, 0, 34), BackgroundTransparency = 1, Font = Enum.Font.GothamBlack, TextScaled = true, TextXAlignment = Enum.TextXAlignment.Left, Text = "ЗАДАНИЯ", TextColor3 = C(255, 255, 255), Parent = header }, { U.textStroke(C(40, 20, 0), 2), new("UITextSizeConstraint", { MaxTextSize = 28 }) })
 	new("UIGradient", { Rotation = 90, Color = ColorSequence.new(C(255, 245, 200), C(255, 170, 40)), Parent = title })
-	book.sub = new("TextLabel", { Position = UDim2.fromOffset(69, 38), Size = UDim2.new(1, -130, 0, 18), BackgroundTransparency = 1, Font = Enum.Font.GothamBold, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = C(255, 225, 170), Text = "", Parent = header })
 	local close = api.button({ AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -12, 0.5, 0), Size = UDim2.fromOffset(42, 42), BackgroundColor3 = T.Danger, Font = Enum.Font.GothamBlack, Text = "X", TextSize = 20, TextColor3 = C(255, 255, 255), Parent = header }, function()
 		QuestUI.CloseBook()
 	end)
@@ -545,8 +544,6 @@ function QuestUI.RefreshBook()
 	end
 	local d = State.data
 	local quests = d and d.quests or {}
-	local done, total, active, ready = bookCounts(d)
-	book.sub.Text = ("Выполнено %d из %d  •  активных %d"):format(done, total, active) .. (ready > 0 and ("  •  можно сдать %d"):format(ready) or "")
 	-- NPC-плашки
 	for _, npc in ipairs(Q.NPCs) do
 		local c = book.chips[npc.id]
@@ -658,16 +655,15 @@ function QuestUI.RefreshBook()
 	end
 end
 
--- окно — справа от левой колонки HUD (на телефоне — по центру)
+-- окно — у правого края экрана (на телефоне — по центру)
 local function placeBook()
 	if book.mobile then
 		book.win.AnchorPoint = Vector2.new(0.5, 0.5)
 		book.win.Position = UDim2.fromScale(0.5, 0.5)
 		book.win.Size = UDim2.fromOffset(BOOK_W, BOOK_H_MOBILE)
 	else
-		local x = api.hudRight and api.hudRight() or 370
-		book.win.AnchorPoint = Vector2.new(0, 0.5)
-		book.win.Position = UDim2.new(0, x + 14, 0.5, 14)
+		book.win.AnchorPoint = Vector2.new(1, 0.5)
+		book.win.Position = UDim2.new(1, -14, 0.5, 14)
 		book.win.Size = UDim2.fromOffset(BOOK_W, BOOK_H)
 	end
 end
