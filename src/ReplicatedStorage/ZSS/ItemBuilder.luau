@@ -832,27 +832,8 @@ end
 -- Используются собственные оси меша: грудь смотрит в -Z, Yaw (градусы) доворачивает меш, если он сгенерирован боком.
 -- SX / SY / SZ — размер относительно торса по осям (меш растягивается, чтобы обернуть торс),
 -- Up — сдвиг вверх (доля высоты торса), Back — сдвиг назад (доля глубины торса).
--- общая палитра комплекта уровня (по шлему): поддоспешник под 3D-бронёй, рукава перчаток и голенища ботинок.
--- { цвет, MaterialVariant или nil, материал без варианта }
--- Поддоспешник облегает торс, чтобы в просветах брони была ткань/кольчуга, а не рубашка игрока.
-local SET_COLORS = {
-	{ C(196, 180, 128), "ZSS_I_Burlap" }, -- строительная каска: светлый брезент
-	{ C(140, 24, 28), "ZSS_I_Leather" }, -- мотошлем: красная кожа
-	{ C(92, 98, 72), "ZSS_D_Camo" }, -- военная каска: камуфляж
-	{ C(76, 84, 56), "ZSS_I_Kevlar" }, -- противогаз: оливковый брезент
-	{ C(46, 44, 48), "ZSSG_W_Steel" }, -- «Жнец»: воронёное железо
-	{ C(46, 70, 150), "ZSSG_B_Quilted" }, -- «Бастион»: синяя ткань, как гребень шлема
-	{ C(110, 26, 24), "ZSSG_W_DragonScale" },
-	{ C(84, 58, 40), "ZSS_I_Leather" },
-	{ C(226, 216, 160), nil, M.Rubber }, -- химзащита: светлая резина
-	{ C(150, 200, 240), "ZSSG_W_Crystal" },
-	{ C(52, 36, 30), "ZSSG_W_Magma" },
-	{ C(28, 22, 38), "ZSSG_W_Obsidian" },
-	{ C(30, 48, 110), "ZSSG_W_Circuit" }, -- нано: тёмно-синий
-	{ C(128, 20, 30), "ZSSG_B_Quilted" },
-	{ C(232, 236, 242), nil, M.SmoothPlastic }, -- «Омега»: белый глянец
-}
-
+-- box — весь торс (у R15 верхний и нижний вместе, см. IB.Fit), поэтому броня закрывает его целиком
+-- без блочного поддоспешника: его углы торчали сквозь меш прямоугольниками.
 local function armorMesh(m, t, box)
 	local z = game:GetService("ReplicatedStorage"):FindFirstChild("ZSS")
 	local lib = z and z:FindFirstChild("ArmorMeshes")
@@ -866,14 +847,6 @@ local function armorMesh(m, t, box)
 	local size = Vector3.new(w * (tpl:GetAttribute("SX") or 1.5), h * (tpl:GetAttribute("SY") or 1.2), d * (tpl:GetAttribute("SZ") or 2.3))
 	if math.abs(math.cos(yaw)) < 0.5 then
 		size = Vector3.new(size.Z, size.Y, size.X)
-	end
-	local under = SET_COLORS[t]
-	if under and tpl:GetAttribute("Under") ~= false then
-		P(m, { name = "Under", size = Vector3.new(w * 1.04, h * 0.98, d * 1.08), color = under[1], v = under[2], mat = under[3] })
-		-- у R15 верхний торс ниже ширины; пояс закрывает LowerTorso, чтобы броня не обрывалась над поясом
-		if h < w * 0.9 then
-			P(m, { name = "Belt", size = Vector3.new(w * 1.06, h * 0.3, d * 1.12), cf = CFrame.new(0, -h * 0.62, 0), color = under[1], v = under[2], mat = under[3] })
-		end
 	end
 	local p = src:Clone()
 	p.Size = size
@@ -1172,8 +1145,9 @@ end
 -- Меш натягивается на кисть (стопу) и часть предплечья (голени): box — кисть или стопа,
 -- reach — сколько захватить выше неё. Лицевая сторона меша смотрит по его собственной оси -Z;
 -- атрибуты шаблона SX/SY/SZ, Up, Fwd, Yaw — поправки размера, сдвига и поворота (по умолчанию — def).
--- Блочная рука толще меша, поэтому под ним рукав/голенище в цвет снаряжения (sleeve = { color, variant }).
-local function limbMesh(m, libName, key, box, reach, glow, sleeve, def)
+-- box уже охватывает и кисть (стопу), и предплечье (голень) по ширине (IB.Fit), так что меш закрывает
+-- конечность сам, без блочного рукава под ним.
+local function limbMesh(m, libName, key, box, reach, glow, def)
 	local z = game:GetService("ReplicatedStorage"):FindFirstChild("ZSS")
 	local lib = z and z:FindFirstChild(libName)
 	local tpl = lib and lib:FindFirstChild(key)
@@ -1182,9 +1156,6 @@ local function limbMesh(m, libName, key, box, reach, glow, sleeve, def)
 		return false
 	end
 	local hgt = box.Y + reach
-	if sleeve and tpl:GetAttribute("Sleeve") ~= false then
-		P(m, { name = "Sleeve", size = Vector3.new(box.X * 1.06, hgt, box.Z * 1.06), cf = CFrame.new(0, (hgt - box.Y) / 2, 0), color = sleeve[1], v = sleeve[2], mat = sleeve[3] })
-	end
 	local yaw = math.rad(tpl:GetAttribute("Yaw") or 0)
 	local size = Vector3.new(box.X * (tpl:GetAttribute("SX") or def.X), hgt * (tpl:GetAttribute("SY") or def.Y), box.Z * (tpl:GetAttribute("SZ") or def.Z))
 	if math.abs(math.cos(yaw)) < 0.5 then
@@ -1224,7 +1195,7 @@ function IB.Glove(item, box, reach)
 		local m = newModel(item.id)
 		root(m)
 		local st = HI[item.tier] or GLOVES[item.tier]
-		if limbMesh(m, "GloveMeshes", item.id, box, reach or box.Y * 1.6, st and st.glow, SET_COLORS[item.tier] or (st and { st.main, st.v }), GLOVE_FIT) then
+		if limbMesh(m, "GloveMeshes", item.id, box, reach or box.Y * 1.6, st and st.glow, GLOVE_FIT) then
 			return m
 		end
 		m:Destroy()
@@ -1295,7 +1266,7 @@ function IB.Boot(item, box, reach)
 		local m = newModel(item.id)
 		root(m)
 		local st = HI[item.tier] or BOOTS[item.tier]
-		if limbMesh(m, "BootMeshes", item.id, box, reach or box.Y * 1.5, st and st.glow, SET_COLORS[item.tier] or (st and { st.main, st.v }), BOOT_FIT) then
+		if limbMesh(m, "BootMeshes", item.id, box, reach or box.Y * 1.5, st and st.glow, BOOT_FIT) then
 			return m
 		end
 		m:Destroy()
@@ -1938,6 +1909,80 @@ function IB.Preview(item)
 		end
 		return holder
 	end
+end
+
+-- посадка снаряжения по реальному телу персонажа (R15 и R6, любой рост, ширина и пропорции аватара).
+-- Для каждого слота: part — к чему крепить, offset — центр снаряжения в осях этой детали,
+-- box — габарит, который снаряжение должно обхватить, reach — сколько захватить выше кисти/стопы.
+-- Позы берутся из точек крепления суставов, а не из текущих CFrame, чтобы анимация не сбивала посадку.
+local function restRel(a, b, attName)
+	local a0 = a:FindFirstChild(attName)
+	local a1 = b:FindFirstChild(attName)
+	if a0 and a1 and a0:IsA("Attachment") and a1:IsA("Attachment") then
+		return a0.CFrame * a1.CFrame:Inverse()
+	end
+	return a.CFrame:ToObjectSpace(b.CFrame)
+end
+
+local function wider(a, b)
+	return Vector3.new(math.max(a.X, b.X), a.Y, math.max(a.Z, b.Z))
+end
+
+function IB.Fit(char)
+	local fit = { gloves = {}, boots = {} }
+	local ut = char:FindFirstChild("UpperTorso")
+	if ut then
+		fit.r15 = true
+		-- броня на весь торс: верхний + нижний (у R15 верхний торс ниже ширины, и броня обрывалась над поясом)
+		local lt = char:FindFirstChild("LowerTorso")
+		local top, bot = ut.Size.Y / 2, -ut.Size.Y / 2
+		local w, d = ut.Size.X, ut.Size.Z
+		if lt then
+			local y = restRel(ut, lt, "WaistRigAttachment").Position.Y
+			bot = math.min(bot, y - lt.Size.Y / 2)
+			w = math.max(w, lt.Size.X)
+			d = math.max(d, lt.Size.Z)
+		end
+		fit.torso = { part = ut, box = Vector3.new(w, top - bot, d), offset = CFrame.new(0, (top + bot) / 2, 0), upper = ut.Size }
+		for _, side in ipairs({ "Left", "Right" }) do
+			local hand = char:FindFirstChild(side .. "Hand")
+			if hand then
+				-- перчатка закрывает кисть и большую часть предплечья и не уже его
+				local arm = char:FindFirstChild(side .. "LowerArm")
+				table.insert(fit.gloves, { part = hand, offset = CFrame.new(), box = arm and wider(hand.Size, arm.Size) or hand.Size, reach = arm and arm.Size.Y * 0.8 or hand.Size.Y * 1.6 })
+			end
+			local foot = char:FindFirstChild(side .. "Foot")
+			if foot then
+				-- ботинок закрывает стопу и нижнюю часть голени
+				local leg = char:FindFirstChild(side .. "LowerLeg")
+				table.insert(fit.boots, { part = foot, offset = CFrame.new(), box = leg and wider(foot.Size, leg.Size) or foot.Size, reach = leg and leg.Size.Y * 0.6 or foot.Size.Y * 1.5 })
+			end
+		end
+	else
+		local t = char:FindFirstChild("Torso")
+		if t then
+			fit.torso = { part = t, box = t.Size, offset = CFrame.new(), upper = t.Size }
+		end
+		for _, side in ipairs({ "Left", "Right" }) do
+			-- у R6 рука и нога — один блок: кисть и стопа — нижние 30 % его высоты
+			local arm = char:FindFirstChild(side .. " Arm")
+			if arm then
+				local s = arm.Size
+				table.insert(fit.gloves, { part = arm, offset = CFrame.new(0, -s.Y * 0.35, 0), box = Vector3.new(s.X, s.Y * 0.3, s.Z), reach = s.Y * 0.35 })
+			end
+			local leg = char:FindFirstChild(side .. " Leg")
+			if leg then
+				local s = leg.Size
+				table.insert(fit.boots, { part = leg, offset = CFrame.new(0, -s.Y * 0.36, -s.Z * 0.05), box = Vector3.new(s.X, s.Y * 0.3, s.Z * 1.1), reach = s.Y * 0.25 })
+			end
+		end
+	end
+	local head = char:FindFirstChild("Head")
+	if head then
+		-- голова R6 — блок 2x1x1 с мешем; по высоте она 1.25
+		fit.head = { part = head, size = ut and head.Size.Y or head.Size.Y * 1.25, offset = CFrame.new(0, ut and 0 or 0.05, 0) }
+	end
+	return fit
 end
 
 function IB.Build(item)

@@ -41,10 +41,6 @@ local function bodyParts(char)
 		r15 = r15,
 		torso = char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso"),
 		head = char:FindFirstChild("Head"),
-		lhand = char:FindFirstChild("LeftHand") or char:FindFirstChild("Left Arm"),
-		rhand = char:FindFirstChild("RightHand") or char:FindFirstChild("Right Arm"),
-		lfoot = char:FindFirstChild("LeftFoot") or char:FindFirstChild("Left Leg"),
-		rfoot = char:FindFirstChild("RightFoot") or char:FindFirstChild("Right Leg"),
 	}
 end
 
@@ -211,6 +207,34 @@ local function giveWeapon(player, p)
 	end
 end
 
+-- аватар может догрузиться и сменить масштаб уже после появления (HumanoidDescription, слайдеры роста
+-- и ширины): тогда снаряжение пересаживается по новым размерам тела
+local function watchBody(player, char)
+	if char:GetAttribute("ZSS_FitWatch") then
+		return
+	end
+	char:SetAttribute("ZSS_FitWatch", true)
+	local pending = false
+	local function changed()
+		if pending then
+			return
+		end
+		pending = true
+		task.delay(0.5, function()
+			pending = false
+			if player.Parent and player.Character == char and char.Parent then
+				Equipment.Apply(player)
+			end
+		end)
+	end
+	for _, n in ipairs({ "UpperTorso", "LowerTorso", "Torso", "Head", "LeftHand", "RightHand", "LeftLowerArm", "RightLowerArm", "LeftFoot", "RightFoot", "LeftLowerLeg", "RightLowerLeg", "Left Arm", "Right Arm", "Left Leg", "Right Leg" }) do
+		local part = char:FindFirstChild(n)
+		if part and part:IsA("BasePart") then
+			part:GetPropertyChangedSignal("Size"):Connect(changed)
+		end
+	end
+end
+
 function Equipment.Apply(player)
 	local p = Data.Get(player)
 	local char = player.Character
@@ -234,20 +258,22 @@ function Equipment.Apply(player)
 	folder.Parent = char
 
 	local g = p.gear
-	local torsoBox = bp.r15 and bp.torso.Size or Vector3.new(2, 2, 1)
+	-- размеры берутся с тела самого игрока: снаряжение садится на любой аватар (R15/R6, рост, ширина)
+	local fit = IB.Fit(char)
+	local torsoBox = bp.torso.Size
 	local list = {}
-	if g.armor then
-		local am = IB.Armor(Shop.ById[g.armor], torsoBox)
+	if g.armor and fit.torso then
+		local am = IB.Armor(Shop.ById[g.armor], fit.torso.box)
 		if g.backpack then
 			-- под рюкзаком прячем то, что у брони висит на спине (ранец, баллоны, выхлоп)
 			for _, d in ipairs(am:GetChildren()) do
-				if d:IsA("BasePart") and d.Name ~= "Wing" and d.Name ~= "Cape" and d.Position.Z > torsoBox.Z * 0.7 then
+				if d:IsA("BasePart") and d.Name ~= "Wing" and d.Name ~= "Cape" and d.Position.Z > fit.torso.box.Z * 0.7 then
 					d:Destroy()
 				end
 			end
 		end
 		am.Name = "Armor_" .. player.UserId
-		attach(wornFolder(), am, bp.torso, CFrame.new())
+		attach(wornFolder(), am, fit.torso.part, fit.torso.offset)
 		table.insert(list, am)
 	end
 	if g.backpack and Shop.ById[g.backpack] then
@@ -269,36 +295,24 @@ function Equipment.Apply(player)
 		end)
 	end
 	local hideHead = false
-	if g.helmet then
-		local hs = bp.r15 and bp.head.Size.Y or 1.25
-		local hm = IB.Helmet(Shop.ById[g.helmet], hs)
+	if g.helmet and fit.head then
+		local hm = IB.Helmet(Shop.ById[g.helmet], fit.head.size)
 		hideHead = hm:GetAttribute("HideHead") == true
-		attach(folder, hm, bp.head, CFrame.new(0, bp.r15 and 0 or 0.05, 0))
+		attach(folder, hm, bp.head, fit.head.offset)
 	end
 	setHeadHidden(bp.head, hideHead)
 	setHatsHidden(char, g.helmet ~= nil)
 	if g.gloves then
-		for _, hand in ipairs({ bp.lhand, bp.rhand }) do
-			if hand then
-				local box = bp.r15 and hand.Size or Vector3.new(1, 0.6, 1)
-				-- перчатка закрывает кисть и большую часть предплечья
-				local arm = bp.r15 and char:FindFirstChild((hand.Name:gsub("Hand", "LowerArm")))
-				local reach = arm and arm.Size.Y * 0.8 or 0.7
-				attach(folder, IB.Glove(Shop.ById[g.gloves], box, reach), hand, bp.r15 and CFrame.new() or CFrame.new(0, -0.7, 0))
-			end
+		for _, f in ipairs(fit.gloves) do
+			attach(folder, IB.Glove(Shop.ById[g.gloves], f.box, f.reach), f.part, f.offset)
 		end
 	end
 	if g.boots then
-		for _, foot in ipairs({ bp.lfoot, bp.rfoot }) do
-			if foot then
-				local box = bp.r15 and foot.Size or Vector3.new(1, 0.6, 1.1)
-				-- ботинок закрывает стопу и нижнюю часть голени
-				local leg = bp.r15 and char:FindFirstChild((foot.Name:gsub("Foot", "LowerLeg")))
-				local reach = leg and leg.Size.Y * 0.6 or 0.5
-				attach(folder, IB.Boot(Shop.ById[g.boots], box, reach), foot, bp.r15 and CFrame.new() or CFrame.new(0, -0.72, -0.05))
-			end
+		for _, f in ipairs(fit.boots) do
+			attach(folder, IB.Boot(Shop.ById[g.boots], f.box, f.reach), f.part, f.offset)
 		end
 	end
+	watchBody(player, char)
 
 	-- характеристики
 	local t = Shop.Totals(g)
