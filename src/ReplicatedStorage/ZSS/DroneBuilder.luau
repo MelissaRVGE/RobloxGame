@@ -171,6 +171,43 @@ local function meshLib()
 	return zss and zss:FindFirstChild("DroneMeshes")
 end
 
+-- Меши, которые этот клиент не смог загрузить (например, Roblox ещё не одобрил ассет для других игроков:
+-- у владельца в Studio он виден, а у игроков корпус пропадает и от дрона остаются только огонь и свет).
+-- Такие дроны собираются процедурно.
+local badMesh = {}
+
+-- Проверить загрузку всех мешей дронов (только на клиенте, yields). Возвращает список id, у которых
+-- хотя бы одна деталь не загрузилась.
+function Builder.CheckMeshes()
+	local lib = meshLib()
+	local failed = {}
+	if not lib or not game:GetService("RunService"):IsClient() then
+		return failed
+	end
+	local CP = game:GetService("ContentProvider")
+	for _, tpl in ipairs(lib:GetChildren()) do
+		local parts = {}
+		for _, p in ipairs(tpl:GetDescendants()) do
+			if p:IsA("MeshPart") then
+				table.insert(parts, p)
+			end
+		end
+		local bad = false
+		pcall(function()
+			CP:PreloadAsync(parts, function(_, status)
+				if status == Enum.AssetFetchStatus.Failure then
+					bad = true
+				end
+			end)
+		end)
+		if bad then
+			badMesh[tpl.Name] = true
+			table.insert(failed, tpl.Name)
+		end
+	end
+	return failed
+end
+
 local function buildFromMesh(def, scale, tpl)
 	local look = def.look
 	local s = (look.size or 1) * (scale or 1)
@@ -314,7 +351,7 @@ end
 
 function Builder.Build(def, scale)
 	local lib = meshLib()
-	local tpl = lib and lib:FindFirstChild(def.id)
+	local tpl = lib and not badMesh[def.id] and lib:FindFirstChild(def.id)
 	if tpl then
 		return buildFromMesh(def, scale, tpl)
 	end
