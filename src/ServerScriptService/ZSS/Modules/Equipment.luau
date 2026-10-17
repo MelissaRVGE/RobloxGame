@@ -413,6 +413,9 @@ function Equipment.Buy(player, id, qty)
 	if not p or not item then
 		return { ok = false, err = "Неизвестный предмет" }
 	end
+	if item.noShop then
+		return { ok = false, err = "Этот предмет не продаётся: он выпадает с зомби и босса" }
+	end
 	if item.stack then
 		local qty = (qty == 5) and 5 or 1
 		local char = player.Character
