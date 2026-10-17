@@ -8,6 +8,7 @@ local Shared = RS:WaitForChild("ZSS")
 local Config = require(Shared.Config)
 local Q = require(Shared.QuestsConfig)
 local Items = require(Shared.ItemsConfig)
+local Shop = require(Shared.ShopConfig)
 local Icons = require(Shared.Icons)
 local Remotes = Shared:WaitForChild("Remotes")
 local U = require(script.Parent.U)
@@ -41,9 +42,8 @@ local function rewardText(r)
 	for id, n in pairs(r.items or {}) do
 		table.insert(parts, itemName(id) .. " x" .. n)
 	end
-	local cn = { medkit = "Аптечка", grenade = "Граната", energycell = "Энергоячейка", adrenaline = "Адреналин" }
 	for id, n in pairs(r.consum or {}) do
-		table.insert(parts, (cn[id] or id) .. " x" .. n)
+		table.insert(parts, (Shop.ById[id] and Shop.ById[id].name or id) .. " x" .. n)
 	end
 	return table.concat(parts, "   ")
 end

@@ -125,7 +125,7 @@ function Fields.Collect(player, tile, base, mult)
 	local added, full = Data.AddScrap(player, amount, tile.res)
 	if added > 0 then
 		Remotes.Popup:FireClient(player, Fields.TopPos(tile), "+" .. added, gold > 1 and "gold" or ("res:" .. tile.res))
-		require(script.Parent.Quests).Event(player, "scrap", nil, added)
+		require(script.Parent.Quests).Event(player, "scrap", { field = f.cfg.id, res = tile.res }, added)
 	end
 	-- случайная находка в куче лома
 	Loot.TryDrop(player, "droneGather", f.index, Fields.TopPos(tile))

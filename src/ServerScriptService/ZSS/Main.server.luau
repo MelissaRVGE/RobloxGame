@@ -318,12 +318,12 @@ Remotes.BagAction.OnServerInvoke = function(player, action, id)
 				return { ok = false, err = "Нельзя сейчас" }
 			end
 			take(1)
-			Quests.Event(player, "use", { id = id })
+			Quests.Event(player, "use", { id = id, find = true })
 			local rar = Config.Rarities[rarity]
 			return { ok = true, msg = ("🧬 %s: %s дрон «%s»%s"):format(item.name, rar.label, def.name, isNew and " (НОВЫЙ!)" or "") }
 		end
 		take(1)
-		Quests.Event(player, "use", { id = id })
+		Quests.Event(player, "use", { id = id, find = true })
 		return { ok = true, msg = "✔ Использовано: " .. item.name .. (u.gems and (" (+" .. u.gems .. " 💎)") or "") }
 	end
 	return { ok = false, err = "bad action" }
