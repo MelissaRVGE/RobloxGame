@@ -75,6 +75,12 @@ local function btn(props, onClick)
 			onClick()
 		end
 	end)
+	if props.Text == "X" and onClick then
+		U.hitPad(b, function()
+			U.play(U.Sounds.tick, 0.4, 1.3)
+			onClick()
+		end)
+	end
 	return b
 end
 
@@ -664,7 +670,7 @@ function SUI.Open(startTab)
 		tab = startTab
 	end
 	local vp = workspace.CurrentCamera.ViewportSize
-	local s = math.clamp(math.min(vp.X / 1280, vp.Y / 760), 0.55, 1.15)
+	local s = math.clamp(math.min(vp.X / 1280, vp.Y / 760), 0.4, 1.15)
 	U.openPanel(win, scaleObj, s)
 	U.play(U.Sounds.whoosh, 0.25, 1.6)
 	setTab(tab)
