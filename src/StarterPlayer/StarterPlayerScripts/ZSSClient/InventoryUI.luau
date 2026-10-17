@@ -44,13 +44,13 @@ local HOLE = { x = 100, y = 12, w = 200, h = 380 }
 local CELL = Vector2.new(74, 86)
 
 local SLOT_DEFS = {
-	{ key = "helmet", name = "Шлем", icon = "⛑", side = 0, row = 0 },
-	{ key = "armor", name = "Броня", icon = "🛡", side = 0, row = 1 },
-	{ key = "gloves", name = "Перчатки", icon = "🧤", side = 0, row = 2 },
-	{ key = "boots", name = "Ботинки", icon = "🥾", side = 0, row = 3 },
-	{ key = "weapon", name = "Оружие", icon = "⚔", side = 1, row = 0 },
-	{ key = "tool", name = "Инструмент", icon = "⛏", side = 1, row = 1 },
-	{ key = "backpack", name = "Рюкзак", icon = "🎒", side = 1, row = 2 },
+	{ key = "helmet", name = "Helmet", icon = "⛑", side = 0, row = 0 },
+	{ key = "armor", name = "Armor", icon = "🛡", side = 0, row = 1 },
+	{ key = "gloves", name = "Gloves", icon = "🧤", side = 0, row = 2 },
+	{ key = "boots", name = "Boots", icon = "🥾", side = 0, row = 3 },
+	{ key = "weapon", name = "Weapons", icon = "⚔", side = 1, row = 0 },
+	{ key = "tool", name = "Tool", icon = "⛏", side = 1, row = 1 },
+	{ key = "backpack", name = "Backpack", icon = "🎒", side = 1, row = 2 },
 }
 local SLOT_NAME = {}
 for _, s in ipairs(Shop.Slots) do
@@ -60,21 +60,21 @@ end
 local FIXED = { weapon = true, tool = true, backpack = true }
 
 local STAT_LABELS = {
-	dmg = "⚔ Урон",
-	radius = "◎ Радиус удара",
-	gather = "⛏ Добыча за удар",
-	cd = "⏱ Удар раз в",
-	hp = "❤ Здоровье",
-	def = "🛡 Защита",
-	scrap = "⚙ Бонус лома",
-	speed = "» Скорость",
-	jump = "⬆ Прыжок",
-	heal = "❤ Лечение",
-	energy = "⚡ Заряд роя",
-	cap = "🎒 Вместимость",
-	conv = "♻ Батарей с переработки",
-	cspeed = "⏩ Скорость переработки",
-	stacks = "» Ступени ускорения",
+	dmg = "⚔ Damage",
+	radius = "◎ Hit Radius",
+	gather = "⛏ Gather per Hit",
+	cd = "⏱ Hit Every",
+	hp = "❤ Health",
+	def = "🛡 Defense",
+	scrap = "⚙ Scrap Bonus",
+	speed = "» Speed",
+	jump = "⬆ Jump",
+	heal = "❤ Healing",
+	energy = "⚡ Swarm Charge",
+	cap = "🎒 Capacity",
+	conv = "♻ Recycling Batteries",
+	cspeed = "⏩ Recycling Speed",
+	stacks = "» Speed Boost Stacks",
 }
 local STAT_ORDER = { "dmg", "radius", "gather", "cd", "hp", "def", "scrap", "speed", "jump", "cap", "conv", "cspeed", "heal", "energy", "stacks" }
 local PCT = { def = true, scrap = true, energy = true, cap = true, conv = true, cspeed = true }
@@ -101,7 +101,7 @@ local function fmtStat(k, v)
 	if PCT[k] then
 		return ("+%d%%"):format(math.floor(v * 100 + 0.5))
 	elseif k == "cd" then
-		return ("%.2f с"):format(v)
+		return ("%.2f s"):format(v)
 	elseif SUFFIX[k] then
 		return "+" .. fmtNum(v) .. SUFFIX[k]
 	elseif k == "speed" or k == "jump" or k == "hp" or k == "heal" or k == "stacks" then
@@ -114,7 +114,7 @@ local function fmtDelta(k, d)
 	if PCT[k] then
 		return ("%+d%%"):format(math.floor(d * 100 + (d >= 0 and 0.5 or -0.5)))
 	elseif k == "cd" then
-		return ("%+.2f с"):format(d)
+		return ("%+.2f s"):format(d)
 	end
 	return (d >= 0 and "+" or "-") .. fmtNum(math.abs(d))
 end
@@ -128,7 +128,7 @@ local function fmtTime(s)
 	if s >= 60 then
 		return ("%d:%02d"):format(math.floor(s / 60), s % 60)
 	end
-	return s .. "с"
+	return s .. "s"
 end
 
 local function label(parent, props, stroke)
@@ -394,59 +394,59 @@ local function gearSpec(item, fromSlot)
 	end
 	local sub = (SLOT_NAME[item.slot] and SLOT_NAME[item.slot].name or item.slot):upper() .. "  •  " .. g.name:upper()
 	if item.tier and item.slot ~= "backpack" then
-		sub ..= ("  •  УР. %d"):format(item.tier)
+		sub ..= ("  •  LV. %d"):format(item.tier)
 	end
 	local footer, fcol
 	if item.stack then
 		local n = d and d.consum and d.consum[item.id] or 0
-		sub = "РАСХОДНИК  •  x" .. n
+		sub = "CONSUMABLE  •  x" .. n
 		for bid, bn in pairs(item.use and item.use.buffs or {}) do
 			local b = Buffs.ById[bid]
 			if b then
-				table.insert(lines, { "✦ " .. b.name, ("+%d ступ. (%d с)"):format(bn, b.time), b.color })
+				table.insert(lines, { "✦ " .. b.name, ("+%d stacks (%d s)"):format(bn, b.time), b.color })
 			end
 		end
-		footer, fcol = "ЛКМ — использовать  •  перетащи в хотбар или наведи и нажми 3–6", C(130, 220, 255)
+		footer, fcol = "Click to use  •  drag to the hotbar or hover and press 3–6", C(130, 220, 255)
 	elseif isEquipped(item) then
-		footer = FIXED[item.slot] and "✔ НАДЕТО  •  заменить можно другим предметом" or "✔ НАДЕТО  •  ЛКМ — снять"
+		footer = FIXED[item.slot] and "✔ EQUIPPED  •  can be replaced with another item" or "✔ EQUIPPED  •  click to unequip"
 		fcol = C(140, 255, 120)
 	else
-		footer = curItem and ("ЛКМ — надеть вместо «%s»"):format(curItem.name) or "ЛКМ — надеть"
+		footer = curItem and ("Click to equip instead of “%s”"):format(curItem.name) or "Click to equip"
 	end
 	return { title = item.name, color = g.color, sub = sub, lines = lines, desc = item.desc, footer = footer, footerColor = fcol }
 end
 
 local function findSpec(it, n)
 	local tier = Items.Tiers[it.tier]
-	local lines = { { "🔋 Цена продажи", U.fmt(it.value), T.Battery }, { "Всего в рюкзаке", "x" .. n } }
+	local lines = { { "🔋 Sell Price", U.fmt(it.value), T.Battery }, { "Total in Backpack", "x" .. n } }
 	if n > 1 then
-		table.insert(lines, { "🔋 Продать все", U.fmt(it.value * n), T.Battery })
+		table.insert(lines, { "🔋 Sell All", U.fmt(it.value * n), T.Battery })
 	end
 	local u = it.use
 	if u then
 		if u.heal then
-			table.insert(lines, 1, { "❤ Лечение", u.heal >= 9999 and "полное" or ("+" .. u.heal), C(255, 140, 140) })
+			table.insert(lines, 1, { "❤ Healing", u.heal >= 9999 and "full" or ("+" .. u.heal), C(255, 140, 140) })
 		end
 		if u.speed then
-			table.insert(lines, 1, { "» Скорость", ("+%d на %d с"):format(u.speed, u.time or 20), C(120, 230, 255) })
+			table.insert(lines, 1, { "» Speed", ("+%d for %d s"):format(u.speed, u.time or 20), C(120, 230, 255) })
 		end
 		if u.energy then
-			table.insert(lines, 1, { "⚡ Заряд роя", ("+%d%%"):format(u.energy * 100), C(120, 200, 255) })
+			table.insert(lines, 1, { "⚡ Swarm Charge", ("+%d%%"):format(u.energy * 100), C(120, 200, 255) })
 		end
 		if u.gems then
-			table.insert(lines, 1, { "💎 Гемы", "+" .. u.gems, C(120, 230, 255) })
+			table.insert(lines, 1, { "💎 Gems", "+" .. u.gems, C(120, 230, 255) })
 		end
 		if u.pull then
-			table.insert(lines, 1, { "🧬 Дрон из гачи", u.pull == true and "любой (с гарантом)" or ("от «%s»"):format(u.pull), C(220, 160, 255) })
+			table.insert(lines, 1, { "🧬 Gacha Drone", u.pull == true and "any (with pity)" or ("%s or higher"):format(u.pull), C(220, 160, 255) })
 		end
 	end
 	return {
 		title = it.name,
 		color = tier.color,
-		sub = "НАХОДКА  •  " .. tier.name:upper(),
+		sub = "FIND  •  " .. tier.name:upper(),
 		lines = lines,
 		desc = it.desc,
-		footer = u and "ЛКМ — выбрать  •  перетащи в хотбар или наведи и нажми 3–6" or "ЛКМ — выбрать, затем «Продать». Нужна и для крафта в Магазине",
+		footer = u and "Click to select  •  drag to the hotbar or hover and press 3–6" or "Click to select, then “Sell”. Also used for crafting in the Shop",
 	}
 end
 
@@ -1212,7 +1212,7 @@ local function equipItem(item, fromObj)
 	end
 	local wasOn = isEquipped(item)
 	if wasOn and FIXED[item.slot] then
-		api.toast("Этот слот нельзя оставить пустым — надень другой предмет", "info")
+		api.toast("This slot can't be left empty. Equip another item", "info")
 		return
 	end
 	Remotes.ShopEquip:FireServer(item.id)
@@ -1259,7 +1259,7 @@ local function buildSlots(left)
 			if it then
 				return gearSpec(it, true)
 			end
-			return { title = def.name, color = C(150, 160, 175), sub = "ПУСТАЯ ЯЧЕЙКА", desc = "Здесь ничего не надето.", footer = "ЛКМ — показать подходящие вещи в рюкзаке" }
+			return { title = def.name, color = C(150, 160, 175), sub = "EMPTY SLOT", desc = "Nothing is equipped here.", footer = "Click to show matching items in your backpack" }
 		end)
 		slotsUI[def.key] = s
 	end
@@ -1304,28 +1304,28 @@ end
 
 -- ===== характеристики =====
 local STAT_ROWS = {
-	{ key = "hp", icon = "❤", name = "Здоровье", color = C(255, 120, 120) },
-	{ key = "def", icon = "🛡", name = "Защита", color = C(140, 190, 255) },
-	{ key = "speed", icon = "»", name = "Скорость бега", color = C(110, 230, 255), buff = "speed" },
-	{ key = "jump", icon = "⬆", name = "Прыжок", color = C(170, 230, 140) },
-	{ key = "dmg", icon = "⚔", name = "Урон оружия", color = C(255, 150, 90), buff = "rage" },
-	{ key = "radius", icon = "◎", name = "Радиус удара", color = C(255, 200, 120) },
-	{ key = "cd", icon = "⏱", name = "Удар раз в", color = C(230, 220, 160) },
-	{ key = "gather", icon = "⛏", name = "Добыча за удар", color = C(255, 210, 90) },
-	{ key = "scrap", icon = "⚙", name = "Сбор лома", color = C(255, 170, 70), buff = "scrap" },
-	{ key = "cap", icon = "🎒", name = "Вместимость", color = C(130, 200, 255) },
-	{ key = "conv", icon = "♻", name = "Переработка", color = C(130, 240, 130) },
-	{ key = "luck", icon = "🍀", name = "Удача находок", color = C(120, 240, 100), buff = "luck" },
-	{ key = "crit", icon = "🎯", name = "Шанс крита", color = C(255, 110, 70), buff = "crit" },
-	{ key = "critx", icon = "💥", name = "Сила крита", color = C(255, 160, 90) },
-	{ key = "ddmg", icon = "🤖", name = "Урон дронов", color = C(255, 120, 120) },
-	{ key = "dgather", icon = "🛸", name = "Сбор дронов", color = C(240, 200, 70), buff = "dgather" },
-	{ key = "tgather", icon = "⛏", name = "Сбор инструментом", color = C(255, 200, 110) },
-	{ key = "instconv", icon = "⚡", name = "Мгнов. переработка", color = C(190, 255, 90) },
-	{ key = "regen", icon = "✚", name = "Регенерация", color = C(120, 255, 160) },
-	{ key = "energy", icon = "🔋", name = "Выносливость дронов", color = C(120, 200, 255) },
-	{ key = "dspeed", icon = "🚀", name = "Скорость дронов", color = C(255, 150, 40), buff = "dspeed" },
-	{ key = "buffdur", icon = "⏳", name = "Длительность баффов", color = C(230, 210, 255) },
+	{ key = "hp", icon = "❤", name = "Health", color = C(255, 120, 120) },
+	{ key = "def", icon = "🛡", name = "Defense", color = C(140, 190, 255) },
+	{ key = "speed", icon = "»", name = "Run Speed", color = C(110, 230, 255), buff = "speed" },
+	{ key = "jump", icon = "⬆", name = "Jump", color = C(170, 230, 140) },
+	{ key = "dmg", icon = "⚔", name = "Weapon Damage", color = C(255, 150, 90), buff = "rage" },
+	{ key = "radius", icon = "◎", name = "Hit Radius", color = C(255, 200, 120) },
+	{ key = "cd", icon = "⏱", name = "Hit Every", color = C(230, 220, 160) },
+	{ key = "gather", icon = "⛏", name = "Gather per Hit", color = C(255, 210, 90) },
+	{ key = "scrap", icon = "⚙", name = "Scrap Gathering", color = C(255, 170, 70), buff = "scrap" },
+	{ key = "cap", icon = "🎒", name = "Capacity", color = C(130, 200, 255) },
+	{ key = "conv", icon = "♻", name = "Recycling", color = C(130, 240, 130) },
+	{ key = "luck", icon = "🍀", name = "Find Luck", color = C(120, 240, 100), buff = "luck" },
+	{ key = "crit", icon = "🎯", name = "Crit Chance", color = C(255, 110, 70), buff = "crit" },
+	{ key = "critx", icon = "💥", name = "Crit Power", color = C(255, 160, 90) },
+	{ key = "ddmg", icon = "🤖", name = "Drone Damage", color = C(255, 120, 120) },
+	{ key = "dgather", icon = "🛸", name = "Drone Gathering", color = C(240, 200, 70), buff = "dgather" },
+	{ key = "tgather", icon = "⛏", name = "Tool Gathering", color = C(255, 200, 110) },
+	{ key = "instconv", icon = "⚡", name = "Instant Recycling", color = C(190, 255, 90) },
+	{ key = "regen", icon = "✚", name = "Regeneration", color = C(120, 255, 160) },
+	{ key = "energy", icon = "🔋", name = "Drone Stamina", color = C(120, 200, 255) },
+	{ key = "dspeed", icon = "🚀", name = "Drone Speed", color = C(255, 150, 40), buff = "dspeed" },
+	{ key = "buffdur", icon = "⏳", name = "Buff Duration", color = C(230, 210, 255) },
 }
 local STAT_VISIBLE = 12 -- строк без прокрутки
 
@@ -1343,28 +1343,28 @@ local function computeStats()
 	local tool = Shop.ById[gear.tool or ""] or Shop.ById[Shop.DefaultTool]
 	local out = {}
 	local hp = 100 + t.hp + (perks.hp or 0)
-	out.hp = { v = hp, text = U.fmt(hp), lines = { { "База", "100" }, { "Снаряжение", "+" .. U.fmt(t.hp), C(140, 255, 120) }, { "Награды квестов", "+" .. U.fmt(perks.hp or 0), C(255, 220, 120) } } }
-	out.def = { v = t.def, text = ("%d%%"):format(math.floor(t.def * 100 + 0.5)), lines = { { "Урон по тебе", ("x%.2f"):format(1 - t.def) }, { "Предел защиты", "80%" } } }
+	out.hp = { v = hp, text = U.fmt(hp), lines = { { "Base", "100" }, { "Gear", "+" .. U.fmt(t.hp), C(140, 255, 120) }, { "Quest Rewards", "+" .. U.fmt(perks.hp or 0), C(255, 220, 120) } } }
+	out.def = { v = t.def, text = ("%d%%"):format(math.floor(t.def * 100 + 0.5)), lines = { { "Damage Taken", ("x%.2f"):format(1 - t.def) }, { "Defense Cap", "80%" } } }
 	local sm = Buffs.Mult(player, "speed")
 	local spd = (16 + t.speed) * sm
-	out.speed = { v = spd, text = fmtNum(math.floor(spd * 10 + 0.5) / 10), mult = sm, lines = { { "База", "16" }, { "Снаряжение", "+" .. t.speed .. " (макс. +32)", C(140, 255, 120) }, { "Бафф «Ускорение»", multStr(sm), C(110, 230, 255) } } }
-	out.jump = { v = t.jump, text = "+" .. t.jump, lines = { { "Снаряжение", "+" .. t.jump, C(140, 255, 120) } } }
+	out.speed = { v = spd, text = fmtNum(math.floor(spd * 10 + 0.5) / 10), mult = sm, lines = { { "Base", "16" }, { "Gear", "+" .. t.speed .. " (max +32)", C(140, 255, 120) }, { "Speed Boost buff", multStr(sm), C(110, 230, 255) } } }
+	out.jump = { v = t.jump, text = "+" .. t.jump, lines = { { "Gear", "+" .. t.jump, C(140, 255, 120) } } }
 	local rm = Buffs.Mult(player, "rage")
 	local dmg = wpn.stats.dmg * (1 + (perks.dmg or 0)) * rm
-	out.dmg = { v = dmg, text = U.fmt(math.floor(dmg + 0.5)), mult = rm, lines = { { wpn.name, U.fmt(wpn.stats.dmg) }, { "Награды квестов", ("+%d%%"):format((perks.dmg or 0) * 100), C(255, 220, 120) }, { "Бафф «Ярость роя»", multStr(rm), C(255, 120, 90) }, { "Ночью", "x2", C(190, 170, 255) } } }
-	out.radius = { v = wpn.stats.radius, text = fmtNum(wpn.stats.radius), lines = { { "Оружие", fmtNum(wpn.stats.radius) }, { "Инструмент", fmtNum(tool.stats.radius) } } }
-	out.cd = { v = wpn.stats.cd, text = ("%.2f с"):format(wpn.stats.cd), lines = { { "Оружие", ("%.2f с"):format(wpn.stats.cd) }, { "Инструмент", ("%.2f с"):format(tool.stats.cd or 0.45) } } }
+	out.dmg = { v = dmg, text = U.fmt(math.floor(dmg + 0.5)), mult = rm, lines = { { wpn.name, U.fmt(wpn.stats.dmg) }, { "Quest Rewards", ("+%d%%"):format((perks.dmg or 0) * 100), C(255, 220, 120) }, { "Swarm Rage buff", multStr(rm), C(255, 120, 90) }, { "At Night", "x2", C(190, 170, 255) } } }
+	out.radius = { v = wpn.stats.radius, text = fmtNum(wpn.stats.radius), lines = { { "Weapons", fmtNum(wpn.stats.radius) }, { "Tool", fmtNum(tool.stats.radius) } } }
+	out.cd = { v = wpn.stats.cd, text = ("%.2f s"):format(wpn.stats.cd), lines = { { "Weapons", ("%.2f s"):format(wpn.stats.cd) }, { "Tool", ("%.2f s"):format(tool.stats.cd or 0.45) } } }
 	out.gather = { v = tool.stats.gather or 0, text = U.fmt(tool.stats.gather or 0), lines = { { tool.name, "+" .. (tool.stats.gather or 0) } } }
 	local scm = Buffs.Mult(player, "scrap")
 	local sc = (1 + t.scrap + (perks.scrap or 0)) * scm
-	out.scrap = { v = sc, text = multStr(sc), mult = scm, lines = { { "Снаряжение", fmtStat("scrap", t.scrap), C(140, 255, 120) }, { "Награды квестов", fmtStat("scrap", perks.scrap or 0), C(255, 220, 120) }, { "Бафф «Щедрый сбор»", multStr(scm), C(255, 170, 70) } } }
-	out.cap = { v = d.capacity or 0, text = U.fmt(d.capacity or 0), lines = { { "Уровень рюкзака", tostring(d.bagLevel or 1) }, { "Бонус рюкзака", fmtStat("cap", t.cap), C(140, 255, 120) } } }
-	out.conv = { v = t.conv + t.cspeed, text = ("+%d%%"):format(math.floor(t.conv * 100 + 0.5)), lines = { { "Батарей с переработки", fmtStat("conv", t.conv), C(140, 255, 120) }, { "Скорость переработки", fmtStat("cspeed", t.cspeed), C(140, 255, 120) } } }
+	out.scrap = { v = sc, text = multStr(sc), mult = scm, lines = { { "Gear", fmtStat("scrap", t.scrap), C(140, 255, 120) }, { "Quest Rewards", fmtStat("scrap", perks.scrap or 0), C(255, 220, 120) }, { "Rich Harvest buff", multStr(scm), C(255, 170, 70) } } }
+	out.cap = { v = d.capacity or 0, text = U.fmt(d.capacity or 0), lines = { { "Backpack Level", tostring(d.bagLevel or 1) }, { "Backpack Bonus", fmtStat("cap", t.cap), C(140, 255, 120) } } }
+	out.conv = { v = t.conv + t.cspeed, text = ("+%d%%"):format(math.floor(t.conv * 100 + 0.5)), lines = { { "Recycling Batteries", fmtStat("conv", t.conv), C(140, 255, 120) }, { "Recycling Speed", fmtStat("cspeed", t.cspeed), C(140, 255, 120) } } }
 	local lm = Buffs.Mult(player, "luck")
 	local lk = (1 + (perks.luck or 0) + t.luck) * lm
-	out.luck = { v = lk, text = multStr(lk), mult = lm, lines = { { "Снаряжение", fmtStat("luck", t.luck), C(140, 255, 120) }, { "Награды квестов", ("+%d%%"):format((perks.luck or 0) * 100), C(255, 220, 120) }, { "Бафф «Удача»", multStr(lm), C(120, 240, 100) } } }
+	out.luck = { v = lk, text = multStr(lk), mult = lm, lines = { { "Gear", fmtStat("luck", t.luck), C(140, 255, 120) }, { "Quest Rewards", ("+%d%%"):format((perks.luck or 0) * 100), C(255, 220, 120) }, { "Luck buff", multStr(lm), C(120, 240, 100) } } }
 	-- доп. характеристики
-	local GEAR = { "Снаряжение", nil, C(140, 255, 120) }
+	local GEAR = { "Gear", nil, C(140, 255, 120) }
 	local function pctRow(key, extra)
 		local v = t[key] or 0
 		local lines = { { GEAR[1], fmtStat(key, v), GEAR[3] } }
@@ -1375,31 +1375,31 @@ local function computeStats()
 	end
 	local critStacks = Buffs.Stacks(player, "crit")
 	local crit = math.min(0.6, t.crit) + critStacks * Buffs.ById.crit.per
-	out.crit = { v = crit, text = ("%d%%"):format(math.floor(crit * 100 + 0.5)), mult = critStacks > 0 and 1 + critStacks * Buffs.ById.crit.per or nil, lines = pctRow("crit", { { "Бафф «Прицел»", ("+%d%%"):format(critStacks * Buffs.ById.crit.per * 100), C(255, 110, 70) } }) }
-	out.critx = { v = t.critx, text = ("x%s"):format(fmtNum(1.5 + t.critx)), lines = { { "База", "x1.5" }, { GEAR[1], fmtStat("critx", t.critx), GEAR[3] } } }
+	out.crit = { v = crit, text = ("%d%%"):format(math.floor(crit * 100 + 0.5)), mult = critStacks > 0 and 1 + critStacks * Buffs.ById.crit.per or nil, lines = pctRow("crit", { { "Aim buff", ("+%d%%"):format(critStacks * Buffs.ById.crit.per * 100), C(255, 110, 70) } }) }
+	out.critx = { v = t.critx, text = ("x%s"):format(fmtNum(1.5 + t.critx)), lines = { { "Base", "x1.5" }, { GEAR[1], fmtStat("critx", t.critx), GEAR[3] } } }
 	out.ddmg = { v = t.ddmg, text = multStr(1 + t.ddmg), lines = pctRow("ddmg") }
 	local dgm = Buffs.Mult(player, "dgather")
-	out.dgather = { v = (1 + t.dgather) * dgm, text = multStr((1 + t.dgather) * dgm), mult = dgm, lines = pctRow("dgather", { { "Бафф «Смазка роя»", multStr(dgm), C(240, 200, 70) } }) }
+	out.dgather = { v = (1 + t.dgather) * dgm, text = multStr((1 + t.dgather) * dgm), mult = dgm, lines = pctRow("dgather", { { "Swarm Grease buff", multStr(dgm), C(240, 200, 70) } }) }
 	out.tgather = { v = t.tgather, text = multStr(1 + t.tgather), lines = pctRow("tgather") }
-	out.instconv = { v = t.instconv, text = ("%d%%"):format(math.floor(t.instconv * 100 + 0.5)), lines = pctRow("instconv", { { "Предел", "50%" } }) }
-	out.regen = { v = t.regen, text = fmtNum(t.regen) .. "/с", lines = { { "Броня", "+" .. fmtNum(t.regen) .. " HP/с", GEAR[3] } } }
+	out.instconv = { v = t.instconv, text = ("%d%%"):format(math.floor(t.instconv * 100 + 0.5)), lines = pctRow("instconv", { { "Cap", "50%" } }) }
+	out.regen = { v = t.regen, text = fmtNum(t.regen) .. "/s", lines = { { "Armor", "+" .. fmtNum(t.regen) .. " HP/s", GEAR[3] } } }
 	out.energy = { v = t.energy, text = multStr(1 + t.energy), lines = pctRow("energy") }
 	local dsm = Buffs.Mult(player, "dspeed")
-	out.dspeed = { v = (1 + t.dspeed) * dsm, text = multStr((1 + t.dspeed) * dsm), mult = dsm, lines = pctRow("dspeed", { { "Бафф «Турбо роя»", multStr(dsm), C(255, 150, 40) } }) }
+	out.dspeed = { v = (1 + t.dspeed) * dsm, text = multStr((1 + t.dspeed) * dsm), mult = dsm, lines = pctRow("dspeed", { { "Swarm Turbo buff", multStr(dsm), C(255, 150, 40) } }) }
 	out.buffdur = { v = t.buffdur, text = multStr(1 + t.buffdur), lines = pctRow("buffdur") }
 	return out
 end
 
 local STAT_DESC = {
-	hp = "Максимальный запас здоровья.",
-	def = "Какую долю урона от зомби поглощает броня и шлем.",
-	speed = "Скорость бега. Баффы «Ускорение» и Адреналин складываются.",
-	jump = "Насколько выше ты прыгаешь благодаря ботинкам.",
-	dmg = "Урон одного удара выбранным оружием.",
-	radius = "Насколько далеко достаёт удар.",
-	cd = "Пауза между ударами: чем меньше, тем быстрее.",
-	gather = "Сколько ресурсов приносит один удар инструментом по куче.",
-	scrap = "Множитель лома со всех куч: перчатки, награды и бафф.",
+	hp = "Maximum health.",
+	def = "How much zombie damage your armor and helmet absorb.",
+	speed = "Run speed. Speed Boost buffs and Adrenaline stack.",
+	jump = "How much higher you jump thanks to your boots.",
+	dmg = "Damage of one hit with your weapon.",
+	radius = "How far your hit reaches.",
+	cd = "Pause between hits: lower is faster.",
+	gather = "How many resources one tool hit on a pile brings.",
+	scrap = "Scrap multiplier from all piles: gloves, rewards and buff.",
 	crit = Shop.StatDefs.crit.desc,
 	critx = Shop.StatDefs.critx.desc,
 	ddmg = Shop.StatDefs.ddmg.desc,
@@ -1410,13 +1410,13 @@ local STAT_DESC = {
 	energy = Shop.StatDefs.energy.desc,
 	dspeed = Shop.StatDefs.dspeed.desc,
 	buffdur = Shop.StatDefs.buffdur.desc,
-	cap = "Сколько лома помещается в рюкзак.",
-	conv = "Бонус Переработчика от рюкзака: больше батарей и быстрее.",
-	luck = "Шанс найти редкие предметы в кучах и у зомби.",
+	cap = "How much scrap fits in your backpack.",
+	conv = "Recycler bonus from your backpack: more batteries, faster.",
+	luck = "Chance to find rare items in piles and on zombies.",
 }
 
 local function buildStats(mid)
-	label(mid, { Position = UDim2.fromOffset(14, 10), Size = UDim2.new(1, -28, 0, 22), Text = "ХАРАКТЕРИСТИКИ", TextSize = 18, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = C(255, 255, 255) }, 1.5)
+	label(mid, { Position = UDim2.fromOffset(14, 10), Size = UDim2.new(1, -28, 0, 22), Text = "STATS", TextSize = 18, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = C(255, 255, 255) }, 1.5)
 	-- список прокручивается колёсиком: видно STAT_VISIBLE строк
 	local list = new("ScrollingFrame", { Position = UDim2.fromOffset(10, 38), Size = UDim2.new(1, -20, 0, STAT_VISIBLE * 26), BackgroundTransparency = 1, BorderSizePixel = 0, CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollBarThickness = 4, ScrollBarImageColor3 = C(200, 210, 200), ScrollingDirection = Enum.ScrollingDirection.Y, Parent = mid }, {
 		new("UIListLayout", { SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 2) }),
@@ -1441,12 +1441,12 @@ local function buildStats(mid)
 			if not s then
 				return nil
 			end
-			return { title = r.icon .. "  " .. r.name, color = r.color, sub = "СЕЙЧАС: " .. s.text, lines = s.lines, desc = STAT_DESC[r.key] }
+			return { title = r.icon .. "  " .. r.name, color = r.color, sub = "NOW: " .. s.text, lines = s.lines, desc = STAT_DESC[r.key] }
 		end)
 	end
 	-- активные баффы
 	local by = 38 + STAT_VISIBLE * 26 + 8
-	label(mid, { Position = UDim2.fromOffset(14, by), Size = UDim2.new(1, -28, 0, 18), Text = "АКТИВНЫЕ БАФФЫ", TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = C(255, 230, 150) }, 1.2)
+	label(mid, { Position = UDim2.fromOffset(14, by), Size = UDim2.new(1, -28, 0, 18), Text = "ACTIVE BUFFS", TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = C(255, 230, 150) }, 1.2)
 	local row = new("Frame", { Position = UDim2.fromOffset(12, by + 22), Size = UDim2.new(1, -24, 0, MID.h - by - 34), BackgroundTransparency = 1, Parent = mid }, {
 		new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder }),
 	})
@@ -1467,11 +1467,11 @@ local function buildStats(mid)
 			bindTip(c, function()
 				local left = Buffs.Left(player, b.id)
 				local n = Buffs.Stacks(player, b.id)
-				local lines = { { "Ступени", ("%d / %d"):format(n, Buffs.MaxStacks) }, { "Множитель", multStr(1 + b.per * n), b.color }, { "За ступень", ("+%d%%"):format(b.per * 100) } }
+				local lines = { { "Stacks", ("%d / %d"):format(n, Buffs.MaxStacks) }, { "Multiplier", multStr(1 + b.per * n), b.color }, { "Per Stack", ("+%d%%"):format(b.per * 100) } }
 				if left > 0 then
-					table.insert(lines, { "Осталось", ("%.1f с"):format(left) })
+					table.insert(lines, { "Time Left", ("%.1f s"):format(left) })
 				end
-				return { title = b.name, color = b.color, sub = left > 0 and "АКТИВЕН" or "НЕ АКТИВЕН", lines = lines, desc = "Усиливает: " .. b.desc .. ". Подбирай такие сферы на полях — ступени складываются." }
+				return { title = b.name, color = b.color, sub = left > 0 and "ACTIVE" or "INACTIVE", lines = lines, desc = "Boosts: " .. b.desc .. ". Pick up these orbs in the fields; stacks add up." }
 			end)
 		end
 	end
@@ -1698,7 +1698,7 @@ function Inv.RefreshGear(animate)
 			hotbarSource(c.btn, function()
 				return HS.ShopKey(c.item)
 			end, function()
-				return c.item and ("«%s» надевается на персонажа — в хотбар кладут расходники и находки"):format(c.item.name)
+				return c.item and ("“%s” is worn on your character. The hotbar holds consumables and finds"):format(c.item.name)
 			end)
 		end
 		c.btn.Visible = true
@@ -1755,7 +1755,7 @@ local function updateAction(entry)
 	act.sub.Text = tier.name:upper() .. "  •  x" .. entry.n .. "  •  🔋 " .. U.fmt(it.value)
 	act.sub.TextColor3 = tier.color
 	U.tween(act.use, 0.2, { BackgroundTransparency = it.use and 0 or 0.7, TextTransparency = it.use and 0 or 0.6 })
-	act.sellAll.Text = ("ВСЕ 🔋%s"):format(U.fmt(it.value * entry.n))
+	act.sellAll.Text = ("ALL 🔋%s"):format(U.fmt(it.value * entry.n))
 	U.tween(act.stroke, 0.2, { Color = tier.color })
 end
 
@@ -1825,10 +1825,10 @@ local function bagAct(action)
 	end)
 	if ok and res then
 		if res.ok then
-			api.toast(res.msg or "Готово", "good")
+			api.toast(res.msg or "Done", "good")
 			U.play(U.Sounds.coin, 0.4, 1.2)
 		else
-			api.toast(res.err or "Не получилось", "bad")
+			api.toast(res.err or "Didn't work", "bad")
 		end
 	end
 end
@@ -1898,7 +1898,7 @@ local function buildRight(right)
 		new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder }),
 	})
 	tabs.filters = {}
-	local filterDefs = { { key = "all", icon = "★", name = "Все вещи" } }
+	local filterDefs = { { key = "all", icon = "★", name = "All Items" } }
 	for _, s in ipairs(Shop.Slots) do
 		table.insert(filterDefs, { key = s.key, icon = s.icon, name = s.name })
 	end
@@ -1911,7 +1911,7 @@ local function buildRight(right)
 			Inv.SetFilter(f.key)
 		end)
 		bindTip(b, function()
-			return { title = f.name, color = C(90, 170, 255), sub = "ФИЛЬТР", desc = "Показать в рюкзаке только эти вещи." }
+			return { title = f.name, color = C(90, 170, 255), sub = "FILTER", desc = "Show only these items in your backpack." }
 		end)
 		tabs.filters[f.key] = { btn = b, txt = txt }
 	end
@@ -1929,7 +1929,7 @@ local function buildRight(right)
 		new("UIGridLayout", { CellSize = UDim2.fromOffset(CELL.X, CELL.Y), CellPadding = UDim2.fromOffset(8, 8), SortOrder = Enum.SortOrder.LayoutOrder }),
 		new("UIPadding", { PaddingTop = UDim.new(0, 4), PaddingLeft = UDim.new(0, 2) }),
 	})
-	tabs.gearEmpty = label(tabs.gearPage, { Position = UDim2.fromOffset(10, 60), Size = UDim2.new(1, -20, 0, 80), Text = "Здесь пока пусто.\nПокупай и крафти снаряжение в Магазине — всё купленное хранится в рюкзаке навсегда.", Font = Enum.Font.GothamBold, TextSize = 14, TextWrapped = true, TextColor3 = T.Muted, Visible = false })
+	tabs.gearEmpty = label(tabs.gearPage, { Position = UDim2.fromOffset(10, 60), Size = UDim2.new(1, -20, 0, 80), Text = "Nothing here yet.\nBuy and craft gear in the Shop. Everything you buy stays in your backpack forever.", Font = Enum.Font.GothamBold, TextSize = 14, TextWrapped = true, TextColor3 = T.Muted, Visible = false })
 
 	-- страница «Находки»: предметы из куч лома, продажа и использование
 	tabs.findsPage = new("Frame", { Position = UDim2.fromOffset(pw + 20, 0), Size = UDim2.fromOffset(pw, ph), BackgroundTransparency = 1, Parent = pages })
@@ -1964,15 +1964,15 @@ local function buildRight(right)
 		hotbarSource(c.btn, function()
 			return c.entry and HS.FindKey(c.entry.item)
 		end, function()
-			return c.entry and ("«%s» нельзя использовать — её можно только продать"):format(c.entry.item.name)
+			return c.entry and ("“%s” can't be used, it can only be sold"):format(c.entry.item.name)
 		end)
 		findCells[i] = c
 	end
-	tabs.findsEmpty = label(tabs.findsPage, { Position = UDim2.fromOffset(10, 40), Size = UDim2.new(1, -20, 0, 80), Text = "Рюкзак пуст.\nСобирай лом и убивай зомби — иногда в кучах попадаются редкие находки. Ночью их вдвое больше!", Font = Enum.Font.GothamBold, TextSize = 14, TextWrapped = true, TextColor3 = T.Muted, Visible = false, ZIndex = 5 })
+	tabs.findsEmpty = label(tabs.findsPage, { Position = UDim2.fromOffset(10, 40), Size = UDim2.new(1, -20, 0, 80), Text = "Your backpack is empty.\nCollect scrap and kill zombies. Piles sometimes hide rare finds, and there are twice as many at night!", Font = Enum.Font.GothamBold, TextSize = 14, TextWrapped = true, TextColor3 = T.Muted, Visible = false, ZIndex = 5 })
 	local bar = new("Frame", { AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 0, 1, 0), Size = UDim2.new(1, 0, 0, 60), BackgroundColor3 = C(20, 24, 28), Parent = tabs.findsPage }, { U.corner(10) })
 	act.stroke = U.stroke(C(70, 80, 90), 1.5)
 	act.stroke.Parent = bar
-	act.empty = label(bar, { Size = UDim2.fromScale(1, 1), Text = "Выбери находку", Font = Enum.Font.GothamBold, TextSize = 13, TextColor3 = T.Muted })
+	act.empty = label(bar, { Size = UDim2.fromScale(1, 1), Text = "Select a find", Font = Enum.Font.GothamBold, TextSize = 13, TextColor3 = T.Muted })
 	act.box = new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Visible = false, Parent = bar })
 	act.icon = new("ImageLabel", { Position = UDim2.fromOffset(6, 4), Size = UDim2.fromOffset(24, 24), BackgroundTransparency = 1, ScaleType = Enum.ScaleType.Fit, Parent = act.box })
 	act.name = label(act.box, { Position = UDim2.fromOffset(34, 2), Size = UDim2.new(1, -40, 0, 16), Text = "", TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left }, 1.2)
@@ -1985,9 +1985,9 @@ local function buildRight(right)
 		U.corner(6).Parent = b
 		return b
 	end
-	act.use = actBtn(1, "✔ ИСПОЛЬЗОВАТЬ", C(80, 200, 255), C(10, 25, 40), "use")
-	act.sell = actBtn(2, "ПРОДАТЬ 1", T.Hazard, C(40, 25, 0), "sell")
-	act.sellAll = actBtn(3, "ВСЕ", C(235, 120, 40), C(40, 15, 0), "sellall")
+	act.use = actBtn(1, "✔ USE", C(80, 200, 255), C(10, 25, 40), "use")
+	act.sell = actBtn(2, "SELL 1", T.Hazard, C(40, 25, 0), "sell")
+	act.sellAll = actBtn(3, "ALL", C(235, 120, 40), C(40, 15, 0), "sellall")
 end
 
 local function buildCharacterPanel(left)
@@ -2029,7 +2029,7 @@ local function buildCharacterPanel(left)
 			table.insert(hole.brackets, b)
 		end
 	end
-	hole.hint = label(hole.frame, { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -6), Size = UDim2.new(1, -10, 0, 14), Text = UIS.TouchEnabled and not UIS.MouseEnabled and "Тяни — вращать  •  Щипок — зум" or "Тяни — вращать  •  Колёсико — зум", Font = Enum.Font.GothamBold, TextSize = 11, TextColor3 = C(200, 215, 230), TextTransparency = 0.2, ZIndex = 6 }, 1)
+	hole.hint = label(hole.frame, { AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -6), Size = UDim2.new(1, -10, 0, 14), Text = UIS.TouchEnabled and not UIS.MouseEnabled and "Drag to rotate  •  Pinch to zoom" or "Drag to rotate  •  Wheel to zoom", Font = Enum.Font.GothamBold, TextSize = 11, TextColor3 = C(200, 215, 230), TextTransparency = 0.2, ZIndex = 6 }, 1)
 	-- вращение персонажа мышью или пальцем
 	hole.frame.InputBegan:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
@@ -2142,7 +2142,7 @@ local function buildCharacterPanel(left)
 	power.name = label(left, { Position = UDim2.fromOffset(14, by), Size = UDim2.new(1, -28, 0, 24), Text = player.DisplayName, TextSize = 20, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = C(255, 255, 255) }, 1.6)
 	new("UIGradient", { Rotation = 90, Color = ColorSequence.new(C(255, 255, 255), C(190, 210, 230)), Parent = power.name })
 	power.count = label(left, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -14, 0, by + 4), Size = UDim2.fromOffset(160, 18), Text = "", Font = Enum.Font.GothamBold, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Right, TextColor3 = T.Muted })
-	label(left, { Position = UDim2.fromOffset(14, by + 30), Size = UDim2.fromOffset(200, 14), Text = "РЕЙТИНГ СНАРЯЖЕНИЯ", TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = C(255, 220, 130) })
+	label(left, { Position = UDim2.fromOffset(14, by + 30), Size = UDim2.fromOffset(200, 14), Text = "GEAR SCORE", TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = C(255, 220, 130) })
 	power.val = label(left, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -14, 0, by + 30), Size = UDim2.fromOffset(120, 14), Text = "", TextSize = 12, TextXAlignment = Enum.TextXAlignment.Right, TextColor3 = C(255, 255, 255) }, 1)
 	local bg = new("Frame", { Position = UDim2.fromOffset(14, by + 48), Size = UDim2.new(1, -28, 0, 12), BackgroundColor3 = C(10, 12, 14), Parent = left }, { U.round(), U.stroke(C(70, 76, 86), 1) })
 	power.fill = new("Frame", { Size = UDim2.fromScale(0.02, 1), BackgroundColor3 = C(255, 255, 255), Parent = bg }, { U.round() })
@@ -2157,7 +2157,7 @@ local function buildCharacterPanel(left)
 			local it = equipped(s.key) and Shop.ById[equipped(s.key)]
 			table.insert(lines, { s.icon .. " " .. s.name, it and gradeOf(it).name or "—", it and gradeOf(it).color or C(140, 140, 140) })
 		end
-		return { title = "Рейтинг снаряжения", color = C(255, 200, 90), sub = power.val.Text, lines = lines, desc = "Сумма грейдов всего надетого: от «Обычный» (1) до «Абсолют» (7) в каждой из 7 ячеек." }
+		return { title = "Gear Score", color = C(255, 200, 90), sub = power.val.Text, lines = lines, desc = "Sum of the grades of everything equipped: from Common (1) to Absolute (7) in each of the 7 slots." }
 	end)
 end
 
@@ -2172,7 +2172,7 @@ local function updatePower()
 		end
 	end
 	local max = #SLOT_DEFS * #Shop.Grades
-	power.count.Text = ("Надето: %d / %d"):format(n, #SLOT_DEFS)
+	power.count.Text = ("Equipped: %d / %d"):format(n, #SLOT_DEFS)
 	U.countTo(power.val, sum, function(v)
 		return ("%d / %d"):format(math.floor(v + 0.5), max)
 	end, 0.6)
@@ -2182,8 +2182,8 @@ end
 local function updateCap(d)
 	local ratio = math.clamp(d.scrap / math.max(d.capacity, 1), 0, 1)
 	U.tween(cap.bar, 0.25, { Size = UDim2.fromScale(math.max(ratio, 0.02), 1) })
-	cap.text.Text = ("Лом: %s / %s"):format(U.fmt(d.scrap), U.fmt(d.capacity))
-	cap.lvl.Text = ("УРОВЕНЬ РЮКЗАКА: %d / %d"):format(d.bagLevel, Config.MaxBagLevel)
+	cap.text.Text = ("Scrap: %s / %s"):format(U.fmt(d.scrap), U.fmt(d.capacity))
+	cap.lvl.Text = ("BACKPACK LEVEL: %d / %d"):format(d.bagLevel, Config.MaxBagLevel)
 	if d.bagCost then
 		local mats = Config.BagMats[d.bagLevel]
 		local okMats = true
@@ -2195,12 +2195,12 @@ local function updateCap(d)
 			end
 			table.insert(parts, ("%s %d/%d"):format(Items.ById[id] and Items.ById[id].name or id, have, need))
 		end
-		cap.up.Text = ("⬆ УЛУЧШИТЬ — 🔋 %s"):format(U.fmt(d.bagCost))
+		cap.up.Text = ("⬆ UPGRADE — 🔋 %s"):format(U.fmt(d.bagCost))
 		U.tween(cap.up, 0.2, { BackgroundColor3 = (d.batteries >= d.bagCost and okMats) and T.Accent or C(70, 80, 70) })
 		cap.mats.Text = #parts > 0 and ("🧰 " .. table.concat(parts, "  •  ")) or ""
 		cap.mats.TextColor3 = okMats and C(170, 255, 140) or C(255, 170, 150)
 	else
-		cap.up.Text = "МАКСИМАЛЬНЫЙ УРОВЕНЬ"
+		cap.up.Text = "MAX LEVEL"
 		U.tween(cap.up, 0.2, { BackgroundColor3 = C(70, 80, 70) })
 		cap.mats.Text = ""
 	end
@@ -2213,8 +2213,8 @@ function Inv.Refresh(d)
 		return
 	end
 	local list = bagList(d)
-	tabs.gearBtn.Text = ("⚔ СНАРЯЖЕНИЕ  %d"):format(countGear())
-	tabs.findsBtn.Text = ("💎 НАХОДКИ  %d/%d"):format(#list, Items.BagSlots)
+	tabs.gearBtn.Text = ("⚔ GEAR  %d"):format(countGear())
+	tabs.findsBtn.Text = ("💎 FINDS  %d/%d"):format(#list, Items.BagSlots)
 	updateCap(d)
 	updateSlots()
 	refreshHotbarStrip()
@@ -2271,12 +2271,12 @@ local function buildHotbarStrip()
 	local bar = new("Frame", { Position = UDim2.fromOffset(STRIP.x, STRIP.y), Size = UDim2.fromOffset(STRIP.w, STRIP.h), BackgroundColor3 = C(255, 255, 255), Parent = body }, { U.corner(14), U.grad(C(36, 42, 50), C(22, 26, 30), 90) })
 	strip.stroke = U.stroke(C(60, 70, 80), 1.5)
 	strip.stroke.Parent = bar
-	local title = label(bar, { Position = UDim2.fromOffset(16, 10), Size = UDim2.fromOffset(300, 24), Text = "ХОТБАР", TextSize = 20, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = C(255, 255, 255) }, 1.2)
+	local title = label(bar, { Position = UDim2.fromOffset(16, 10), Size = UDim2.fromOffset(300, 24), Text = "HOTBAR", TextSize = 20, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = C(255, 255, 255) }, 1.2)
 	new("UIGradient", { Color = ColorSequence.new(C(200, 255, 190), C(110, 220, 80)), Rotation = 90, Parent = title })
 	strip.hint = label(bar, {
 		Position = UDim2.fromOffset(16, 36),
 		Size = UDim2.fromOffset(560, 36),
-		Text = "Перетащи расходник или находку в ячейки 3–6 — или наведи на предмет и нажми 3–6.\nВынеси предмет из ячейки или нажми ПКМ, чтобы освободить её. Ячейки можно менять местами.",
+		Text = "Drag a consumable or find into slots 3–6, or hover over an item and press 3–6.\nDrag an item out of a slot or right-click to clear it. Slots can be swapped.",
 		Font = Enum.Font.GothamBold,
 		TextSize = 12,
 		TextWrapped = true,
@@ -2326,7 +2326,7 @@ local function buildHotbarStrip()
 				local it = id and Shop.ById[id]
 				local spec = it and gearSpec(it, true)
 				if spec then
-					spec.footer = isTool and "Ячейка 2 — всегда твой инструмент (меняется в слоте персонажа)" or "Ячейка 1 — всегда твоё оружие (меняется в слоте персонажа)"
+					spec.footer = isTool and "Slot 2 is always your tool (change it in the character slot)" or "Slot 1 is always your weapon (change it in the character slot)"
 					spec.footerColor = C(255, 200, 120)
 				end
 				return spec
@@ -2381,9 +2381,9 @@ local function buildHotbarStrip()
 				elseif kind == "find" then
 					spec = findSpec(it, HS.Count(key))
 				else
-					return { title = ("Ячейка %d — пусто"):format(i), color = C(150, 170, 190), sub = "СВОБОДНАЯ ЯЧЕЙКА", lines = {}, desc = "Перетащи сюда любой расходник или находку, которую можно использовать.", footer = "Или наведи на предмет в хранилище и нажми " .. i, footerColor = C(130, 220, 255) }
+					return { title = ("Slot %d is empty"):format(i), color = C(150, 170, 190), sub = "FREE SLOT", lines = {}, desc = "Drag any consumable or usable find here.", footer = "Or hover over an item in storage and press " .. i, footerColor = C(130, 220, 255) }
 				end
-				spec.footer = "Клавиша " .. i .. "  •  перетащи в другую ячейку или вынеси, чтобы убрать"
+				spec.footer = "Key " .. i .. "  •  drag to another slot or out to remove"
 				spec.footerColor = C(130, 220, 255)
 				return spec
 			end)
@@ -2458,9 +2458,9 @@ local function buildWindow()
 
 	local header = new("Frame", { Size = UDim2.new(1, 0, 0, 60), BackgroundColor3 = C(255, 255, 255), Parent = body }, { U.corner(18), U.grad(C(36, 60, 90), C(20, 30, 46), 90) })
 	new("ImageLabel", { BackgroundTransparency = 1, Image = Icons.bag, Size = UDim2.fromOffset(48, 48), Position = UDim2.fromOffset(12, 6), Parent = header })
-	local title = label(header, { Position = UDim2.fromOffset(70, 5), Size = UDim2.fromOffset(300, 32), Text = "ИНВЕНТАРЬ", TextScaled = true, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = C(255, 255, 255) }, 1.5)
+	local title = label(header, { Position = UDim2.fromOffset(70, 5), Size = UDim2.fromOffset(300, 32), Text = "INVENTORY", TextScaled = true, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = C(255, 255, 255) }, 1.5)
 	new("UIGradient", { Color = ColorSequence.new(C(200, 235, 255), C(90, 170, 255)), Rotation = 90, Parent = title })
-	label(header, { Position = UDim2.fromOffset(72, 38), Size = UDim2.fromOffset(520, 16), Text = "Персонаж, снаряжение и находки. Наведи на вещь — увидишь её характеристики", Font = Enum.Font.GothamBold, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = T.Muted })
+	label(header, { Position = UDim2.fromOffset(72, 38), Size = UDim2.fromOffset(520, 16), Text = "Character, gear and finds. Hover over an item to see its stats", Font = Enum.Font.GothamBold, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = T.Muted })
 	local close = api.button({ AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -12, 0.5, 0), Size = UDim2.fromOffset(42, 42), BackgroundColor3 = T.Danger, Font = Enum.Font.GothamBlack, Text = "X", TextSize = 20, TextColor3 = C(255, 255, 255), Parent = header }, function()
 		Inv.Close()
 	end)

@@ -122,12 +122,12 @@ function U.isTouch()
 	return UIS.TouchEnabled and not UIS.KeyboardEnabled
 end
 
--- подсказки «нажми E» на телефоне превращаются в «нажми на кнопку» (там нет клавиатуры)
+-- "press E" hints turn into "press the button" on phones (they have no keyboard)
 function U.touchText(s)
 	if typeof(s) ~= "string" or not UIS.TouchEnabled or UIS.KeyboardEnabled then
 		return s
 	end
-	s = s:gsub("([Нн])ажми E", "%1ажми на кнопку"):gsub("([Нн])ажать E", "%1ажать на кнопку")
+	s = s:gsub("([Pp])ress E", "%1ress the button")
 	return s
 end
 

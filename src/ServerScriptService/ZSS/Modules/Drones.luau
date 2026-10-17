@@ -765,7 +765,7 @@ function Drones.Step(now)
 			if field and #p.equipped < field.cfg.req then
 				if now - s.lastGateWarn > 1 then
 					s.lastGateWarn = now
-					Remotes.Notify:FireClient(player, ("⛔ Для зоны «%s» нужно %d дронов в рое!"):format(field.cfg.name, field.cfg.req), "bad")
+					Remotes.Notify:FireClient(player, ("⛔ The “%s” zone needs %d drones in your swarm!"):format(field.cfg.name, field.cfg.req), "bad")
 					char:PivotTo(CFrame.new(Fields.Entrance(field) + Fields.GateDir(field) * 4))
 				end
 				field = nil
@@ -829,7 +829,7 @@ function Drones.Step(now)
 						c.d = d
 						local ok, used = pcall(A[ab.id], c)
 						if not ok then
-							warn("[ZSS] Способность", ab.id, used)
+							warn("[ZSS] Ability", ab.id, used)
 							d.abilityReady = now + 5
 						elseif used then
 							d.abilityReady = now + ab.cd

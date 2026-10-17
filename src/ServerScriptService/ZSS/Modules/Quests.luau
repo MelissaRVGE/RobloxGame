@@ -170,31 +170,31 @@ function Quests.Action(player, npcId, action)
 	local npc = Q.ById[npcId]
 	local p = Data.Get(player)
 	if not npc or not p then
-		return { ok = false, err = "Неизвестный NPC" }
+		return { ok = false, err = "Unknown NPC" }
 	end
 	if not nearNpc(player, npcId) then
-		return { ok = false, err = "Подойди ближе к " .. npc.name }
+		return { ok = false, err = "Get closer to " .. npc.name }
 	end
 	local s = state(p, npcId)
 	local q = npc.quests[s.stage]
 	if not q then
-		return { ok = false, err = "Все задания выполнены!" }
+		return { ok = false, err = "All quests complete!" }
 	end
 	if action == "accept" then
 		if s.active then
-			return { ok = false, err = "Задание уже взято" }
+			return { ok = false, err = "Quest already taken" }
 		end
 		s.active = true
 		s.prog = {}
 		Data.MarkDirty(player)
-		return { ok = true, msg = "📜 Новое задание: " .. q.title }
+		return { ok = true, msg = "📜 New quest: " .. q.title }
 	elseif action == "turnin" then
 		if not s.active then
-			return { ok = false, err = "Сначала возьми задание" }
+			return { ok = false, err = "Take the quest first" }
 		end
 		for i, g in ipairs(q.goals) do
 			if goalValue(p, s, g, i) < g.n then
-				return { ok = false, err = "Ещё не всё готово: " .. Q.GoalText(g, g.id and Items.ById[g.id] and Items.ById[g.id].name) }
+				return { ok = false, err = "Not done yet: " .. Q.GoalText(g, g.id and Items.ById[g.id] and Items.ById[g.id].name) }
 			end
 		end
 		-- забираем принесённые предметы
@@ -206,7 +206,7 @@ function Quests.Action(player, npcId, action)
 		end
 		local ok = Data.HasMats(p, take)
 		if not ok then
-			return { ok = false, err = "Не хватает предметов для сдачи" }
+			return { ok = false, err = "Not enough items to hand in" }
 		end
 		Data.TakeMats(p, take)
 		local sold = giveReward(player, p, q.reward)
@@ -215,9 +215,9 @@ function Quests.Action(player, npcId, action)
 		s.prog = {}
 		Data.MarkDirty(player)
 		Remotes.FX:FireAllClients("questdone", { owner = player.UserId, npc = npcId })
-		local msg = "✔ Задание «" .. q.title .. "» выполнено!"
+		local msg = "✔ Quest “" .. q.title .. "” complete!"
 		if sold > 0 then
-			msg ..= " Рюкзак полон — часть находок продана за 🔋 " .. sold
+			msg ..= " Backpack full, some finds were sold for 🔋 " .. sold
 		end
 		return { ok = true, msg = msg, reward = q.reward, perkText = q.perkText }
 	end

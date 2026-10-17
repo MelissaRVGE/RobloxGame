@@ -152,9 +152,9 @@ function Equipment.MakeTool(item)
 	local tool = Instance.new("Tool")
 	tool.Name = item.name
 	if item.slot == "tool" then
-		tool.ToolTip = ("⛏ Добыча +%d • Радиус %s"):format(item.stats.gather or 0, tostring(item.stats.radius))
+		tool.ToolTip = ("⛏ Gather +%d • Radius %s"):format(item.stats.gather or 0, tostring(item.stats.radius))
 	else
-		tool.ToolTip = ("⚔ Урон %d • Радиус %s"):format(item.stats.dmg or 0, tostring(item.stats.radius))
+		tool.ToolTip = ("⚔ Damage %d • Radius %s"):format(item.stats.dmg or 0, tostring(item.stats.radius))
 	end
 	tool:SetAttribute("ZSSKind", item.slot)
 	tool.CanBeDropped = false
@@ -411,21 +411,21 @@ function Equipment.Buy(player, id, qty)
 	local p = Data.Get(player)
 	local item = Shop.ById[id]
 	if not p or not item then
-		return { ok = false, err = "Неизвестный предмет" }
+		return { ok = false, err = "Unknown item" }
 	end
 	if item.noShop then
-		return { ok = false, err = "Этот предмет не продаётся: он выпадает с зомби и босса" }
+		return { ok = false, err = "This item isn't sold: it drops from zombies and the boss" }
 	end
 	if item.stack then
 		local qty = (qty == 5) and 5 or 1
 		local char = player.Character
 		local hrp = char and char:FindFirstChild("HumanoidRootPart")
 		if not hrp or (hrp.Position - Config.ShopZone.center).Magnitude > Config.ShopZone.radius + 10 then
-			return { ok = false, err = "Покупать можно только в Магазине!" }
+			return { ok = false, err = "You can only buy things in the Shop!" }
 		end
 		local cost = item.price * qty
 		if p.batteries < cost then
-			return { ok = false, err = ("🔋 Не хватает батарей: нужно %d"):format(cost) }
+			return { ok = false, err = ("🔋 Not enough batteries: you need %d"):format(cost) }
 		end
 		p.batteries -= cost
 		Equipment.GiveConsum(player, id, qty)
@@ -433,20 +433,20 @@ function Equipment.Buy(player, id, qty)
 		return { ok = true, qty = qty }
 	end
 	if p.items[id] then
-		return { ok = false, err = "Уже куплено" }
+		return { ok = false, err = "Already bought" }
 	end
 	local char = player.Character
 	local hrp = char and char:FindFirstChild("HumanoidRootPart")
 	if not hrp or (hrp.Position - Config.ShopZone.center).Magnitude > Config.ShopZone.radius + 10 then
-		return { ok = false, err = "Покупать можно только в Магазине!" }
+		return { ok = false, err = "You can only buy things in the Shop!" }
 	end
 	if p.batteries < item.price then
-		return { ok = false, err = ("🔋 Не хватает батарей: нужно %d"):format(item.price) }
+		return { ok = false, err = ("🔋 Not enough batteries: you need %d"):format(item.price) }
 	end
 	-- крафт: нужны находки из рюкзака
 	local ok, missing = Data.HasMats(p, item.mats)
 	if not ok then
-		return { ok = false, err = "🧰 Не хватает материалов: " .. missing }
+		return { ok = false, err = "🧰 Not enough materials: " .. missing }
 	end
 	Data.TakeMats(p, item.mats)
 	p.batteries -= item.price
@@ -514,7 +514,7 @@ function Equipment.Use(player, id)
 		return
 	end
 	if (p.consum[id] or 0) <= 0 then
-		Remotes.Notify:FireClient(player, ("Нет предмета «%s» — купи в Магазине"):format(item.name), "bad")
+		Remotes.Notify:FireClient(player, ("You don't have “%s”. Buy it in the Shop"):format(item.name), "bad")
 		return
 	end
 	local now = os.clock()
@@ -529,7 +529,7 @@ function Equipment.Use(player, id)
 	end
 	if id == "medkit" then
 		if hum.Health >= hum.MaxHealth - 0.5 then
-			Remotes.Notify:FireClient(player, "❤ Здоровье уже полное", "info")
+			Remotes.Notify:FireClient(player, "❤ Health is already full", "info")
 			return
 		end
 		hum.Health = math.min(hum.MaxHealth, hum.Health + item.stats.heal)
@@ -589,25 +589,25 @@ function Equipment.ApplyUse(player, p, item, hrp, hum)
 	local u = item.use
 	local field = Fields.At(hrp.Position)
 	if u.field and (not field or field.cfg.boss) then
-		return false, ("«%s» работает только на поле с ломом"):format(item.name)
+		return false, ("“%s” only works on a field with scrap"):format(item.name)
 	end
 	if u.home then
 		local Hives = require(script.Parent.Hives)
 		local i = Hives.Index(player)
 		if not i then
-			return false, "Сначала займи улей на базе"
+			return false, "First claim a hive at the base"
 		end
 		player.Character:PivotTo(CFrame.new(Hives.FrontPos(i) + Vector3.new(0, 3, 0)))
 	end
 	if u.convert then
 		if (p.scrap or 0) <= 0 then
-			return false, "🎒 Рюкзак пуст — нечего перерабатывать"
+			return false, "🎒 Your backpack is empty, nothing to recycle"
 		end
 		local n = Data.TakeScrap(p, p.scrap)
 		local gain = math.floor(n * (player:GetAttribute("ZSS_ConvMult") or 1) * Buffs.Mult(player, "convb"))
 		Data.AddBatteries(player, gain)
 		require(script.Parent.Quests).Event(player, "convert", nil, n)
-		Remotes.Notify:FireClient(player, ("♻ Переработано %d лома → 🔋 +%d"):format(n, gain), "good")
+		Remotes.Notify:FireClient(player, ("♻ Recycled %d scrap → 🔋 +%d"):format(n, gain), "good")
 	end
 	if u.heal then
 		hum.Health = u.heal == "full" and hum.MaxHealth or math.min(hum.MaxHealth, hum.Health + u.heal)

@@ -266,7 +266,7 @@ local function onCaptureKey(_, state, input)
 		U.pulseScale(row.cap, 1.15, 0.08, 0.3)
 		S.OnKeysChanged(row.action.id, info)
 	else
-		row.fail(("%s занята: %s"):format(Keybinds.Name(kc), info))
+		row.fail(("%s is taken: %s"):format(Keybinds.Name(kc), info))
 	end
 	return Enum.ContextActionResult.Sink
 end
@@ -280,7 +280,7 @@ local function bindRow(page, order, action)
 	cst.Parent = cap
 	local lbl = new("TextLabel", { Position = UDim2.fromOffset(108, 0), Size = UDim2.new(1, -160, 1, 0), BackgroundTransparency = 1, Font = Enum.Font.GothamBold, Text = action.label, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = C(220, 226, 232), TextTruncate = Enum.TextTruncate.AtEnd, Parent = r })
 	-- «СБРОС» — вернуть стандартную клавишу этого действия (видна, только если клавиша изменена)
-	local back = new("TextButton", { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -10, 0.5, 0), Size = UDim2.fromOffset(64, 28), BackgroundColor3 = C(40, 46, 56), Font = Enum.Font.GothamBlack, Text = "СБРОС", TextSize = 11, TextColor3 = C(200, 220, 240), AutoButtonColor = false, Visible = false, Parent = r }, { U.corner(8) })
+	local back = new("TextButton", { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -10, 0.5, 0), Size = UDim2.fromOffset(64, 28), BackgroundColor3 = C(40, 46, 56), Font = Enum.Font.GothamBlack, Text = "RESET", TextSize = 11, TextColor3 = C(200, 220, 240), AutoButtonColor = false, Visible = false, Parent = r }, { U.corner(8) })
 	local row = { action = action, cap = cap, lbl = lbl }
 	local errUntil = 0
 	function row.sync()
@@ -329,7 +329,7 @@ local function bindRow(page, order, action)
 		errUntil = 0
 		U.play(U.Sounds.tap, 0.5, 1.25)
 		cap.Text = "…"
-		lbl.Text = "Нажми новую клавишу  •  Esc — отмена"
+		lbl.Text = "Press a new key  •  Esc to cancel"
 		U.tween(lbl, 0.18, { TextColor3 = ACCENT })
 		U.tween(rst, 0.18, { Color = ACCENT })
 		U.tween(cst, 0.18, { Color = ACCENT, Thickness = 2 })
@@ -358,11 +358,11 @@ end
 
 -- ===== ОКНО =====
 local TABS = {
-	{ id = "graphics", label = "Графика", icon = "setGraphics", color = C(90, 170, 255) },
-	{ id = "controls", label = "Управление", icon = "setControls", color = C(255, 170, 70) },
-	{ id = "sound", label = "Звук", icon = "setSound", color = C(110, 230, 120) },
-	{ id = "ui", label = "Интерфейс", icon = "setUi", color = C(190, 130, 255) },
-	{ id = "codes", label = "Промокоды", icon = "lootCrate", color = C(255, 200, 60) },
+	{ id = "graphics", label = "Graphics", icon = "setGraphics", color = C(90, 170, 255) },
+	{ id = "controls", label = "Controls", icon = "setControls", color = C(255, 170, 70) },
+	{ id = "sound", label = "Sound", icon = "setSound", color = C(110, 230, 120) },
+	{ id = "ui", label = "Interface", icon = "setUi", color = C(190, 130, 255) },
+	{ id = "codes", label = "Promo Codes", icon = "lootCrate", color = C(255, 200, 60) },
 }
 
 local currentTab
@@ -406,9 +406,9 @@ local function build()
 	local head = new("Frame", { Size = UDim2.new(1, 0, 0, 66), BackgroundColor3 = C(24, 30, 40), Parent = win }, { U.corner(20), U.grad(C(255, 255, 255), C(150, 160, 180), 90) })
 	local gear = new("ImageLabel", { Name = "Gear", BackgroundTransparency = 1, Image = Icons.gear, Position = UDim2.fromOffset(14, 9), Size = UDim2.fromOffset(48, 48), Parent = head })
 	S.gearIcon = gear
-	local title = new("TextLabel", { Position = UDim2.fromOffset(74, 8), Size = UDim2.new(1, -150, 0, 32), BackgroundTransparency = 1, Font = Enum.Font.GothamBlack, Text = "НАСТРОЙКИ", TextSize = 28, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = C(255, 255, 255), Parent = head }, { U.textStroke(C(0, 10, 25), 2) })
+	local title = new("TextLabel", { Position = UDim2.fromOffset(74, 8), Size = UDim2.new(1, -150, 0, 32), BackgroundTransparency = 1, Font = Enum.Font.GothamBlack, Text = "SETTINGS", TextSize = 28, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = C(255, 255, 255), Parent = head }, { U.textStroke(C(0, 10, 25), 2) })
 	new("UIGradient", { Rotation = 90, Color = ColorSequence.new(C(230, 245, 255), C(120, 200, 255)), Parent = title })
-	new("TextLabel", { Position = UDim2.fromOffset(75, 40), Size = UDim2.new(1, -150, 0, 16), BackgroundTransparency = 1, Font = Enum.Font.GothamBold, Text = "Изменения сохраняются автоматически", TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = C(150, 170, 190), Parent = head })
+	new("TextLabel", { Position = UDim2.fromOffset(75, 40), Size = UDim2.new(1, -150, 0, 16), BackgroundTransparency = 1, Font = Enum.Font.GothamBold, Text = "Changes are saved automatically", TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = C(150, 170, 190), Parent = head })
 	local close = api.button({ AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -14, 0.5, 0), Size = UDim2.fromOffset(44, 44), BackgroundColor3 = T.Danger, Font = Enum.Font.GothamBlack, Text = "X", TextSize = 20, TextColor3 = C(255, 255, 255), Parent = head }, function()
 		S.Close()
 	end)
@@ -443,46 +443,46 @@ local function build()
 	end
 	-- ГРАФИКА
 	local g = pages.graphics
-	segmented(g, 1, "preset", "⭐", "Качество графики", "Быстрый выбор для слабых и мощных устройств", {
-		{ value = "low", label = "НИЗКОЕ", apply = PRESETS.low },
-		{ value = "med", label = "СРЕДНЕЕ", apply = PRESETS.med },
-		{ value = "high", label = "ВЫСОКОЕ", apply = PRESETS.high },
+	segmented(g, 1, "preset", "⭐", "Graphics Quality", "Quick presets for weak and powerful devices", {
+		{ value = "low", label = "LOW", apply = PRESETS.low },
+		{ value = "med", label = "MEDIUM", apply = PRESETS.med },
+		{ value = "high", label = "HIGH", apply = PRESETS.high },
 	})
-	toggle(g, 2, "shadows", "🌗", "Тени", "Мягкие тени от солнца и фонарей")
-	toggle(g, 3, "effects", "✨", "Пост-эффекты", "Свечение и солнечные лучи")
-	toggle(g, 4, "particles", "💥", "Все частицы", "Выключи, если игра подтормаживает")
-	slider(g, 5, "fov", "📷", "Поле зрения", "Ширина обзора камеры", 55, 100, 1, function(v)
+	toggle(g, 2, "shadows", "🌗", "Shadows", "Soft shadows from the sun and lamps")
+	toggle(g, 3, "effects", "✨", "Post Effects", "Bloom and sun rays")
+	toggle(g, 4, "particles", "💥", "All Particles", "Turn off if the game lags")
+	slider(g, 5, "fov", "📷", "Field of View", "Camera view width", 55, 100, 1, function(v)
 		return tostring(v) .. "°"
 	end)
 	-- УПРАВЛЕНИЕ
 	local c = pages.controls
-	slider(c, 1, "sensitivity", "🖱", "Чувствительность мыши", "Скорость поворота камеры", 0.2, 3, 0.05, function(v)
+	slider(c, 1, "sensitivity", "🖱", "Mouse Sensitivity", "Camera turn speed", 0.2, 3, 0.05, function(v)
 		return ("%.2f"):format(v)
 	end)
-	toggle(c, 2, "shake", "📳", "Тряска камеры", "При взрывах и ударах босса")
+	toggle(c, 2, "shake", "📳", "Camera Shake", "On explosions and boss hits")
 	-- на телефоне/планшете без клавиатуры список клавиш не нужен
 	if UIS.KeyboardEnabled then
-		header(c, 3, "ГОРЯЧИЕ КЛАВИШИ")
-		new("TextLabel", { Size = UDim2.new(1, -8, 0, 18), BackgroundTransparency = 1, Font = Enum.Font.GothamBold, Text = "Нажми на клавишу, затем новую. Занятая клавиша поменяется местами.", TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = C(150, 160, 172), TextTruncate = Enum.TextTruncate.AtEnd, LayoutOrder = 4, Parent = c })
+		header(c, 3, "HOTKEYS")
+		new("TextLabel", { Size = UDim2.new(1, -8, 0, 18), BackgroundTransparency = 1, Font = Enum.Font.GothamBold, Text = "Click a key, then press a new one. A key that's already taken gets swapped.", TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = C(150, 160, 172), TextTruncate = Enum.TextTruncate.AtEnd, LayoutOrder = 4, Parent = c })
 		for i, a in ipairs(Keybinds.Actions) do
 			bindRow(c, 10 + i, a)
 		end
-		local resetKeys = api.button({ Size = UDim2.new(1, -8, 0, 40), BackgroundColor3 = C(40, 48, 60), Font = Enum.Font.GothamBlack, Text = "ВЕРНУТЬ СТАНДАРТНЫЕ КЛАВИШИ", TextSize = 14, TextColor3 = C(200, 225, 255), LayoutOrder = 60, Parent = c }, function()
+		local resetKeys = api.button({ Size = UDim2.new(1, -8, 0, 40), BackgroundColor3 = C(40, 48, 60), Font = Enum.Font.GothamBlack, Text = "RESTORE DEFAULT KEYS", TextSize = 14, TextColor3 = C(200, 225, 255), LayoutOrder = 60, Parent = c }, function()
 			stopCapture()
 			Keybinds.Reset()
 			S.OnKeysChanged()
 		end)
 		U.corner(10).Parent = resetKeys
-		header(c, 70, "ПОСТОЯННЫЕ КЛАВИШИ")
+		header(c, 70, "FIXED KEYS")
 		local fixed = {
-			{ "E", "Взаимодействие (NPC, станции, переработчик)" },
-			{ "ЛКМ", "Удар оружием / добыча инструментом" },
-			{ "Наведи", "В инвентаре: навести на предмет + клавиша ячейки 3–6" },
-			{ "Тащи", "Перетащить предмет в ячейку хотбара" },
-			{ "ПКМ", "Очистить ячейку хотбара" },
-			{ "Колесо", "Приблизить персонажа в инвентаре" },
-			{ "Enter", "Пропустить гачу (вместе с назначенной клавишей)" },
-			{ "Esc", "Закрыть окна" },
+			{ "E", "Interact (NPCs, stations, Recycler)" },
+			{ "LMB", "Weapon hit / tool gathering" },
+			{ "Hover", "In inventory: hover over an item + slot key 3–6" },
+			{ "Drag", "Drag an item into a hotbar slot" },
+			{ "RMB", "Clear a hotbar slot" },
+			{ "Wheel", "Zoom the character in the inventory" },
+			{ "Enter", "Skip the gacha (along with the assigned key)" },
+			{ "Esc", "Close windows" },
 		}
 		for i, k in ipairs(fixed) do
 			keyRow(c, 70 + i, k[1], k[2])
@@ -493,16 +493,16 @@ local function build()
 		return math.floor(v * 100 + 0.5) .. "%"
 	end
 	local sd = pages.sound
-	slider(sd, 1, "master", "🔊", "Общая громкость", "Все звуки игры", 0, 1, 0.05, pct)
-	slider(sd, 2, "sfx", "💣", "Эффекты", "Взрывы, удары, находки, гача", 0, 1, 0.05, pct)
-	slider(sd, 3, "ui", "🔘", "Интерфейс", "Щелчки кнопок и меню", 0, 1, 0.05, pct)
+	slider(sd, 1, "master", "🔊", "Master Volume", "All game sounds", 0, 1, 0.05, pct)
+	slider(sd, 2, "sfx", "💣", "Effects", "Explosions, hits, finds, gacha", 0, 1, 0.05, pct)
+	slider(sd, 3, "ui", "🔘", "Interface", "Button and menu clicks", 0, 1, 0.05, pct)
 	-- ИНТЕРФЕЙС
 	local ui = pages.ui
-	slider(ui, 1, "uiScale", "🔍", "Размер интерфейса", "Увеличить или уменьшить все окна", 0.7, 1.3, 0.05, pct)
-	toggle(ui, 3, "showDamage", "⚔️", "Цифры урона", "Всплывающие числа над зомби")
-	toggle(ui, 4, "toasts", "🔔", "Уведомления", "Сообщения вверху экрана (важные показываются всегда)")
+	slider(ui, 1, "uiScale", "🔍", "Interface Size", "Make all windows bigger or smaller", 0.7, 1.3, 0.05, pct)
+	toggle(ui, 3, "showDamage", "⚔️", "Damage Numbers", "Pop-up numbers above zombies")
+	toggle(ui, 4, "toasts", "🔔", "Notifications", "Messages at the top of the screen (important ones always show)")
 	-- сброс
-	local reset = api.button({ Size = UDim2.new(1, -8, 0, 44), BackgroundColor3 = C(70, 40, 40), Font = Enum.Font.GothamBlack, Text = "↺ СБРОСИТЬ ВСЕ НАСТРОЙКИ", TextSize = 15, TextColor3 = C(255, 210, 200), LayoutOrder = 99, Parent = ui }, function()
+	local reset = api.button({ Size = UDim2.new(1, -8, 0, 44), BackgroundColor3 = C(70, 40, 40), Font = Enum.Font.GothamBlack, Text = "↺ RESET ALL SETTINGS", TextSize = 15, TextColor3 = C(255, 210, 200), LayoutOrder = 99, Parent = ui }, function()
 		stopCapture()
 		S.Values = table.clone(S.Defaults)
 		Keybinds.Reset()
@@ -516,20 +516,20 @@ local function build()
 	U.corner(12).Parent = reset
 	-- ПРОМОКОДЫ
 	local cp = pages.codes
-	header(cp, 1, "ВВЕДИ ПРОМОКОД")
+	header(cp, 1, "ENTER PROMO CODE")
 	local box = new("Frame", { Size = UDim2.new(1, -8, 0, 120), BackgroundColor3 = C(22, 26, 32), LayoutOrder = 2, Parent = cp }, { U.corner(14) })
 	local bst = U.stroke(C(255, 200, 60), 2, 0.3)
 	bst.Parent = box
 	new("ImageLabel", { BackgroundTransparency = 1, Image = Icons.lootCrate, Position = UDim2.fromOffset(14, 14), Size = UDim2.fromOffset(52, 52), Parent = box })
-	local input = new("TextBox", { Position = UDim2.fromOffset(78, 16), Size = UDim2.new(1, -96, 0, 48), BackgroundColor3 = C(12, 14, 18), Font = Enum.Font.GothamBlack, PlaceholderText = "Например: RELEASE", PlaceholderColor3 = C(100, 110, 120), Text = "", TextSize = 22, TextColor3 = C(255, 230, 150), ClearTextOnFocus = false, Parent = box }, { U.corner(10), U.stroke(C(60, 66, 76), 2) })
-	local status = new("TextLabel", { Position = UDim2.fromOffset(14, 76), Size = UDim2.new(1, -196, 0, 34), BackgroundTransparency = 1, Font = Enum.Font.GothamBold, Text = "Коды публикуются в соцсетях игры", TextSize = 13, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = C(160, 170, 180), Parent = box })
+	local input = new("TextBox", { Position = UDim2.fromOffset(78, 16), Size = UDim2.new(1, -96, 0, 48), BackgroundColor3 = C(12, 14, 18), Font = Enum.Font.GothamBlack, PlaceholderText = "For example: RELEASE", PlaceholderColor3 = C(100, 110, 120), Text = "", TextSize = 22, TextColor3 = C(255, 230, 150), ClearTextOnFocus = false, Parent = box }, { U.corner(10), U.stroke(C(60, 66, 76), 2) })
+	local status = new("TextLabel", { Position = UDim2.fromOffset(14, 76), Size = UDim2.new(1, -196, 0, 34), BackgroundTransparency = 1, Font = Enum.Font.GothamBold, Text = "Codes are posted on the game's social media", TextSize = 13, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = C(160, 170, 180), Parent = box })
 	local busy = false
 	local function redeem()
 		if busy then
 			return
 		end
 		busy = true
-		status.Text = "Проверяем…"
+		status.Text = "Checking…"
 		status.TextColor3 = C(200, 200, 200)
 		local ok, res = pcall(function()
 			return Remotes.RedeemCode:InvokeServer(input.Text)
@@ -548,7 +548,7 @@ local function build()
 			bst.Transparency = 0
 			U.tween(bst, 0.8, { Transparency = 0.3, Color = C(255, 200, 60) })
 		else
-			status.Text = (ok and res and res.err) or "Ошибка сети, попробуй ещё раз"
+			status.Text = (ok and res and res.err) or "Network error, try again"
 			status.TextColor3 = C(255, 120, 110)
 			U.play(U.Sounds.error, 0.5, 0.7)
 			-- поле «мотает головой»
@@ -559,7 +559,7 @@ local function build()
 			input.Position = p0
 		end
 	end
-	local go = api.button({ AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -14, 0, 72), Size = UDim2.fromOffset(170, 40), BackgroundColor3 = C(255, 180, 40), Font = Enum.Font.GothamBlack, Text = "🎁 АКТИВИРОВАТЬ", TextSize = 15, TextColor3 = C(40, 25, 0), Parent = box }, redeem)
+	local go = api.button({ AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -14, 0, 72), Size = UDim2.fromOffset(170, 40), BackgroundColor3 = C(255, 180, 40), Font = Enum.Font.GothamBlack, Text = "🎁 REDEEM", TextSize = 15, TextColor3 = C(40, 25, 0), Parent = box }, redeem)
 	U.corner(12).Parent = go
 	input.FocusLost:Connect(function(enter)
 		if enter then
@@ -589,7 +589,7 @@ function S.OnKeysChanged(id, swappedWith)
 	save()
 	if swappedWith and api.toast then
 		local a, b = Keybinds.ById[id], Keybinds.ById[swappedWith]
-		api.toast(("«%s» теперь на %s, «%s» — на %s"):format(a.label, Keybinds.Name(Keybinds.Get(id)), b.label, Keybinds.Name(Keybinds.Get(swappedWith))), "good")
+		api.toast(("“%s” is now on %s, “%s” on %s"):format(a.label, Keybinds.Name(Keybinds.Get(id)), b.label, Keybinds.Name(Keybinds.Get(swappedWith))), "good")
 	end
 end
 

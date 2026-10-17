@@ -72,16 +72,16 @@ local function updateClock()
 	local night, left, frac = DayNight.Info()
 	if night then
 		clock.icon.Image = Icons.moon
-		clock.title.Text = "НОЧЬ  •  УРОН И НАГРАДЫ x2"
+		clock.title.Text = "NIGHT  •  DAMAGE AND REWARDS x2"
 		clock.title.TextColor3 = C(190, 170, 255)
-		clock.sub.Text = "Рассвет через " .. fmtTime(left)
+		clock.sub.Text = "Dawn in " .. fmtTime(left)
 		clock.stroke.Color = C(150, 120, 255)
 		clock.prog.BackgroundColor3 = C(150, 120, 255)
 	else
 		clock.icon.Image = Icons.sun
-		clock.title.Text = "ДЕНЬ"
+		clock.title.Text = "DAY"
 		clock.title.TextColor3 = C(255, 230, 140)
-		clock.sub.Text = "Ночь наступит через " .. fmtTime(left)
+		clock.sub.Text = "Night falls in " .. fmtTime(left)
 		clock.stroke.Color = left < 60 and C(255, 120, 60) or C(255, 200, 80)
 		clock.prog.BackgroundColor3 = C(255, 200, 80)
 	end
@@ -156,7 +156,7 @@ local function updateBossBar(dt)
 			bossBar.ghostRatio = r
 		end
 		bossBar.ghost.Size = UDim2.fromScale(bossBar.ghostRatio, 1)
-		bossBar.name.Text = "☠ " .. (boss:GetAttribute("BossName") or "БОСС"):upper() .. (workspace:GetAttribute("ZSS_Night") and "  •  НОЧЬЮ БЬЁТ x2" or "")
+		bossBar.name.Text = "☠ " .. (boss:GetAttribute("BossName") or "BOSS"):upper() .. (workspace:GetAttribute("ZSS_Night") and "  •  HITS x2 AT NIGHT" or "")
 		bossBar.text.Text = U.fmt(math.ceil(hum.Health)) .. " / " .. U.fmt(hum.MaxHealth) .. ("  (%.1f%%)"):format(r * 100)
 		bossBar.sub.Text = ""
 	else
@@ -164,8 +164,8 @@ local function updateBossBar(dt)
 		fillTo(0)
 		bossBar.ghostRatio = math.max(0, bossBar.ghostRatio - (dt or 0.016) * 0.6)
 		bossBar.ghost.Size = UDim2.fromScale(bossBar.ghostRatio, 1)
-		bossBar.name.Text = "☠ КОЛОСС ПОВЕРЖЕН"
-		bossBar.text.Text = at > 0 and ("Возродится через " .. fmtTime(at - workspace:GetServerTimeNow())) or ""
+		bossBar.name.Text = "☠ COLOSSUS DEFEATED"
+		bossBar.text.Text = at > 0 and ("Respawns in " .. fmtTime(at - workspace:GetServerTimeNow())) or ""
 		bossBar.sub.Text = ""
 	end
 end
@@ -271,7 +271,7 @@ local function updateBuff(dt)
 					U.tween(pip, 0.2, { BackgroundTransparency = k <= stacks and 0 or 0.8 })
 				end
 			end
-			c.tip.Text = ("%s  %d/%d\n%s %s • %.1f сек"):format(b.name, stacks, Buffs.MaxStacks, b.desc, Buffs.MultText(m), left)
+			c.tip.Text = ("%s  %d/%d\n%s %s • %.1f s"):format(b.name, stacks, Buffs.MaxStacks, b.desc, Buffs.MultText(m), left)
 			-- осталось мало времени — плитка мигает
 			local blink = left < 3 and (0.5 + 0.5 * math.sin(now * 14)) or 1
 			c.icon.ImageTransparency = 0.35 * (1 - blink)
@@ -326,9 +326,9 @@ function BagUI.ShowBossReward(d)
 		end)
 	end
 	new("ImageLabel", { BackgroundTransparency = 1, Image = Icons.boss, Size = UDim2.fromOffset(72, 72), Position = UDim2.new(0.5, -36, 0, -40), ZIndex = 41, Parent = f })
-	local t = new("TextLabel", { Position = UDim2.fromOffset(10, 36), Size = UDim2.new(1, -20, 0, 34), BackgroundTransparency = 1, Font = Enum.Font.GothamBlack, TextScaled = true, Text = "КОЛОСС ПОВЕРЖЕН!", TextColor3 = C(255, 255, 255), ZIndex = 41, Parent = f }, { U.textStroke(C(60, 0, 0), 2.5) })
+	local t = new("TextLabel", { Position = UDim2.fromOffset(10, 36), Size = UDim2.new(1, -20, 0, 34), BackgroundTransparency = 1, Font = Enum.Font.GothamBlack, TextScaled = true, Text = "COLOSSUS DEFEATED!", TextColor3 = C(255, 255, 255), ZIndex = 41, Parent = f }, { U.textStroke(C(60, 0, 0), 2.5) })
 	new("UIGradient", { Color = ColorSequence.new(C(255, 240, 150), C(255, 120, 40)), Rotation = 90, Parent = t })
-	new("TextLabel", { Position = UDim2.fromOffset(10, 72), Size = UDim2.new(1, -20, 0, 18), BackgroundTransparency = 1, Font = Enum.Font.GothamBold, TextSize = 14, Text = ("Твой вклад в урон: %.1f%%"):format((d.share or 0) * 100), TextColor3 = T.Muted, ZIndex = 41, Parent = f })
+	new("TextLabel", { Position = UDim2.fromOffset(10, 72), Size = UDim2.new(1, -20, 0, 18), BackgroundTransparency = 1, Font = Enum.Font.GothamBold, TextSize = 14, Text = ("Your share of the damage: %.1f%%"):format((d.share or 0) * 100), TextColor3 = T.Muted, ZIndex = 41, Parent = f })
 	local row = new("Frame", { Position = UDim2.fromOffset(20, 96), Size = UDim2.new(1, -40, 0, 46), BackgroundTransparency = 1, ZIndex = 41, Parent = f }, { new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Center, Padding = UDim.new(0, 24) }) })
 	local function reward(icon, text, color)
 		local r = new("Frame", { Size = UDim2.fromOffset(170, 46), BackgroundTransparency = 1, ZIndex = 41, Parent = row })
@@ -337,8 +337,8 @@ function BagUI.ShowBossReward(d)
 	end
 	reward(Icons.gem, "+" .. U.fmt(d.gems), C(120, 230, 255))
 	reward(Icons.battery, "+" .. U.fmt(d.batteries), T.Battery)
-	new("TextLabel", { Position = UDim2.fromOffset(16, 150), Size = UDim2.new(1, -32, 0, 56), BackgroundTransparency = 1, Font = Enum.Font.GothamBold, TextWrapped = true, TextSize = 14, Text = (#(d.items or {}) > 0) and ("Находки: " .. table.concat(d.items, ", ")) or "Рюкзак переполнен — предметы не поместились", TextColor3 = C(255, 230, 200), ZIndex = 41, Parent = f })
-	local ok = api.button({ AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -12), Size = UDim2.fromOffset(160, 34), BackgroundColor3 = C(255, 190, 60), Font = Enum.Font.GothamBlack, TextSize = 16, Text = "ЗАБРАТЬ", TextColor3 = C(40, 20, 0), ZIndex = 42, Parent = f }, function()
+	new("TextLabel", { Position = UDim2.fromOffset(16, 150), Size = UDim2.new(1, -32, 0, 56), BackgroundTransparency = 1, Font = Enum.Font.GothamBold, TextWrapped = true, TextSize = 14, Text = (#(d.items or {}) > 0) and ("Finds: " .. table.concat(d.items, ", ")) or "Backpack overflowing, the items didn't fit", TextColor3 = C(255, 230, 200), ZIndex = 41, Parent = f })
+	local ok = api.button({ AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -12), Size = UDim2.fromOffset(160, 34), BackgroundColor3 = C(255, 190, 60), Font = Enum.Font.GothamBlack, TextSize = 16, Text = "CLAIM", TextColor3 = C(40, 20, 0), ZIndex = 42, Parent = f }, function()
 		dismiss()
 	end)
 	U.corner(10).Parent = ok

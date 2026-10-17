@@ -27,7 +27,7 @@ local function getName(userId)
 	local ok, n = pcall(function()
 		return Players:GetNameFromUserIdAsync(userId)
 	end)
-	nameCache[userId] = ok and n or ("Игрок " .. userId)
+	nameCache[userId] = ok and n or ("Player " .. userId)
 	return nameCache[userId]
 end
 
@@ -89,7 +89,7 @@ local function render(id, entries)
 				row.Value.TextTransparency = 0
 				row.BackgroundTransparency = row:GetAttribute("BaseTr")
 			else
-				row.Name_.Text = "— свободно —"
+				row.Name_.Text = "— free —"
 				row.Value.Text = ""
 				row.Avatar.Image = ""
 				row.Name_.TextTransparency = 0.6

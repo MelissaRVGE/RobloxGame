@@ -303,7 +303,7 @@ local function collect(part, player)
 		local now = os.clock()
 		if not lastNote[player] or now - lastNote[player] > 15 then
 			lastNote[player] = now
-			Remotes.Notify:FireClient(player, "🎒 В рюкзаке нет места для «" .. info.item.name .. "». Продай или используй предметы!", "bad")
+			Remotes.Notify:FireClient(player, "🎒 No room in your backpack for “" .. info.item.name .. "”. Sell or use some items!", "bad")
 		end
 	end
 end

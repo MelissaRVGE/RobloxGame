@@ -92,7 +92,7 @@ local function onPlayerAdded(player)
 	-- как в BSS: дроны ждут в улье, пока игрок не займёт станцию
 	task.delay(4, function()
 		if player.Parent and not Hives.Index(player) then
-			notify(player, "🤖 Твой рой ждёт на базе: подойди к свободной станции зарядки и нажми E", "info")
+			notify(player, "🤖 Your swarm is waiting at the base: go to a free charging station and press E", "info")
 		end
 	end)
 	local function onChar(char)
@@ -107,7 +107,7 @@ local function onPlayerAdded(player)
 					p.res = {}
 					Data.MarkDirty(player)
 					Data.Sync(player)
-					notify(player, "💀 Ты погиб — ресурсы в рюкзаке потеряны", "bad")
+					notify(player, "💀 You died. The resources in your backpack are lost", "bad")
 				end
 			end)
 		end
@@ -152,7 +152,7 @@ task.spawn(function()
 					-- пропуск «Гем-магнит» умножает награду
 					local gems = PR.gems * math.max(1, DonateCfg.Perk(p.passes, "playGems"))
 					Data.AddGems(player, gems)
-					notify(player, ("💎 +%d за время в игре! Следующие — через %d мин"):format(gems, math.floor(PR.interval / 60)), "good")
+					notify(player, ("💎 +%d for playtime! Next ones in %d min"):format(gems, math.floor(PR.interval / 60)), "good")
 				end
 			end
 		end
@@ -171,7 +171,7 @@ end
 
 -- обмен батарей на гемы убран: гемы дают квесты, босс и редкие находки
 Remotes.BuyGems.OnServerInvoke = function()
-	return { ok = false, err = "Гемы нельзя купить за батареи — выполняй квесты и побеждай босса" }
+	return { ok = false, err = "Gems can't be bought with batteries. Complete quests and defeat the boss" }
 end
 
 -- ===== КВЕСТЫ =====
@@ -235,16 +235,16 @@ local lastRedeem = {}
 Remotes.RedeemCode.OnServerInvoke = function(player, raw)
 	local p = Data.Get(player)
 	if not p or typeof(raw) ~= "string" then
-		return { ok = false, err = "Ошибка запроса" }
+		return { ok = false, err = "Request error" }
 	end
 	local now = os.clock()
 	if lastRedeem[player] and now - lastRedeem[player] < 2 then
-		return { ok = false, err = "Подожди пару секунд" }
+		return { ok = false, err = "Wait a couple of seconds" }
 	end
 	lastRedeem[player] = now
 	local code = raw:upper():gsub("%s", ""):sub(1, 32)
 	if code == "" then
-		return { ok = false, err = "Введи промокод" }
+		return { ok = false, err = "Enter a promo code" }
 	end
 	local list = require(game:GetService("ServerStorage"):WaitForChild("ZSS_PromoCodes"))
 	local reward
@@ -254,11 +254,11 @@ Remotes.RedeemCode.OnServerInvoke = function(player, raw)
 		end
 	end
 	if not reward or reward.active == false or (reward.expires and os.time() > reward.expires) then
-		return { ok = false, err = "❌ Такого кода нет или он истёк" }
+		return { ok = false, err = "❌ This code doesn't exist or has expired" }
 	end
 	p.codes = p.codes or {}
 	if p.codes[code] then
-		return { ok = false, err = "Ты уже активировал этот код" }
+		return { ok = false, err = "You've already redeemed this code" }
 	end
 	p.codes[code] = os.time()
 	local got = {}
@@ -287,12 +287,12 @@ Remotes.RedeemCode.OnServerInvoke = function(player, raw)
 	if reward.drone and Config.DroneById[reward.drone] then
 		Data.AddDrone(p, reward.drone)
 		Drones.Rebuild(player)
-		table.insert(got, "дрон «" .. Config.DroneById[reward.drone].name .. "»")
+		table.insert(got, "drone “" .. Config.DroneById[reward.drone].name .. "”")
 	end
 	Data.MarkDirty(player)
 	task.spawn(Data.Save, player) -- сразу сохранить, чтобы код нельзя было активировать повторно
 	Remotes.FX:FireAllClients("purchase", { owner = player.UserId })
-	return { ok = true, msg = "🎁 Код активирован: " .. table.concat(got, ", "), desc = reward.desc }
+	return { ok = true, msg = "🎁 Code redeemed: " .. table.concat(got, ", "), desc = reward.desc }
 end
 
 -- ===== УЛЬИ: покупка сот =====
@@ -305,12 +305,12 @@ Remotes.BagAction.OnServerInvoke = function(player, action, id)
 	local p = Data.Get(player)
 	local item = typeof(id) == "string" and Items.ById[id]
 	if not p or not item then
-		return { ok = false, err = "Неизвестный предмет" }
+		return { ok = false, err = "Unknown item" }
 	end
 	p.bag = p.bag or {}
 	local have = p.bag[id] or 0
 	if have <= 0 then
-		return { ok = false, err = "Нет такого предмета" }
+		return { ok = false, err = "No such item" }
 	end
 	local function take(n)
 		p.bag[id] = have - n
@@ -324,20 +324,20 @@ Remotes.BagAction.OnServerInvoke = function(player, action, id)
 		local gain = item.value * n
 		take(n)
 		Data.AddBatteries(player, gain)
-		return { ok = true, msg = ("🔋 +%d за «%s» x%d"):format(gain, item.name, n) }
+		return { ok = true, msg = ("🔋 +%d for “%s” x%d"):format(gain, item.name, n) }
 	elseif action == "use" then
 		local u = item.use
 		if not u then
-			return { ok = false, err = "Этот предмет можно только продать" }
+			return { ok = false, err = "This item can only be sold" }
 		end
 		local char = player.Character
 		local hum = char and char:FindFirstChildOfClass("Humanoid")
 		if u.heal then
 			if not hum or hum.Health <= 0 then
-				return { ok = false, err = "Нельзя сейчас" }
+				return { ok = false, err = "Not right now" }
 			end
 			if hum.Health >= hum.MaxHealth - 0.5 then
-				return { ok = false, err = "❤ Здоровье уже полное" }
+				return { ok = false, err = "❤ Health is already full" }
 			end
 			hum.Health = math.min(hum.MaxHealth, hum.Health + u.heal)
 			Remotes.FX:FireAllClients("heal", { owner = player.UserId })
@@ -356,16 +356,16 @@ Remotes.BagAction.OnServerInvoke = function(player, action, id)
 		if u.pull then
 			local def, rarity, isNew = Gacha.Capsule(player, u.pull ~= true and u.pull or nil)
 			if not def then
-				return { ok = false, err = "Нельзя сейчас" }
+				return { ok = false, err = "Not right now" }
 			end
 			take(1)
 			Quests.Event(player, "use", { id = id, find = true })
 			local rar = Config.Rarities[rarity]
-			return { ok = true, msg = ("🧬 %s: %s дрон «%s»%s"):format(item.name, rar.label, def.name, isNew and " (НОВЫЙ!)" or "") }
+			return { ok = true, msg = ("🧬 %s: %s drone “%s”%s"):format(item.name, rar.label, def.name, isNew and " (NEW!)" or "") }
 		end
 		take(1)
 		Quests.Event(player, "use", { id = id, find = true })
-		return { ok = true, msg = "✔ Использовано: " .. item.name .. (u.gems and (" (+" .. u.gems .. " 💎)") or "") }
+		return { ok = true, msg = "✔ Used: " .. item.name .. (u.gems and (" (+" .. u.gems .. " 💎)") or "") }
 	end
 	return { ok = false, err = "bad action" }
 end
@@ -398,7 +398,7 @@ Remotes.Equip.OnServerEvent:Connect(function(player, id, delta)
 	if delta == 1 then
 		local max = Data.MaxEquip(p)
 		if #p.equipped >= max then
-			notify(player, ("В рое уже %d/%d дронов. Больше мест — покупай гнёзда в Мастерской у станций зарядки"):format(#p.equipped, max), "bad")
+			notify(player, ("Your swarm already has %d/%d drones. For more slots, buy cells at the Workshop by the charging stations"):format(#p.equipped, max), "bad")
 			return
 		end
 		for uid, did in pairs(p.drones) do
@@ -441,7 +441,7 @@ Remotes.UnequipAll.OnServerEvent:Connect(function(player)
 	p.equipped = {}
 	Drones.Rebuild(player)
 	Data.MarkDirty(player)
-	notify(player, "Все дроны сняты с роя", "info")
+	notify(player, "All drones removed from the swarm", "info")
 end)
 
 Remotes.AutoEquip.OnServerEvent:Connect(function(player)
@@ -467,7 +467,7 @@ Remotes.AutoEquip.OnServerEvent:Connect(function(player)
 	p.equipped = eq
 	Drones.Rebuild(player)
 	Data.MarkDirty(player)
-	notify(player, "⚡ В рой поставлены лучшие дроны!", "good")
+	notify(player, "⚡ Best drones added to the swarm!", "good")
 end)
 
 Remotes.UpgradeBag.OnServerEvent:Connect(function(player)
@@ -477,18 +477,18 @@ Remotes.UpgradeBag.OnServerEvent:Connect(function(player)
 	end
 	local cost = Config.BagCost(p.bagLevel)
 	if not cost then
-		notify(player, "🎒 Рюкзак уже максимального уровня!", "info")
+		notify(player, "🎒 Your backpack is already max level!", "info")
 		return
 	end
 	if p.batteries < cost then
-		notify(player, ("🔋 Нужно %d батарей для улучшения рюкзака"):format(cost), "bad")
+		notify(player, ("🔋 You need %d batteries to upgrade the backpack"):format(cost), "bad")
 		return
 	end
 	-- рюкзак крафтится из находок
 	local mats = Config.BagMats[p.bagLevel]
 	local ok, missing = Data.HasMats(p, mats)
 	if not ok then
-		notify(player, "🎒 Не хватает материалов: " .. missing, "bad")
+		notify(player, "🎒 Not enough materials: " .. missing, "bad")
 		return
 	end
 	Data.TakeMats(p, mats)
@@ -497,7 +497,7 @@ Remotes.UpgradeBag.OnServerEvent:Connect(function(player)
 	Data.MarkDirty(player)
 	Quests.Event(player, "bagUp")
 	Quests.Event(player, "craft", { slot = "bag" })
-	notify(player, ("🎒 Рюкзак улучшен! Вместимость: %d"):format(Data.Capacity(p)), "good")
+	notify(player, ("🎒 Backpack upgraded! Capacity: %d"):format(Data.Capacity(p)), "good")
 end)
 
 -- удар: оружие бьёт зомби, инструмент добывает ресурсы с поля
@@ -571,26 +571,26 @@ end)
 local function chargeToggle(player)
 	local hive = Hives.Index(player)
 	if not hive then
-		notify(player, "⚡ Сначала займи свободную станцию зарядки у южной стены базы", "bad")
+		notify(player, "⚡ First claim a free charging station by the south wall of the base", "bad")
 		return
 	end
 	local char = player.Character
 	local hrp = char and char:FindFirstChild("HumanoidRootPart")
 	if not hrp or (hrp.Position - Hives.FrontPos(hive)).Magnitude > 22 then
-		notify(player, "⚡ Подойди к своей станции №" .. hive .. " на базе", "bad")
+		notify(player, "⚡ Go to your station #" .. hive .. " at the base", "bad")
 		return
 	end
 	if Drones.DockedCount(player) > 0 then
 		local n = Drones.Recall(player)
-		notify(player, ("🤖 Забрано со станции: %d дронов"):format(n), "info")
+		notify(player, ("🤖 Taken from the station: %d drones"):format(n), "info")
 	else
 		local n, waiting = Drones.Dock(player)
 		if n == 0 then
-			notify(player, "⚡ Все дроны уже заряжены", "good")
+			notify(player, "⚡ All drones are already charged", "good")
 		elseif waiting > 0 then
-			notify(player, ("⚡ В сотах: %d, в очереди: %d. Купи больше гнёзд в Мастерской!"):format(n, waiting), "good")
+			notify(player, ("⚡ In cells: %d, in queue: %d. Buy more cells at the Workshop!"):format(n, waiting), "good")
 		else
-			notify(player, ("⚡ На зарядке: %d дронов. Вернутся сами, когда зарядятся"):format(n), "good")
+			notify(player, ("⚡ Charging: %d drones. They'll come back on their own when charged"):format(n), "good")
 		end
 	end
 end
@@ -636,7 +636,7 @@ Remotes.Teleport.OnServerEvent:Connect(function(player, dest)
 				local p = Data.Get(player)
 				local have = p and #p.equipped or 0
 				if have < (f.cfg.req or 0) then
-					notify(player, ("🔒 «%s» откроется, когда в рое будет %d дронов (сейчас %d)"):format(f.cfg.name, f.cfg.req, have), "bad")
+					notify(player, ("🔒 “%s” unlocks when your swarm has %d drones (now %d)"):format(f.cfg.name, f.cfg.req, have), "bad")
 					return
 				end
 				pos = Fields.Entrance(f)
@@ -656,7 +656,7 @@ task.spawn(function()
 	local conv = map:WaitForChild("Base"):WaitForChild("Converter", 30)
 	local prompt = conv and conv:FindFirstChild("ConvertPrompt", true)
 	if not prompt then
-		warn("[ZSS] ConvertPrompt не найден")
+		warn("[ZSS] ConvertPrompt not found")
 		return
 	end
 	prompt.Triggered:Connect(Converter.Start)
@@ -752,4 +752,4 @@ if game:GetService("RunService"):IsStudio() then
 	dbg.Parent = game:GetService("ServerStorage")
 end
 
-print("[ZSS] Zombie Swarm Simulator запущен")
+print("[ZSS] Zombie Swarm Simulator started")

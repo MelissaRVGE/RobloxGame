@@ -36,9 +36,9 @@ local function startCycle()
 				workspace:SetAttribute("ZSS_Night", night)
 				if was ~= nil then
 					if night then
-						Remotes.Notify:FireAllClients("🌙 Наступила ночь! Зомби и босс бьют x2, но и награды x2", "night")
+						Remotes.Notify:FireAllClients("🌙 Night has fallen! Zombies and the boss hit x2, but rewards are x2 too", "night")
 					else
-						Remotes.Notify:FireAllClients("☀ Рассвет! Зомби снова слабее", "good")
+						Remotes.Notify:FireAllClients("☀ Dawn! Zombies are weaker again", "good")
 					end
 				end
 				was = night
@@ -118,7 +118,7 @@ local function makePickup(field, pos)
 		Equipment.AddSpeedBuff(player, SP.bonus, SP.duration)
 		require(script.Parent.Quests).Event(player, "pickup")
 		Remotes.FX:FireAllClients("pickup", { pos = p.Position, owner = player.UserId })
-		Remotes.Notify:FireClient(player, ("⚡ Ускорение! +%d к скорости на %d сек"):format(SP.bonus, SP.duration), "speed")
+		Remotes.Notify:FireClient(player, ("⚡ Speed boost! +%d speed for %d s"):format(SP.bonus, SP.duration), "speed")
 		p:Destroy()
 	end)
 	p.Parent = pickupFolder
@@ -201,10 +201,10 @@ local function syncMapReqs()
 		if board then
 			for _, t in ipairs(board:GetDescendants()) do
 				if t:IsA("TextLabel") then
-					if t.Text:find("Нужно дронов") then
-						t.Text = "🤖 Нужно дронов: " .. f.req
-					elseif t.Text:find("Лом: x") then
-						t.Text = "⚙ Лом: x" .. tostring(f.mult)
+					if t.Text:find("Drones needed") then
+						t.Text = "🤖 Drones needed: " .. f.req
+					elseif t.Text:find("Scrap: x") then
+						t.Text = "⚙ Scrap: x" .. tostring(f.mult)
 					elseif t.Text:find("HP$") then
 						t.Text = ("☠ %s • %d HP"):format(f.zombies.name, f.zombies.hp)
 					end
@@ -214,9 +214,9 @@ local function syncMapReqs()
 		if f.boss then
 			local arena = map:FindFirstChild("BossArena")
 			for _, t in ipairs(arena and arena:GetDescendants() or {}) do
-				if t:IsA("TextLabel") and t.Text:find("БОСС") and t.Text:find("HP") then
+				if t:IsA("TextLabel") and t.Text:find("BOSS") and t.Text:find("HP") then
 					local hp = tostring(f.zombies.hp):reverse():gsub("(%d%d%d)", "%1 "):reverse():gsub("^%s+", "")
-					t.Text = ("БОСС • %s HP • НУЖНО %d ДРОНОВ"):format(hp, f.req)
+					t.Text = ("BOSS • %s HP • NEEDS %d DRONES"):format(hp, f.req)
 				end
 			end
 		end

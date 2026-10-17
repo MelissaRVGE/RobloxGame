@@ -6,22 +6,22 @@ local K = {}
 -- scope: клавиши проверяются на конфликт только внутри своей группы
 -- (пропуск гачи работает лишь во время анимации, поэтому может совпадать с клавишами мира)
 K.Actions = {
-	{ id = "drones", label = "Инвентарь дронов", default = "Y", scope = "world" },
-	{ id = "gacha", label = "Гача (Лаборатория дронов)", default = "G", scope = "world" },
-	{ id = "shop", label = "Магазин", default = "N", scope = "world" },
-	{ id = "bag", label = "Инвентарь (снаряжение и предметы)", default = "B", scope = "world" },
-	{ id = "map", label = "Карта и телепорт", default = "M", scope = "world" },
-	{ id = "convert", label = "Телепорт к Переработчику", default = "R", scope = "world" },
-	{ id = "quests", label = "Книга заданий", default = "Q", scope = "world" },
-	{ id = "donate", label = "Донат-магазин", default = "H", scope = "world" },
-	{ id = "settings", label = "Настройки", default = "P", scope = "world" },
-	{ id = "slot1", label = "Ячейка 1: оружие", default = "One", scope = "world", slot = 1 },
-	{ id = "slot2", label = "Ячейка 2: инструмент добычи", default = "Two", scope = "world", slot = 2 },
-	{ id = "slot3", label = "Ячейка 3: предмет", default = "Three", scope = "world", slot = 3 },
-	{ id = "slot4", label = "Ячейка 4: предмет", default = "Four", scope = "world", slot = 4 },
-	{ id = "slot5", label = "Ячейка 5: предмет", default = "Five", scope = "world", slot = 5 },
-	{ id = "slot6", label = "Ячейка 6: предмет", default = "Six", scope = "world", slot = 6 },
-	{ id = "gachaSkip", label = "Гача: пропустить / забрать (и Enter)", default = "Space", scope = "gacha" },
+	{ id = "drones", label = "Drone inventory", default = "Y", scope = "world" },
+	{ id = "gacha", label = "Gacha (Drone Lab)", default = "G", scope = "world" },
+	{ id = "shop", label = "Shop", default = "N", scope = "world" },
+	{ id = "bag", label = "Inventory (gear and items)", default = "B", scope = "world" },
+	{ id = "map", label = "Map and teleport", default = "M", scope = "world" },
+	{ id = "convert", label = "Teleport to the Recycler", default = "R", scope = "world" },
+	{ id = "quests", label = "Quest book", default = "Q", scope = "world" },
+	{ id = "donate", label = "Donation shop", default = "H", scope = "world" },
+	{ id = "settings", label = "Settings", default = "P", scope = "world" },
+	{ id = "slot1", label = "Slot 1: weapon", default = "One", scope = "world", slot = 1 },
+	{ id = "slot2", label = "Slot 2: gathering tool", default = "Two", scope = "world", slot = 2 },
+	{ id = "slot3", label = "Slot 3: item", default = "Three", scope = "world", slot = 3 },
+	{ id = "slot4", label = "Slot 4: item", default = "Four", scope = "world", slot = 4 },
+	{ id = "slot5", label = "Slot 5: item", default = "Five", scope = "world", slot = 5 },
+	{ id = "slot6", label = "Slot 6: item", default = "Six", scope = "world", slot = 6 },
+	{ id = "gachaSkip", label = "Gacha: skip / claim (and Enter)", default = "Space", scope = "gacha" },
 }
 K.ById = {}
 for _, a in ipairs(K.Actions) do
@@ -31,20 +31,20 @@ end
 -- клавиши, которые заняты управлением Roblox или самой игры
 local RESERVED = {
 	world = {
-		W = "движение", A = "движение", S = "движение", D = "движение",
-		Up = "движение", Down = "движение", Left = "камера", Right = "камера",
-		Space = "прыжок", E = "взаимодействие", Escape = "меню Roblox", Tab = "список игроков",
-		Slash = "чат", LeftShift = "Shift Lock", RightShift = "Shift Lock", I = "приближение камеры", O = "отдаление камеры",
-		F9 = "консоль Roblox", F11 = "полный экран", LeftSuper = "система", RightSuper = "система",
+		W = "movement", A = "movement", S = "movement", D = "movement",
+		Up = "movement", Down = "movement", Left = "camera", Right = "camera",
+		Space = "jump", E = "interact", Escape = "Roblox menu", Tab = "player list",
+		Slash = "chat", LeftShift = "Shift Lock", RightShift = "Shift Lock", I = "camera zoom in", O = "camera zoom out",
+		F9 = "Roblox console", F11 = "fullscreen", LeftSuper = "system", RightSuper = "system",
 	},
-	gacha = { Escape = "меню Roblox", Return = "уже пропускает гачу", KeypadEnter = "уже пропускает гачу" },
+	gacha = { Escape = "Roblox menu", Return = "already skips the gacha", KeypadEnter = "already skips the gacha" },
 }
 
 local PRETTY = {
 	One = "1", Two = "2", Three = "3", Four = "4", Five = "5", Six = "6", Seven = "7", Eight = "8", Nine = "9", Zero = "0",
 	KeypadOne = "Num1", KeypadTwo = "Num2", KeypadThree = "Num3", KeypadFour = "Num4", KeypadFive = "Num5",
 	KeypadSix = "Num6", KeypadSeven = "Num7", KeypadEight = "Num8", KeypadNine = "Num9", KeypadZero = "Num0",
-	Space = "Пробел", Return = "Enter", Backspace = "⌫", LeftControl = "Ctrl", RightControl = "RCtrl",
+	Space = "Space", Return = "Enter", Backspace = "⌫", LeftControl = "Ctrl", RightControl = "RCtrl",
 	LeftAlt = "Alt", RightAlt = "RAlt", CapsLock = "Caps", Minus = "-", Equals = "=", LeftBracket = "[",
 	RightBracket = "]", BackSlash = "\\", Semicolon = ";", Quote = "'", Comma = ",", Period = ".", Backquote = "`",
 	Delete = "Del", Insert = "Ins", PageUp = "PgUp", PageDown = "PgDn",

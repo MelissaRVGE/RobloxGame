@@ -54,16 +54,16 @@ local CW, CH = 225, 268
 local CELL_GEAR, CELL_CONSUM = UDim2.fromOffset(146, 182), UDim2.fromOffset(CW, CH)
 local CONSUM_ART = {
 	medkit = { color = C(255, 85, 95), anim = "beat", line = function(st)
-		return ("❤ +%d здоровья мгновенно"):format(st.heal)
+		return ("❤ +%d health instantly"):format(st.heal)
 	end },
 	energycell = { color = C(70, 200, 255), anim = "charge", line = function(st)
-		return ("⚡ +%d%% заряда всему рою"):format(math.floor(st.energy * 100 + 0.5))
+		return ("⚡ +%d%% charge to the whole swarm"):format(math.floor(st.energy * 100 + 0.5))
 	end },
 	grenade = { color = C(150, 215, 70), anim = "shake", line = function(st)
-		return ("💥 %d урона • радиус %d"):format(st.dmg, st.radius)
+		return ("💥 %d damage • radius %d"):format(st.dmg, st.radius)
 	end },
 	adrenaline = { color = C(255, 90, 190), anim = "dash", line = function(st)
-		return ("» +%d ступени «Ускорения»"):format(st.stacks)
+		return ("» +%d Speed Boost stacks"):format(st.stacks)
 	end },
 }
 local DEF_ART = { color = C(255, 200, 80), anim = "beat", line = function()
@@ -122,20 +122,20 @@ local function equippedId(slot)
 end
 
 local STAT_LABELS = {
-	dmg = { "⚔ Урон", "" },
-	radius = { "◎ Радиус", "" },
-	gather = { "⛏ Добыча за удар", "" },
-	cd = { "⏱ Перезарядка", "с" },
-	hp = { "❤ Здоровье", "" },
-	def = { "🛡 Защита", "%" },
-	scrap = { "⚙ Бонус лома", "%" },
-	speed = { "» Скорость", "" },
-	jump = { "⇑ Прыжок", "" },
-	heal = { "❤ Лечение", "" },
-	energy = { "⚡ Заряд роя", "%" },
-	cap = { "🎒 Вместимость", "%" },
-	conv = { "♻ Батарей с переработки", "%" },
-	cspeed = { "⏩ Скорость переработки", "%" },
+	dmg = { "⚔ Damage", "" },
+	radius = { "◎ Radius", "" },
+	gather = { "⛏ Gather per Hit", "" },
+	cd = { "⏱ Cooldown", "s" },
+	hp = { "❤ Health", "" },
+	def = { "🛡 Defense", "%" },
+	scrap = { "⚙ Scrap Bonus", "%" },
+	speed = { "» Speed", "" },
+	jump = { "⇑ Jump", "" },
+	heal = { "❤ Healing", "" },
+	energy = { "⚡ Swarm Charge", "%" },
+	cap = { "🎒 Capacity", "%" },
+	conv = { "♻ Recycling Batteries", "%" },
+	cspeed = { "⏩ Recycling Speed", "%" },
 }
 local STAT_ORDER = { "dmg", "radius", "gather", "cd", "hp", "def", "scrap", "speed", "jump", "heal", "energy", "cap", "conv", "cspeed" }
 local PCT = { def = true, scrap = true, energy = true, cap = true, conv = true, cspeed = true }
@@ -160,7 +160,7 @@ local function fmtStat(k, v)
 	if PCT[k] then
 		return ("+%d%%"):format(math.floor(v * 100 + 0.5))
 	elseif k == "cd" then
-		return ("%.2fс"):format(v)
+		return ("%.2fs"):format(v)
 	elseif k == "hp" or k == "speed" or k == "jump" or k == "regen" then
 		return "+" .. tostring(v) .. STAT_LABELS[k][2]
 	end
@@ -188,8 +188,8 @@ local function statsText(item)
 		end
 	end
 	if item.stats.fx and item.stats.fx ~= "none" then
-		local fxName = { fire = "поджог", shock = "ударная волна", sparks = "искры", zap = "молнии", plasma = "плазменная дуга" }
-		table.insert(lines, ('✨ Эффект: <font color="#FFB020">%s</font>'):format(fxName[item.stats.fx] or item.stats.fx))
+		local fxName = { fire = "burn", shock = "shockwave", sparks = "sparks", zap = "lightning", plasma = "plasma arc" }
+		table.insert(lines, ('✨ Effect: <font color="#FFB020">%s</font>'):format(fxName[item.stats.fx] or item.stats.fx))
 	end
 	return table.concat(lines, "\n")
 end
@@ -229,7 +229,7 @@ local function refreshDetail()
 	detail.action2.Visible = item.stack == true
 	detail.action.Size = item.stack and UDim2.new(0.5, -14, 0, 50) or UDim2.new(1, -20, 0, 50)
 	if item.stack then
-		detail.grade.Text = ("РАСХОДНИК  •  У тебя: %d  •  хотбар"):format(consumCount(item.id))
+		detail.grade.Text = ("CONSUMABLE  •  You have: %d  •  hotbar"):format(consumCount(item.id))
 		local can1 = d and d.batteries >= item.price
 		local can5 = d and d.batteries >= item.price * 5
 		detail.action.Text = ("×1 • 🔋%s"):format(U.fmt(item.price))
@@ -238,16 +238,16 @@ local function refreshDetail()
 		detail.action2.BackgroundColor3 = can5 and C(50, 110, 200) or C(70, 70, 70)
 	elseif not isOwned then
 		local can = d and d.batteries >= item.price and matsOk
-		detail.action.Text = (#mats > 0 and "СКРАФТИТЬ • 🔋 %s" or "КУПИТЬ • 🔋 %s"):format(U.fmt(item.price))
+		detail.action.Text = (#mats > 0 and "CRAFT • 🔋 %s" or "BUY • 🔋 %s"):format(U.fmt(item.price))
 		detail.action.BackgroundColor3 = can and C(60, 150, 40) or C(70, 70, 70)
 	elseif isEq and FIXED[item.slot] then
-		detail.action.Text = item.slot == "backpack" and "✔ НА СПИНЕ" or "✔ В ХОТБАРЕ"
+		detail.action.Text = item.slot == "backpack" and "✔ ON YOUR BACK" or "✔ IN HOTBAR"
 		detail.action.BackgroundColor3 = C(50, 60, 50)
 	elseif isEq then
-		detail.action.Text = "СНЯТЬ"
+		detail.action.Text = "UNEQUIP"
 		detail.action.BackgroundColor3 = C(130, 45, 40)
 	else
-		detail.action.Text = "НАДЕТЬ"
+		detail.action.Text = "EQUIP"
 		detail.action.BackgroundColor3 = C(50, 110, 200)
 	end
 end
@@ -326,13 +326,13 @@ local function refreshCards()
 			c.price.Text = ("🔋 %s  •  x%d"):format(U.fmt(item.price), consumCount(id))
 			c.price.TextColor3 = T.Battery
 		elseif isEq then
-			c.price.Text = "✔ НАДЕТО"
+			c.price.Text = "✔ EQUIPPED"
 			c.price.TextColor3 = T.Accent
 		elseif isOwned then
-			c.price.Text = "КУПЛЕНО"
+			c.price.Text = "OWNED"
 			c.price.TextColor3 = C(150, 200, 255)
 		else
-			c.price.Text = item.price == 0 and "БЕСПЛАТНО" or ("🔋 " .. U.fmt(item.price))
+			c.price.Text = item.price == 0 and "FREE" or ("🔋 " .. U.fmt(item.price))
 			c.price.TextColor3 = (State.data and State.data.batteries >= item.price) and T.Battery or C(255, 110, 100)
 		end
 	end
@@ -340,12 +340,12 @@ local function refreshCards()
 		local on = key == tab
 		U.tween(b.b, 0.15, { BackgroundColor3 = on and C(70, 90, 60) or C(30, 36, 30) })
 		local eq = equippedId(key)
-		b.sub.Text = eq and Shop.ById[eq].name or "— пусто —"
+		b.sub.Text = eq and Shop.ById[eq].name or "— empty —"
 	end
 	local d = State.data
 	if d then
 		local t = Shop.Totals(d.gear)
-		detail.totals.Text = ("❤ %d HP   🛡 %d%%\n» +%d скор.   ⚙ +%d%% лома\n🎒 +%d%%   ♻ +%d%% батарей"):format(100 + t.hp, math.floor(t.def * 100 + 0.5), t.speed, math.floor(t.scrap * 100 + 0.5), math.floor(t.cap * 100 + 0.5), math.floor(t.conv * 100 + 0.5))
+		detail.totals.Text = ("❤ %d HP   🛡 %d%%\n» +%d speed   ⚙ +%d%% scrap\n🎒 +%d%%   ♻ +%d%% batteries"):format(100 + t.hp, math.floor(t.def * 100 + 0.5), t.speed, math.floor(t.scrap * 100 + 0.5), math.floor(t.cap * 100 + 0.5), math.floor(t.conv * 100 + 0.5))
 		detail.balance.Text = "🔋 " .. U.fmt(d.batteries)
 	end
 end
@@ -395,7 +395,7 @@ local function buy(item, qty)
 	end)
 	busy = false
 	if ok and res and res.ok then
-		Toast(("✔ Куплено: %s%s"):format(item.name, qty > 1 and (" ×" .. qty) or ""), "good")
+		Toast(("✔ Bought: %s%s"):format(item.name, qty > 1 and (" ×" .. qty) or ""), "good")
 		U.play(U.Sounds.pop, 0.7, 1.2)
 		local c = cards[item.id]
 		if c and c.big then
@@ -406,7 +406,7 @@ local function buy(item, qty)
 			detail.art.burst = os.clock()
 		end
 	else
-		Toast(res and res.err or "Ошибка покупки", "bad")
+		Toast(res and res.err or "Purchase error", "bad")
 	end
 end
 
@@ -433,10 +433,10 @@ local function onAction()
 		end)
 		busy = false
 		if ok and res and res.ok then
-			Toast(("✔ Куплено: %s"):format(item.name), "good")
+			Toast(("✔ Bought: %s"):format(item.name), "good")
 			U.play(U.Sounds.pop, 0.7, 1.2)
 		else
-			Toast(res and res.err or "Ошибка покупки", "bad")
+			Toast(res and res.err or "Purchase error", "bad")
 		end
 	else
 		if equippedId(item.slot) == item.id and FIXED[item.slot] then
@@ -809,7 +809,7 @@ local function build()
 		Size = UDim2.new(0, 560, 1, -6),
 		BackgroundTransparency = 1,
 		Font = Enum.Font.GothamBlack,
-		Text = "🛒 МАГАЗИН «ПОСЛЕДНИЙ ШАНС»",
+		Text = "🛒 LAST CHANCE SHOP",
 		TextSize = 24,
 		TextColor3 = C(255, 220, 150),
 		TextXAlignment = Enum.TextXAlignment.Left,
@@ -897,7 +897,7 @@ local function build()
 		Size = UDim2.new(1, 0, 0, 18),
 		BackgroundTransparency = 1,
 		Font = Enum.Font.GothamBlack,
-		Text = "МОЙ ПЕРСОНАЖ",
+		Text = "MY CHARACTER",
 		TextSize = 13,
 		TextColor3 = T.Accent,
 		TextXAlignment = Enum.TextXAlignment.Left,
@@ -1097,7 +1097,7 @@ local function build()
 		Size = UDim2.new(1, -20, 0, 50),
 		BackgroundColor3 = C(60, 150, 40),
 		Font = Enum.Font.GothamBlack,
-		Text = "КУПИТЬ",
+		Text = "BUY",
 		TextSize = 19,
 		TextColor3 = C(255, 255, 255),
 		Parent = panel,
