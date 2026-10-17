@@ -154,7 +154,7 @@ Config.Drones = {
 	{ id = "phantom", name = "Фантом", rarity = "Epic",
 		desc = "Экспериментальный фазовый дрон. Летает без винтов.",
 		ability = { id = "phase", name = "Фазовый сдвиг", cd = 15, desc = "Телепортируется по полю и собирает 8 случайных плит с бонусом x2." },
-		look = { body = "diamond", size = 1, c1 = C(170, 90, 255), c2 = C(230, 200, 255), mat = "Glass", eye = C(240, 220, 255), rotors = 0, extras = { "ghost", "halo" } } },
+		look = { body = "diamond", size = 1, c1 = C(170, 90, 255), c2 = C(230, 200, 255), mat = "Glass", eye = C(240, 220, 255), rotors = 0, extras = { "ghost" } } },
 	{ id = "inferno", name = "Инферно", rarity = "Epic",
 		desc = "Огнемётный дрон. Внутри всегда горит.",
 		ability = { id = "nova", name = "Огненный шторм", cd = 14, desc = "Огненная волна сжигает зомби в радиусе 25 (90 урона)." },
@@ -163,7 +163,7 @@ Config.Drones = {
 	{ id = "overclock", name = "Разгон", rarity = "Epic",
 		desc = "Командный дрон с разогнанным процессором.",
 		ability = { id = "overclock", name = "Разгон", cd = 25, desc = "Разгоняет весь рой: скорость сбора и атаки x2 на 10 сек." },
-		look = { body = "cyl", size = 1, c1 = C(140, 50, 220), c2 = C(255, 90, 255), mat = "Metal", eye = C(255, 120, 255), rotors = 4, extras = { "halo", "speedtrail" } } },
+		look = { body = "cyl", size = 1, c1 = C(140, 50, 220), c2 = C(255, 90, 255), mat = "Metal", eye = C(255, 120, 255), rotors = 4, extras = { "speedtrail" } } },
 
 	-- LEGENDARY (жёлтые)
 	{ id = "goliath", name = "Голиаф", rarity = "Legendary",
@@ -174,7 +174,7 @@ Config.Drones = {
 	{ id = "midas", name = "Мидас", rarity = "Legendary",
 		desc = "Всё, к чему он прикасается, становится золотом.",
 		ability = { id = "gold", name = "Золотое касание", cd = 25, desc = "10 плит рядом становятся золотыми на 15 сек — они дают x5 лома." },
-		look = { body = "ball", size = 1.1, c1 = C(255, 205, 50), c2 = C(255, 245, 200), mat = "Foil", eye = C(255, 255, 255), rotors = 4, extras = { "halo", "sparkles" } },
+		look = { body = "ball", size = 1.1, c1 = C(255, 205, 50), c2 = C(255, 245, 200), mat = "Foil", eye = C(255, 255, 255), rotors = 4, extras = { "sparkles" } },
 		mods = { gather = 1.2 } },
 	{ id = "queen", name = "Королева роя", rarity = "Legendary",
 		desc = "Матка-дрон. Собирает мини-дронов прямо в полёте.",
@@ -196,7 +196,7 @@ Config.Drones = {
 	{ id = "apocalypse", name = "Апокалипсис", rarity = "Secret",
 		desc = "Прототип «Омега». Его не должно было существовать.",
 		ability = { id = "doomsday", name = "Судный день", cd = 45, desc = "Ядерный удар: забирает 70% здоровья у всех зомби (боссу — 8000), собирает лом в радиусе 30 x5 и даёт x5 к сбору на 20 сек." },
-		look = { body = "box", size = 1.4, c1 = C(28, 14, 16), c2 = C(255, 25, 30), mat = "CorrodedMetal", eye = C(255, 0, 0), rotors = 6, extras = { "spikes", "flame", "halo", "cannon" } } },
+		look = { body = "box", size = 1.4, c1 = C(28, 14, 16), c2 = C(255, 25, 30), mat = "CorrodedMetal", eye = C(255, 0, 0), rotors = 6, extras = { "spikes", "flame", "cannon" } } },
 }
 
 -- Мини-дрон (призывается Королевой роя, в гаче не выпадает)

@@ -261,14 +261,6 @@ local function buildFromMesh(def, scale, tpl)
 		emitter(core, { color = Color3.fromRGB(210, 170, 255), rate = 10, size0 = 0.35 * s, life0 = 0.6, life1 = 1.2, speed0 = 0.2, speed1 = 0.8 })
 		trail(core, Vector3.new(-0.7 * s, 0, 0), Vector3.new(0.7 * s, 0, 0), c1, 0.45)
 	end
-	if has("halo") then
-		local hr = radius * 0.7
-		for k = 0, 13 do
-			local ang = k / 14 * math.pi * 2
-			local pos = Vector3.new(math.cos(ang) * hr, topY + 0.35 * s, math.sin(ang) * hr)
-			newPart(model, { name = "Halo", size = Vector3.new(0.12 * s, 0.08 * s, 0.45 * s), cf = CFrame.lookAt(pos, pos + Vector3.new(-math.sin(ang), 0, math.cos(ang))), color = secret and Color3.fromRGB(255, 30, 30) or c2, mat = Mat.Neon, tint = true, orbit = 1.6 })
-		end
-	end
 	if has("speedtrail") then
 		trail(core, Vector3.new(0, -0.3 * s, 0), Vector3.new(0, 0.3 * s, 0), c2, 0.3)
 	end
@@ -502,14 +494,6 @@ function Builder.Build(def, scale)
 	if ghost then
 		emitter(core, { color = Color3.fromRGB(210, 170, 255), rate = 10, size0 = 0.35 * s, life0 = 0.6, life1 = 1.2, speed0 = 0.2, speed1 = 0.8 })
 		trail(core, Vector3.new(-0.7 * s, 0, 0), Vector3.new(0.7 * s, 0, 0), c1, 0.45)
-	end
-	if has("halo") then
-		local hr = 1.15 * s
-		for k = 0, 13 do
-			local ang = k / 14 * math.pi * 2
-			local pos = Vector3.new(math.cos(ang) * hr, topY + 0.55 * s, math.sin(ang) * hr)
-			newPart(model, { name = "Halo", size = Vector3.new(0.14 * s, 0.1 * s, 0.5 * s), cf = CFrame.lookAt(pos, pos + Vector3.new(-math.sin(ang), 0, math.cos(ang))), color = secret and Color3.fromRGB(255, 30, 30) or c2, mat = Mat.Neon, tint = true, orbit = 1.6 })
-		end
 	end
 	if has("speedtrail") then
 		trail(core, Vector3.new(0, -0.3 * s, 0), Vector3.new(0, 0.3 * s, 0), c2, 0.3)
