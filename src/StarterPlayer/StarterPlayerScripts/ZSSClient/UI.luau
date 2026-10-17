@@ -2991,10 +2991,14 @@ function UI.Init()
 		end,
 	})
 	FXmod.OnItemDrop = function(it)
+		if it.consum then
+			UI.Toast("🧪 Расходник: " .. it.name .. " (" .. ItemsCfg.Tiers[it.tier].name .. ")", it.tier)
+			return
+		end
 		UI.Toast("🎒 В рюкзак: " .. it.name .. " (" .. ItemsCfg.Tiers[it.tier].name .. ")", it.tier)
 	end
 	FXmod.OnLootSpawn = function(it)
-		UI.Toast("📦 Выпала находка: " .. it.name .. " — подойди и подбери!", it.tier)
+		UI.Toast((it.c and "🧪 Выпал расходник: " or "📦 Выпала находка: ") .. it.name .. " — подойди и подбери!", it.tier)
 	end
 	FXmod.OnBossReward = BagUI.ShowBossReward
 	hookHotbarContainers()

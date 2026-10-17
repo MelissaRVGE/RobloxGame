@@ -352,6 +352,7 @@ function Zombies.OnDeath(z)
 			local added = Data.AddScrap(killer, z.cfg.reward * z.rewardMult * night, res and res.id)
 			Remotes.Popup:FireClient(killer, z.root.Position + Vector3.new(0, 4, 0), "☠ +" .. added, "kill")
 			Loot.TryDrop(killer, "zombieKill", z.field.index, z.root.Position)
+			Loot.TryConsum(killer, z.field.index, z.root.Position)
 			require(script.Parent.Drops).ZombieKilled(z.root.Position, z.field, killer)
 			require(script.Parent.Quests).Event(killer, "kill", { field = z.field.cfg.id, night = Loot.IsNight() })
 		end

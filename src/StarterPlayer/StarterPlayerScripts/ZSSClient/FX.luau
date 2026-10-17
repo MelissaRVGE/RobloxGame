@@ -570,7 +570,7 @@ end
 H.itemdrop = function(d)
 	local Items = require(Shared.ItemsConfig)
 	local Icons = require(Shared.Icons)
-	local it = Items.ById[d.id]
+	local it = d.c and { id = d.id, tier = d.tier, name = d.name, consum = true } or Items.ById[d.id]
 	if not it then
 		return
 	end
@@ -591,7 +591,7 @@ H.itemdrop = function(d)
 	local img = Instance.new("ImageLabel")
 	img.BackgroundTransparency = 1
 	img.Size = UDim2.fromScale(1, 1)
-	img.Image = Icons.items[it.id] or ""
+	img.Image = (d.c and Icons[it.id] or Icons.items[it.id]) or ""
 	img.Parent = bb
 	FX.Burst(d.pos, tier.color, 24, 0.7, 12)
 	local t0 = os.clock()
@@ -634,7 +634,7 @@ end
 -- выпала находка: столб света цвета редкости и вспышка
 H.lootspawn = function(d)
 	local Items = require(Shared.ItemsConfig)
-	local it = Items.ById[d.id]
+	local it = d.c and { id = d.id, tier = d.tier, name = d.name, c = true } or Items.ById[d.id]
 	if not it then
 		return
 	end
