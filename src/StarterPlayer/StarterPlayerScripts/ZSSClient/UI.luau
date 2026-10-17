@@ -2021,9 +2021,6 @@ local function buildInventory()
 			TextColor3 = r.rainbow and C(255, 255, 255) or r.color,
 			Parent = card,
 		}, { U.textStroke(C(0, 0, 0), 1.5) })
-		if r.rainbow then
-			rainbowify(rl)
-		end
 		local count = new("TextLabel", {
 			AnchorPoint = Vector2.new(1, 0),
 			Position = UDim2.new(1, -4, 0, 4),
