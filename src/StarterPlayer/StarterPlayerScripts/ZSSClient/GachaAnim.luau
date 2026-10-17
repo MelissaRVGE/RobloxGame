@@ -89,7 +89,18 @@ local function sfx(id, vol, pitch)
 	if ctx.skip then
 		return
 	end
-	U.play(id, vol, pitch)
+	local snd = U.play(id, vol, pitch)
+	if snd then
+		table.insert(ctx.sounds, snd)
+	end
+end
+
+-- глушит всё, что гача уже запустила (пропуск или конец анимации)
+local function stopSfx(fade)
+	for _, snd in ipairs(ctx.sounds) do
+		U.stopSound(snd, fade)
+	end
+	table.clear(ctx.sounds)
 end
 
 -- ===== ПОСТРОЕНИЕ ЭЛЕМЕНТОВ =====
@@ -2524,6 +2535,7 @@ local function run(results, opts)
 		rainbowGrads = {},
 		bgTint = C(130, 230, 60),
 		cleanupUI = {},
+		sounds = {},
 	}
 	local vpSize = workspace.CurrentCamera.ViewportSize
 	ctx.uiScale = math.clamp(math.min(vpSize.X / 1100, vpSize.Y / 720), 0.5, 1.2)
@@ -2587,6 +2599,7 @@ local function run(results, opts)
 	ctx.skipBtn.Activated:Connect(function()
 		ctx.skip = true
 		ctx.skipBtn.Visible = false
+		stopSfx(0.12)
 	end)
 
 	-- общий покадровый апдейт
@@ -2807,6 +2820,7 @@ local function run(results, opts)
 
 	-- затухание
 	ctx.skip = false
+	stopSfx(0.3)
 	-- уход в затемнение, под ним убираем сцену и возвращаем HUD, затем мир плавно проявляется
 	local fadeGui = new("ScreenGui", { Name = "ZSS_GachaFade", IgnoreGuiInset = true, ResetOnSpawn = false, DisplayOrder = 101, Parent = pg })
 	local fadeOut = new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = C(0, 0, 0), BackgroundTransparency = 1, BorderSizePixel = 0, Parent = fadeGui })

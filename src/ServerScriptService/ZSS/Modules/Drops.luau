@@ -1,5 +1,7 @@
 -- Выпадение в мире: БАФФЫ (светящиеся сферы) и ПРЕДМЕТЫ (ящички-находки).
 -- Баффы появляются на полях сами и иногда падают из зомби — подобрал, и он сразу действует.
+-- Сфера-бафф личная: её видит и может взять только тот игрок, для кого она появилась
+-- (атрибут Owner; клиенты прячут чужие сферы в ZSSClient/OwnerOnly).
 -- Предметы падают ящичком там, где были найдены; подойди — и предмет улетит в рюкзак.
 local Players = game:GetService("Players")
 local RS = game:GetService("ReplicatedStorage")
@@ -115,7 +117,7 @@ function Drops.ApplyBuff(player, b)
 	end
 end
 
-function Drops.SpawnBuff(b, pos, fieldId)
+function Drops.SpawnBuff(b, pos, fieldId, owner)
 	local p = Instance.new("Part")
 	p.Name = "BuffPickup"
 	p.Shape = Enum.PartType.Ball
@@ -130,6 +132,9 @@ function Drops.SpawnBuff(b, pos, fieldId)
 	p:SetAttribute("Buff", b.id)
 	p:SetAttribute("Field", fieldId)
 	p:SetAttribute("BaseY", pos.Y)
+	if owner then
+		p:SetAttribute("Owner", owner.UserId)
+	end
 	local core = Instance.new("Part")
 	core.Name = "Core"
 	core.Shape = Enum.PartType.Ball
@@ -158,13 +163,13 @@ function Drops.SpawnBuff(b, pos, fieldId)
 		local char = hit.Parent
 		local player = char and Players:GetPlayerFromCharacter(char)
 		local hum = char and char:FindFirstChildOfClass("Humanoid")
-		if not player or not hum or hum.Health <= 0 then
+		if not player or not hum or hum.Health <= 0 or (owner and player ~= owner) then
 			return
 		end
 		taken = true
 		Drops.ApplyBuff(player, b)
 		require(script.Parent.Quests).Event(player, "pickup")
-		Remotes.FX:FireAllClients("pickup", { pos = p.Position, owner = player.UserId, color = b.color })
+		Remotes.FX:FireClient(player, "pickup", { pos = p.Position, owner = player.UserId, color = b.color })
 		p:Destroy()
 	end)
 	p.Parent = getFolder()
@@ -176,22 +181,24 @@ function Drops.SpawnBuff(b, pos, fieldId)
 	return p
 end
 
--- сфера из убитого зомби — только боевая
-function Drops.ZombieKilled(pos, field)
+-- сфера из убитого зомби — только боевая и только для убившего
+function Drops.ZombieKilled(pos, field, owner)
 	if rng:NextNumber() >= Buffs.ZombieChance then
 		return
 	end
-	if field and Drops.CountOnField(field) >= Buffs.Field.perField then
+	if field and Drops.CountOnField(field, owner) >= Buffs.Field.perField then
 		return
 	end
 	local y = field and field.cfg.center.Y or pos.Y - 2
-	Drops.SpawnBuff(Buffs.Roll(rng, "combat"), Vector3.new(pos.X, y + 3.2, pos.Z), field and field.cfg.id)
+	Drops.SpawnBuff(Buffs.Roll(rng, "combat"), Vector3.new(pos.X, y + 3.2, pos.Z), field and field.cfg.id, owner)
 end
 
-function Drops.CountOnField(field)
+-- сферы на поле; с owner — только его личные
+function Drops.CountOnField(field, owner)
 	local n = 0
+	local uid = owner and owner.UserId
 	for _, p in ipairs(getFolder():GetChildren()) do
-		if p.Name == "BuffPickup" and p:GetAttribute("Field") == field.cfg.id then
+		if p.Name == "BuffPickup" and p:GetAttribute("Field") == field.cfg.id and (not uid or p:GetAttribute("Owner") == uid) then
 			n += 1
 		end
 	end
@@ -215,7 +222,7 @@ function Drops.OnActivity(player, cat, pos, field)
 	if rng:NextNumber() >= rule.chance * Buffs.Mult(player, "luck") * (player:GetAttribute("ZSS_Luck") or 1) then
 		return
 	end
-	if Drops.CountOnField(field) >= Buffs.Field.perField then
+	if Drops.CountOnField(field, player) >= Buffs.Field.perField then
 		return
 	end
 	last[cat] = now
@@ -236,7 +243,7 @@ function Drops.OnActivity(player, cat, pos, field)
 	end
 	params.FilterDescendantsInstances = ex
 	local hit = workspace:Raycast(Vector3.new(x, c.Y + 40, z), Vector3.new(0, -80, 0), params)
-	Drops.SpawnBuff(Buffs.Roll(rng, cat), Vector3.new(x, (hit and hit.Position.Y or c.Y) + 2.6, z), field.cfg.id)
+	Drops.SpawnBuff(Buffs.Roll(rng, cat), Vector3.new(x, (hit and hit.Position.Y or c.Y) + 2.6, z), field.cfg.id, player)
 end
 
 -- равномерно по полю: выбирается самая пустая четверть

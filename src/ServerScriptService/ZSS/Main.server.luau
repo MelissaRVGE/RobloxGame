@@ -495,7 +495,7 @@ Remotes.Scoop.OnServerEvent:Connect(function(player)
 			Fields.Collect(player, t, st.gather or 1, player:GetAttribute("ZSS_ToolGather") or 1)
 		end
 	else
-		for _, z in ipairs(Zombies.InRadius(field, hrp.Position, st.radius + 2)) do
+		for _, z in ipairs(Zombies.InRadius(field, hrp.Position, st.radius + 2, player)) do
 			Zombies.Damage(z, st.dmg or 1, player)
 		end
 	end
