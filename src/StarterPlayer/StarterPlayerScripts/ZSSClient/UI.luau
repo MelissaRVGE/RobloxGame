@@ -1367,6 +1367,13 @@ local function buildMap()
 			TextColor3 = C(255, 255, 255),
 			Parent = row,
 		}, function()
+			-- закрытая локация: не телепортируем, объясняем почему (сервер тоже проверяет)
+			local f = e.field
+			local have = State.data and State.data.equippedTotal or 0
+			if f and have < (f.req or 0) then
+				UI.Toast(("🔒 «%s» откроется, когда в рое будет %d дронов (сейчас %d)"):format(f.name, f.req, have), "bad")
+				return
+			end
 			Remotes.Teleport:FireServer(e.id)
 			closeWindow(win)
 		end)
