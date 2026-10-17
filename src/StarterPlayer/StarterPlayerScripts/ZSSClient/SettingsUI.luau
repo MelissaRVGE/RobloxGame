@@ -14,6 +14,7 @@ local FX = require(script.Parent.FX)
 local WorldLOD = require(script.Parent.WorldLOD)
 local Keybinds = require(script.Parent.Keybinds)
 local TweenService = game:GetService("TweenService")
+local CAS = game:GetService("ContextActionService")
 
 local player = Players.LocalPlayer
 local new = U.new
@@ -232,6 +233,7 @@ local function stopCapture()
 		return
 	end
 	capture = nil
+	CAS:UnbindAction("ZSS_KeyCapture")
 	if c.pulse then
 		c.pulse:Cancel()
 		c.pulse = nil
@@ -245,6 +247,30 @@ local function stopCapture()
 	c.sync()
 end
 
+-- нажатие, пока строка ждёт новую клавишу; клавиша перехватывается целиком (персонаж не бежит и не прыгает)
+local function onCaptureKey(_, state, input)
+	local row = capture
+	if not row or state ~= Enum.UserInputState.Begin then
+		return Enum.ContextActionResult.Sink
+	end
+	local kc = input.KeyCode
+	if kc == Enum.KeyCode.Escape then
+		U.play(U.Sounds.tap, 0.4, 0.8)
+		stopCapture()
+		return Enum.ContextActionResult.Sink
+	end
+	local ok, info = Keybinds.Assign(row.action.id, kc)
+	stopCapture()
+	if ok then
+		U.play(U.Sounds.chime, 0.4, 1.2)
+		U.pulseScale(row.cap, 1.15, 0.08, 0.3)
+		S.OnKeysChanged(row.action.id, info)
+	else
+		row.fail(("%s занята: %s"):format(Keybinds.Name(kc), info))
+	end
+	return Enum.ContextActionResult.Sink
+end
+
 local function bindRow(page, order, action)
 	local r = new("Frame", { Size = UDim2.new(1, -8, 0, 44), BackgroundColor3 = C(26, 30, 36), LayoutOrder = order, Parent = page }, { U.corner(10) })
 	local rst = U.stroke(C(55, 62, 72), 1.2)
@@ -253,8 +279,8 @@ local function bindRow(page, order, action)
 	local cst = U.stroke(C(140, 150, 160), 1.5)
 	cst.Parent = cap
 	local lbl = new("TextLabel", { Position = UDim2.fromOffset(108, 0), Size = UDim2.new(1, -160, 1, 0), BackgroundTransparency = 1, Font = Enum.Font.GothamBold, Text = action.label, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = C(220, 226, 232), TextTruncate = Enum.TextTruncate.AtEnd, Parent = r })
-	-- ↺ — вернуть стандартную клавишу этого действия (видна, только если клавиша изменена)
-	local back = new("TextButton", { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -10, 0.5, 0), Size = UDim2.fromOffset(32, 32), BackgroundColor3 = C(40, 46, 56), Font = Enum.Font.GothamBlack, Text = "↺", TextSize = 18, TextColor3 = C(200, 220, 240), AutoButtonColor = false, Visible = false, Parent = r }, { U.corner(8) })
+	-- «СБРОС» — вернуть стандартную клавишу этого действия (видна, только если клавиша изменена)
+	local back = new("TextButton", { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -10, 0.5, 0), Size = UDim2.fromOffset(64, 28), BackgroundColor3 = C(40, 46, 56), Font = Enum.Font.GothamBlack, Text = "СБРОС", TextSize = 11, TextColor3 = C(200, 220, 240), AutoButtonColor = false, Visible = false, Parent = r }, { U.corner(8) })
 	local row = { action = action, cap = cap, lbl = lbl }
 	local errUntil = 0
 	function row.sync()
@@ -274,7 +300,7 @@ local function bindRow(page, order, action)
 		U.fadeVisible(back, custom, 0.15)
 	end
 	function row.fail(msg)
-		errUntil = os.clock() + 1.8
+		errUntil = os.clock() + 2.5
 		lbl.Text = msg
 		lbl.TextColor3 = C(255, 120, 110)
 		U.play(U.Sounds.error, 0.45, 0.8)
@@ -285,7 +311,7 @@ local function bindRow(page, order, action)
 			end
 			U.tween(cap, 0.05, { Position = p0 })
 		end)
-		task.delay(1.8, function()
+		task.delay(2.5, function()
 			if os.clock() >= errUntil then
 				row.sync()
 			end
@@ -311,6 +337,7 @@ local function bindRow(page, order, action)
 		-- мягкое «дыхание» колпачка, пока ждём нажатие
 		row.pulse = TweenService:Create(cap, TweenInfo.new(0.55, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), { BackgroundColor3 = C(120, 205, 255) })
 		row.pulse:Play()
+		CAS:BindActionAtPriority("ZSS_KeyCapture", onCaptureKey, false, Enum.ContextActionPriority.High.Value + 200, Enum.UserInputType.Keyboard)
 	end)
 	U.pressFx(back, { hover = 1.1, hoverSound = false })
 	back.Activated:Connect(function()
@@ -440,7 +467,7 @@ local function build()
 		for i, a in ipairs(Keybinds.Actions) do
 			bindRow(c, 10 + i, a)
 		end
-		local resetKeys = api.button({ Size = UDim2.new(1, -8, 0, 40), BackgroundColor3 = C(40, 48, 60), Font = Enum.Font.GothamBlack, Text = "↺ СТАНДАРТНЫЕ КЛАВИШИ", TextSize = 14, TextColor3 = C(200, 225, 255), LayoutOrder = 60, Parent = c }, function()
+		local resetKeys = api.button({ Size = UDim2.new(1, -8, 0, 40), BackgroundColor3 = C(40, 48, 60), Font = Enum.Font.GothamBlack, Text = "ВЕРНУТЬ СТАНДАРТНЫЕ КЛАВИШИ", TextSize = 14, TextColor3 = C(200, 225, 255), LayoutOrder = 60, Parent = c }, function()
 			stopCapture()
 			Keybinds.Reset()
 			S.OnKeysChanged()
@@ -601,28 +628,6 @@ function S.Init(a)
 	Keybinds.Changed:Connect(function()
 		for _, r in ipairs(bindRows) do
 			r.sync()
-		end
-	end)
-	-- ловим новую клавишу для строки, которая ждёт нажатие
-	UIS.InputBegan:Connect(function(input)
-		local row = capture
-		if not row or input.UserInputType ~= Enum.UserInputType.Keyboard then
-			return
-		end
-		local kc = input.KeyCode
-		if kc == Enum.KeyCode.Escape then
-			U.play(U.Sounds.tap, 0.4, 0.8)
-			stopCapture()
-			return
-		end
-		local ok, info = Keybinds.Assign(row.action.id, kc)
-		stopCapture()
-		if ok then
-			U.play(U.Sounds.chime, 0.4, 1.2)
-			U.pulseScale(row.cap, 1.15, 0.08, 0.3)
-			S.OnKeysChanged(row.action.id, info)
-		else
-			row.fail(("%s занята: %s"):format(Keybinds.Name(kc), info))
 		end
 	end)
 	State.Changed:Connect(onData)
