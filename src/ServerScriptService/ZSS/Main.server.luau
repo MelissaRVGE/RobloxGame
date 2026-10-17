@@ -52,6 +52,7 @@ local Converter = require(Modules.Converter)
 local Leaderboard = require(Modules.Leaderboard)
 local Drops = require(Modules.Drops)
 local Donate = require(Modules.Donate)
+local TierGuard = require(Modules.TierGuard)
 local DonateCfg = require(Shared.DonateConfig)
 
 -- максимум игроков на сервере задаётся в настройках игры (Game Settings → Places → Server Size = 6)
@@ -69,6 +70,7 @@ Boss.Init(Data, Fields, Zombies)
 Converter.Init(Data)
 Leaderboard.Init(Data)
 Donate.Init(Data, Equipment)
+TierGuard.Init(Data)
 Drones.OnCharged = function(player)
 	Quests.Event(player, "charged")
 end
@@ -93,13 +95,29 @@ local function onPlayerAdded(player)
 			notify(player, "🤖 Твой рой ждёт на базе: подойди к свободной станции зарядки и нажми E", "info")
 		end
 	end)
-	local function onChar()
+	local function onChar(char)
+		-- смерть: ресурсы с полей в рюкзаке пропадают (вместимость остаётся)
+		local hum = char and char:WaitForChild("Humanoid", 10)
+		if hum then
+			hum.Died:Connect(function()
+				local p = Data.Get(player)
+				if p and (p.scrap or 0) > 0 then
+					Data.TakeScrap(p, p.scrap)
+					p.scrap = 0
+					p.res = {}
+					Data.MarkDirty(player)
+					Data.Sync(player)
+					notify(player, "💀 Ты погиб — ресурсы в рюкзаке потеряны", "bad")
+				end
+			end)
+		end
+		TierGuard.OnSpawn(player)
 		task.wait(0.3)
 		Equipment.Apply(player)
 	end
 	player.CharacterAdded:Connect(onChar)
 	if player.Character then
-		task.spawn(onChar)
+		task.spawn(onChar, player.Character)
 	end
 end
 
@@ -110,6 +128,7 @@ end
 
 Players.PlayerRemoving:Connect(function(player)
 	Drones.Remove(player)
+	TierGuard.Remove(player)
 	Data.Release(player)
 end)
 
@@ -613,6 +632,13 @@ Remotes.Teleport.OnServerEvent:Connect(function(player, dest)
 	else
 		for _, f in ipairs(Fields.List) do
 			if f.cfg.id == dest then
+				-- карта не пускает в закрытую локацию: нужен рой не меньше требования поля
+				local p = Data.Get(player)
+				local have = p and #p.equipped or 0
+				if have < (f.cfg.req or 0) then
+					notify(player, ("🔒 «%s» откроется, когда в рое будет %d дронов (сейчас %d)"):format(f.cfg.name, f.cfg.req, have), "bad")
+					return
+				end
 				pos = Fields.Entrance(f)
 				fieldCenter = f.cfg.center
 			end
