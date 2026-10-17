@@ -441,15 +441,51 @@ function U.pressFx(b, opts)
 	end)
 end
 
+-- Один и тот же звук не накладывается сам на себя: не чаще раза в SFX_GAP секунд
+-- и не больше SFX_MAX копий одновременно. Звук удаляется, как только доиграл,
+-- а слишком длинный плавно глушится через SFX_LIFE секунд.
+local SFX_GAP, SFX_MAX, SFX_LIFE = 0.045, 4, 12
+local lastPlay, alive = {}, {}
+
+-- плавно заглушить и удалить звук
+function U.stopSound(s, fade)
+	if not s or not s.Parent then
+		return
+	end
+	fade = fade or 0.15
+	if fade <= 0 then
+		s:Destroy()
+		return
+	end
+	TweenService:Create(s, TweenInfo.new(fade, Enum.EasingStyle.Sine), { Volume = 0 }):Play()
+	Debris:AddItem(s, fade + 0.05)
+end
+
 function U.play(id, volume, pitch)
+	local cat = UI_SOUNDS[id] and U.Volume.ui or U.Volume.sfx
+	local vol = (volume or 0.5) * U.Volume.master * cat
+	if vol <= 0.001 then
+		return nil
+	end
+	local now = os.clock()
+	if now - (lastPlay[id] or 0) < SFX_GAP or (alive[id] or 0) >= SFX_MAX then
+		return nil
+	end
+	lastPlay[id] = now
+	alive[id] = (alive[id] or 0) + 1
 	local s = Instance.new("Sound")
 	s.SoundId = id
-	local cat = UI_SOUNDS[id] and U.Volume.ui or U.Volume.sfx
-	s.Volume = (volume or 0.5) * U.Volume.master * cat
+	s.Volume = vol
 	s.PlaybackSpeed = pitch or 1
 	s.Parent = SoundService
+	s.Destroying:Once(function()
+		alive[id] = math.max(0, (alive[id] or 1) - 1)
+	end)
+	s.Ended:Once(function()
+		s:Destroy()
+	end)
+	task.delay(SFX_LIFE, U.stopSound, s, 0.4)
 	s:Play()
-	Debris:AddItem(s, 5)
 	return s
 end
 

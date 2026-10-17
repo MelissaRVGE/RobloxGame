@@ -116,7 +116,7 @@ A.zap = function(c)
 	if not c.field then
 		return false
 	end
-	local z = Zombies.Nearest(c.field, c.hrp.Position, 30)
+	local z = Zombies.Nearest(c.field, c.hrp.Position, 30, c.player)
 	if not z then
 		return false
 	end
@@ -129,7 +129,7 @@ A.blades = function(c)
 	if not c.field then
 		return false
 	end
-	local zs = Zombies.InRadius(c.field, c.hrp.Position, 12)
+	local zs = Zombies.InRadius(c.field, c.hrp.Position, 12, c.player)
 	if #zs == 0 then
 		return false
 	end
@@ -153,7 +153,7 @@ A.frost = function(c)
 	if not c.field then
 		return false
 	end
-	local zs = Zombies.InRadius(c.field, c.hrp.Position, 22)
+	local zs = Zombies.InRadius(c.field, c.hrp.Position, 22, c.player)
 	if #zs == 0 then
 		return false
 	end
@@ -186,7 +186,7 @@ A.chain = function(c)
 	if not c.field then
 		return false
 	end
-	local zs = Zombies.InRadius(c.field, c.hrp.Position, 30)
+	local zs = Zombies.InRadius(c.field, c.hrp.Position, 30, c.player)
 	if #zs == 0 then
 		return false
 	end
@@ -218,7 +218,7 @@ A.burst = function(c)
 	if not c.field then
 		return false
 	end
-	local z = Zombies.Nearest(c.field, c.hrp.Position, 35)
+	local z = Zombies.Nearest(c.field, c.hrp.Position, 35, c.player)
 	if not z then
 		return false
 	end
@@ -247,7 +247,7 @@ A.cloud = function(c)
 			if not player.Parent then
 				break
 			end
-			for _, z in ipairs(Zombies.InRadius(field, pos, 12)) do
+			for _, z in ipairs(Zombies.InRadius(field, pos, 12, player)) do
 				Zombies.Damage(z, 10, player)
 			end
 			for _, t in ipairs(Fields.TilesNear(field, pos, 6)) do
@@ -277,7 +277,7 @@ A.nova = function(c)
 	if not c.field then
 		return false
 	end
-	local zs = Zombies.InRadius(c.field, c.hrp.Position, 25)
+	local zs = Zombies.InRadius(c.field, c.hrp.Position, 25, c.player)
 	if #zs == 0 then
 		return false
 	end
@@ -301,7 +301,7 @@ A.orbital = function(c)
 	if not c.field then
 		return false
 	end
-	local z = Zombies.Nearest(c.field, c.hrp.Position, 40)
+	local z = Zombies.Nearest(c.field, c.hrp.Position, 40, c.player)
 	local pos = z and z.root.Position or c.hrp.Position
 	pos = Vector3.new(pos.X, c.field.cfg.center.Y + 1, pos.Z)
 	local field, player, s, d = c.field, c.player, c.s, c.d
@@ -310,7 +310,7 @@ A.orbital = function(c)
 		if not player.Parent then
 			return
 		end
-		for _, zz in ipairs(Zombies.InRadius(field, pos, 20)) do
+		for _, zz in ipairs(Zombies.InRadius(field, pos, 20, player)) do
 			Zombies.Damage(zz, 400, player)
 		end
 		for _, t in ipairs(Fields.TilesNear(field, pos, 10)) do
@@ -367,7 +367,7 @@ A.reap = function(c)
 	if not c.field then
 		return false
 	end
-	local zs = Zombies.InField(c.field)
+	local zs = Zombies.InField(c.field, c.player)
 	if #zs == 0 then
 		return false
 	end
@@ -399,7 +399,7 @@ A.doomsday = function(c)
 		if not player.Parent then
 			return
 		end
-		for _, z in ipairs(Zombies.InField(field)) do
+		for _, z in ipairs(Zombies.InField(field, player)) do
 			if z.boss then
 				Zombies.Damage(z, 8000, player)
 			else
@@ -561,7 +561,7 @@ local function stepDrone(c, d)
 			return
 		end
 		if d.stats.damage > 0 and math.random() < 0.45 then
-			local z = Zombies.Nearest(c.field, c.hrp.Position, 28)
+			local z = Zombies.Nearest(c.field, c.hrp.Position, 28, c.player)
 			if z then
 				d.state = "attack"
 				d.zombie = z

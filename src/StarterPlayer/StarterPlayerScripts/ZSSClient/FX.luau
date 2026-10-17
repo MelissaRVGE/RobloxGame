@@ -792,13 +792,16 @@ local function itemSound(sfx, owner, hrp)
 		task.delay(s[4] or 0, function()
 			if owner == player.UserId or not hrp then
 				U.play(id, s[2] or 0.5, s[3] or 1)
-			else
+			elseif hrp.Parent and U.Volume.master * U.Volume.sfx > 0 then
 				local snd = Instance.new("Sound")
 				snd.SoundId = id
 				snd.Volume = (s[2] or 0.5) * U.Volume.master * U.Volume.sfx
 				snd.PlaybackSpeed = s[3] or 1
 				snd.RollOffMaxDistance = 70
 				snd.Parent = hrp
+				snd.Ended:Once(function()
+					snd:Destroy()
+				end)
 				snd:Play()
 				Debris:AddItem(snd, 6)
 			end

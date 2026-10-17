@@ -1,5 +1,8 @@
--- Зомби на полях: спавн, ИИ, урон, награда
+-- Зомби на полях: спавн, ИИ, урон, награда.
+-- У каждого игрока свои зомби: сервер ведёт их (ИИ, урон, награда), а клиенты
+-- прячут чужих по атрибуту Owner (ZSSClient/OwnerOnly). Босс общий, без владельца.
 local Players = game:GetService("Players")
+local PhysicsService = game:GetService("PhysicsService")
 local RS = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 
@@ -12,6 +15,39 @@ Zombies.Active = {}
 
 local Data, Fields, Loot
 local folder
+local GROUP = "ZSS_Zombies" -- зомби разных игроков не толкают друг друга
+
+-- состояние «игрок × поле»: сколько его зомби, когда следующий, когда он был на поле
+local slots = {} -- player -> { [field] = { n, nextSpawn, lastOccupied } }
+local function slot(owner, field)
+	local t = slots[owner]
+	if not t then
+		t = {}
+		slots[owner] = t
+	end
+	local st = t[field]
+	if not st then
+		st = { n = 0, nextSpawn = 0, lastOccupied = 0 }
+		t[field] = st
+	end
+	return st
+end
+
+-- зомби доступен игроку: свой или общий (босс)
+local function mine(z, player)
+	return not player or not z.owner or z.owner == player
+end
+
+-- эффект только владельцу зомби (остальные его не видят)
+local function fxTo(z, kind, data)
+	if z.owner then
+		if z.owner.Parent then
+			Remotes.FX:FireClient(z.owner, kind, data)
+		end
+	else
+		Remotes.FX:FireAllClients(kind, data)
+	end
+end
 local C = Color3.fromRGB
 
 local LOOKS = {
@@ -246,8 +282,15 @@ local function updateBar(z)
 	end
 end
 
-function Zombies.Spawn(field)
+function Zombies.Spawn(field, owner)
 	local m, hum, hrp, bar = build(field)
+	-- владелец ставится до появления в мире, чтобы клиенты сразу знали, чей это зомби
+	m:SetAttribute("Owner", owner.UserId)
+	for _, d in ipairs(m:GetDescendants()) do
+		if d:IsA("BasePart") then
+			d.CollisionGroup = GROUP
+		end
+	end
 	pcall(function()
 		m:ScaleTo(0.92 + math.random() * 0.2) -- зомби разного роста
 	end)
@@ -263,6 +306,7 @@ function Zombies.Spawn(field)
 		root = hrp,
 		bar = bar,
 		field = field,
+		owner = owner,
 		cfg = field.cfg.zombies,
 		lastAttack = 0,
 		slowUntil = 0,
@@ -273,6 +317,7 @@ function Zombies.Spawn(field)
 	}
 	Zombies.Active[m] = z
 	field.zcount += 1
+	slot(owner, field).n += 1
 	hum.HealthChanged:Connect(function()
 		updateBar(z)
 	end)
@@ -295,6 +340,8 @@ function Zombies.OnDeath(z)
 		return
 	end
 	z.field.zcount -= 1
+	local st = slots[z.owner] and slots[z.owner][z.field] or { n = 1, nextSpawn = 0 }
+	st.n = math.max(0, st.n - 1)
 	local killer = z.lastHit
 	if killer and killer.Parent then
 		local p = Data.Get(killer)
@@ -305,11 +352,11 @@ function Zombies.OnDeath(z)
 			local added = Data.AddScrap(killer, z.cfg.reward * z.rewardMult * night, res and res.id)
 			Remotes.Popup:FireClient(killer, z.root.Position + Vector3.new(0, 4, 0), "☠ +" .. added, "kill")
 			Loot.TryDrop(killer, "zombieKill", z.field.index, z.root.Position)
-			require(script.Parent.Drops).ZombieKilled(z.root.Position, z.field)
+			require(script.Parent.Drops).ZombieKilled(z.root.Position, z.field, killer)
 			require(script.Parent.Quests).Event(killer, "kill", { field = z.field.cfg.id, night = Loot.IsNight() })
 		end
 	end
-	Remotes.FX:FireAllClients("zdeath", { pos = z.root.Position, glow = z.field.cfg.id == "radzone" })
+	fxTo(z, "zdeath", { pos = z.root.Position, glow = z.field.cfg.id == "radzone" })
 	-- падение и растворение
 	local bb = z.model:FindFirstChild("HP")
 	if bb then
@@ -320,12 +367,11 @@ function Zombies.OnDeath(z)
 			TweenService:Create(d, TweenInfo.new(1.2), { Transparency = 1 }):Play()
 		end
 	end
-	local field = z.field
 	task.delay(1.3, function()
 		z.model:Destroy()
 	end)
-	-- новые зомби появляются сами в цикле populate(), пока на поле есть игроки
-	field.nextSpawn = math.max(field.nextSpawn or 0, os.clock() + math.random(50, 80) / 10)
+	-- новые зомби появляются сами в цикле populate(), пока владелец на поле
+	st.nextSpawn = math.max(st.nextSpawn, os.clock() + math.random(50, 80) / 10)
 end
 
 -- убрать зомби без награды (игроки ушли с поля)
@@ -336,6 +382,10 @@ local function despawn(z)
 	z.dead = true
 	Zombies.Active[z.model] = nil
 	z.field.zcount -= 1
+	local st = slots[z.owner] and slots[z.owner][z.field]
+	if st then
+		st.n = math.max(0, st.n - 1)
+	end
 	local bb = z.model:FindFirstChild("HP")
 	if bb then
 		bb:Destroy()
@@ -350,49 +400,41 @@ local function despawn(z)
 	end)
 end
 
--- зомби живут только на полях, где есть игроки: появляются по одному, когда игрок вошёл,
--- и исчезают через несколько секунд после того, как все ушли
+-- у каждого игрока свои зомби на том поле, где он стоит: появляются по одному,
+-- когда он зашёл, и исчезают через несколько секунд после того, как он ушёл
 local EMPTY_DESPAWN = 8
 local function populate(now)
-	local occupied = {}
-	local playerPos = {}
+	local here = {} -- player -> field, где он сейчас
 	for _, plr in ipairs(Players:GetPlayers()) do
 		local char = plr.Character
 		local hrp = char and char:FindFirstChild("HumanoidRootPart")
 		local hum = char and char:FindFirstChildOfClass("Humanoid")
 		if hrp and hum and hum.Health > 0 then
 			local f = Fields.At(hrp.Position)
-			if f then
-				occupied[f] = true
-				playerPos[f] = playerPos[f] or {}
-				table.insert(playerPos[f], hrp.Position)
-			end
-		end
-	end
-	for _, f in ipairs(Fields.List) do
-		if not f.cfg.boss and f.cfg.zombies and f.cfg.zombies.max > 0 then
-			if occupied[f] then
-				f.lastOccupied = now
-				if f.zcount < f.cfg.zombies.max and now >= (f.nextSpawn or 0) then
-					f.nextSpawn = now + 0.9
-					local z = Zombies.Spawn(f)
+			if f and not f.cfg.boss and f.cfg.zombies and f.cfg.zombies.max > 0 then
+				here[plr] = f
+				local st = slot(plr, f)
+				st.lastOccupied = now
+				if st.n < f.cfg.zombies.max and now >= st.nextSpawn then
+					st.nextSpawn = now + 0.9
+					local z = Zombies.Spawn(f, plr)
 					-- не появляться вплотную к игроку
 					for _ = 1, 6 do
-						local close = false
-						for _, pp in ipairs(playerPos[f]) do
-							if (z.root.Position - pp).Magnitude < 12 then
-								close = true
-							end
-						end
-						if not close then
+						if (z.root.Position - hrp.Position).Magnitude >= 12 then
 							break
 						end
 						z.model:PivotTo(CFrame.new(Fields.RandomPoint(f) + Vector3.new(0, 1, 0)))
 					end
-					Remotes.FX:FireAllClients("zspawn", { pos = z.root.Position })
+					fxTo(z, "zspawn", { pos = z.root.Position })
 				end
-			elseif f.zcount > 0 and now - (f.lastOccupied or 0) > EMPTY_DESPAWN then
-				for _, z in ipairs(Zombies.InField(f)) do
+			end
+		end
+	end
+	-- игрок ушёл с поля: его зомби там исчезают
+	for plr, t in pairs(slots) do
+		for f, st in pairs(t) do
+			if st.n > 0 and here[plr] ~= f and now - st.lastOccupied > EMPTY_DESPAWN then
+				for _, z in ipairs(Zombies.InField(f, plr)) do
 					despawn(z)
 				end
 			end
@@ -401,7 +443,7 @@ local function populate(now)
 end
 
 function Zombies.Damage(z, dmg, player)
-	if not z or z.dead then
+	if not z or z.dead or not mine(z, player) then
 		return
 	end
 	z.lastHit = player
@@ -439,7 +481,7 @@ function Zombies.Damage(z, dmg, player)
 end
 
 function Zombies.Kill(z, player, rewardMult)
-	if not z or z.dead then
+	if not z or z.dead or not mine(z, player) then
 		return
 	end
 	if z.boss then
@@ -455,20 +497,21 @@ function Zombies.Slow(z, duration)
 	z.slowUntil = os.clock() + duration
 end
 
-function Zombies.InField(field)
+-- player (необязательно): только зомби этого игрока и общий босс
+function Zombies.InField(field, player)
 	local out = {}
 	for _, z in pairs(Zombies.Active) do
-		if z.field == field and not z.dead then
+		if z.field == field and not z.dead and mine(z, player) then
 			table.insert(out, z)
 		end
 	end
 	return out
 end
 
-function Zombies.InRadius(field, pos, radius)
+function Zombies.InRadius(field, pos, radius, player)
 	local out = {}
 	for _, z in pairs(Zombies.Active) do
-		if z.field == field and not z.dead and (z.root.Position - pos).Magnitude <= radius then
+		if z.field == field and not z.dead and mine(z, player) and (z.root.Position - pos).Magnitude <= radius then
 			table.insert(out, z)
 		end
 	end
@@ -478,10 +521,10 @@ function Zombies.InRadius(field, pos, radius)
 	return out
 end
 
-function Zombies.Nearest(field, pos, radius)
+function Zombies.Nearest(field, pos, radius, player)
 	local best, bd = nil, radius
 	for _, z in pairs(Zombies.Active) do
-		if z.field == field and not z.dead then
+		if z.field == field and not z.dead and mine(z, player) then
 			local d = (z.root.Position - pos).Magnitude
 			if d <= bd then
 				best, bd = z, d
@@ -492,7 +535,7 @@ function Zombies.Nearest(field, pos, radius)
 end
 
 local function think(now)
-	local targets = {}
+	local targets = {} -- player -> { hrp, hum, field }
 	for _, plr in ipairs(Players:GetPlayers()) do
 		local char = plr.Character
 		local hrp = char and char:FindFirstChild("HumanoidRootPart")
@@ -500,21 +543,18 @@ local function think(now)
 		if hrp and hum and hum.Health > 0 then
 			local f = Fields.At(hrp.Position)
 			if f then
-				table.insert(targets, { hrp = hrp, hum = hum, field = f })
+				targets[plr] = { hrp = hrp, hum = hum, field = f }
 			end
 		end
 	end
 	local nightMult = Loot.IsNight() and Config.DayNight.damageMult or 1
 	for m, z in pairs(Zombies.Active) do
 		if not z.dead and not z.boss and z.root.Parent then
+			-- зомби охотится только на своего игрока
 			local target, tdist = nil, math.huge
-			for _, t in ipairs(targets) do
-				if t.field == z.field then
-					local d = (t.hrp.Position - z.root.Position).Magnitude
-					if d < tdist then
-						target, tdist = t, d
-					end
-				end
+			local t = targets[z.owner]
+			if t and t.field == z.field then
+				target, tdist = t, (t.hrp.Position - z.root.Position).Magnitude
 			end
 			local slow = now < z.slowUntil
 			z.hum.WalkSpeed = z.cfg.speed * (slow and 0.4 or 1)
@@ -537,7 +577,7 @@ local function think(now)
 						end
 						local mult = target.hrp.Parent:GetAttribute("ZSS_DmgMult") or 1
 						target.hum:TakeDamage(dmg * mult)
-						Remotes.FX:FireAllClients("hit", { pos = target.hrp.Position })
+						fxTo(z, "hit", { pos = target.hrp.Position })
 					end)
 				end
 			elseif now > z.nextWander then
@@ -554,6 +594,22 @@ function Zombies.Init(dataModule, fieldsModule)
 	folder = workspace:FindFirstChild("Zombies") or Instance.new("Folder")
 	folder.Name = "Zombies"
 	folder.Parent = workspace
+	pcall(function()
+		PhysicsService:RegisterCollisionGroup(GROUP)
+	end)
+	PhysicsService:CollisionGroupSetCollidable(GROUP, GROUP, false)
+	-- игрок вышел: его зомби исчезают сразу
+	Players.PlayerRemoving:Connect(function(plr)
+		local t = slots[plr]
+		if t then
+			for f in pairs(t) do
+				for _, z in ipairs(Zombies.InField(f, plr)) do
+					despawn(z)
+				end
+			end
+		end
+		slots[plr] = nil
+	end)
 	-- на старте поля пустые: зомби появятся, когда на поле зайдёт игрок
 	local acc = 0
 	task.spawn(function()
