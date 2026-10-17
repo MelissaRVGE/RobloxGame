@@ -86,8 +86,16 @@ function K.Dress(m, gear)
 		end
 		model.Parent = m
 	end
+	local fit = IB.Fit(m)
 	if gear.armor then
-		put(IB.Armor(Shop.ById[gear.armor], m.UpperTorso.Size), m.UpperTorso)
+		local am = IB.Armor(Shop.ById[gear.armor], fit.torso.box)
+		put(am, fit.torso.part, fit.torso.offset)
+		local vest = am:FindFirstChild("Vest")
+		if vest and vest:IsA("MeshPart") then
+			for _, p in ipairs(fit.torso.hide) do
+				p.Transparency = 1
+			end
+		end
 	end
 	if gear.backpack and Shop.ById[gear.backpack] then
 		put(IB.Backpack(Shop.ById[gear.backpack], m.UpperTorso.Size, gear.armor ~= nil), m.UpperTorso)
@@ -97,22 +105,28 @@ function K.Dress(m, gear)
 		if face then
 			face:Destroy()
 		end
-		local hm = IB.Helmet(Shop.ById[gear.helmet], m.Head.Size.Y)
+		local hm = IB.Helmet(Shop.ById[gear.helmet], fit.head.size)
 		if hm:GetAttribute("HideHead") then
 			m.Head.Transparency = 1
 		end
-		put(hm, m.Head)
+		put(hm, m.Head, fit.head.offset)
+	end
+	local function limb(model, f)
+		put(model, f.part, f.offset)
+		if f.hide and model:FindFirstChild("Shell") then
+			for _, p in ipairs(f.hide) do
+				p.Transparency = 1
+			end
+		end
 	end
 	if gear.gloves then
-		for _, h in ipairs({ m.LeftHand, m.RightHand }) do
-			local arm = m:FindFirstChild((h.Name:gsub("Hand", "LowerArm")))
-			put(IB.Glove(Shop.ById[gear.gloves], h.Size, arm and arm.Size.Y * 0.8), h)
+		for _, f in ipairs(fit.gloves) do
+			limb(IB.Glove(Shop.ById[gear.gloves], f.box, f.reach), f)
 		end
 	end
 	if gear.boots then
-		for _, f in ipairs({ m.LeftFoot, m.RightFoot }) do
-			local leg = m:FindFirstChild((f.Name:gsub("Foot", "LowerLeg")))
-			put(IB.Boot(Shop.ById[gear.boots], f.Size, leg and leg.Size.Y * 0.6), f)
+		for _, f in ipairs(fit.boots) do
+			limb(IB.Boot(Shop.ById[gear.boots], f.box, f.reach), f)
 		end
 	end
 	if gear.weapon then

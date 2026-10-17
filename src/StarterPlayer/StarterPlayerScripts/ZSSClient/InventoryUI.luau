@@ -878,11 +878,6 @@ local function rebuildStage()
 			p.CanQuery = false
 			p.CanTouch = false
 			p.CastShadow = false
-			if p.Name == "Sleeve" and p.Parent and p.Parent:FindFirstChild("Shell") then
-				-- блочный «рукав» под 3D-перчаткой и ботинком торчит углами сквозь меш, а на витрине
-				-- персонаж крупный и это видно: прячем, меш сам закрывает кисть и стопу
-				p.Transparency = 1
-			end
 		elseif p:IsA("ParticleEmitter") or p:IsA("Trail") or p:IsA("Beam") or p:IsA("Light") or p:IsA("Fire") or p:IsA("Smoke") or p:IsA("Sparkles") then
 			p.Enabled = false -- частицы и свет на таком масштабе превращаются в огромные пятна; свет сцены свой
 		end
