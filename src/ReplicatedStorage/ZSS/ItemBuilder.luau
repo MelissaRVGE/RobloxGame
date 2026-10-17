@@ -1308,8 +1308,8 @@ function IB.Boot(item, box, reach)
 end
 
 -- ===================== РЮКЗАКИ =====================
--- Невидимый Root в центре торса, рюкзак строится на спине (+Z), лямки идут через плечи на грудь (-Z).
--- armored = поверх брони (рюкзак и лямки чуть дальше от тела).
+-- Невидимый Root в центре торса, рюкзак строится на спине (+Z), без лямок на груди и плечах.
+-- armored = поверх брони (рюкзак чуть дальше от тела).
 local BLACK = C(0, 0, 0)
 local BP = {
 	bp_old = { main = C(200, 60, 50), v = "ZSSG_B_Nylon", pocket = C(40, 70, 150), pocketV = "ZSSG_B_Nylon", strap = C(35, 35, 40), strapV = "ZSSG_B_Molle", round = true },
@@ -1597,19 +1597,6 @@ BX.bp_omega = function(m, st, g)
 	end
 end
 
--- лямки через плечи на грудь (видны спереди)
-local function bpStraps(m, st, w, h, zb, zf)
-	for _, sx in ipairs({ -1, 1 }) do
-		local x = sx * w * 0.25
-		P(m, { name = "Strap", size = Vector3.new(w * 0.13, h * 0.8, 0.06), cf = CFrame.new(x, -h * 0.02, zf - 0.03), color = st.strap, v = st.strapV })
-		P(m, { name = "Strap", size = Vector3.new(w * 0.13, 0.08, zb - zf + 0.06), cf = CFrame.new(x, h * 0.5 + 0.04, (zb + zf) / 2), color = st.strap, v = st.strapV })
-		P(m, { name = "Buckle", size = Vector3.new(w * 0.15, 0.1, 0.05), cf = CFrame.new(x, -h * 0.3, zf - 0.07), color = C(190, 190, 195), mat = M.Metal })
-	end
-	if st.chest then
-		P(m, { name = "ChestStrap", size = Vector3.new(w * 0.52, 0.08, 0.05), cf = CFrame.new(0, h * 0.18, zf - 0.07), color = st.strap, v = st.strapV })
-	end
-end
-
 -- качественные 3D-модели рюкзаков (ReplicatedStorage.ZSS.BackpackMeshes/<id>):
 -- шаблон с центром габаритов в начале координат, сторона к спине игрока смотрит в -Z.
 -- Fit / Height — предельные ширина и высота относительно торса, Up — сдвиг вверх (доля высоты торса),
@@ -1655,9 +1642,7 @@ function IB.Backpack(item, box, armored)
 	root(m)
 	local w, h, d = box.X, box.Y, box.Z
 	local zb = armored and d * 0.85 or d * 0.52 -- спина (или 3D-броня на спине)
-	local zf = -(armored and d * 0.7 or d * 0.53) -- грудь
 	if backpackMesh(m, item.id, st, w, h, zb) then
-		bpStraps(m, st, w, h, zb, zf)
 		return m
 	end
 	local g = { bw = w * (st.bw or 0.8), bh = h * (st.bh or 0.86), bd = d * (st.bd or 0.6) }
@@ -1693,7 +1678,6 @@ function IB.Backpack(item, box, armored)
 			P(m, { name = "SidePocket", size = Vector3.new(g.bw * 0.16, g.bh * 0.42, g.bd * 0.7), cf = CFrame.new(sx * (g.bw / 2 + g.bw * 0.07), g.cy - g.bh * 0.2, g.cz), color = st.pocket or st.main, v = st.pocketV or st.v })
 		end
 	end
-	bpStraps(m, st, w, h, zb, zf)
 	if BX[item.id] then
 		BX[item.id](m, st, g)
 	end
