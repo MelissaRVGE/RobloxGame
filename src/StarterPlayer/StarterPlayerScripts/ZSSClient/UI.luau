@@ -873,14 +873,13 @@ function UI.FitRail(animate)
 	local pos = UDim2.fromOffset(hud.panel.Position.X.Offset, top)
 	local sc = math.clamp(avail / need, 0.45, ps)
 	if animate then
-		-- появилась/исчезла кнопка «Зарядить» — вкладки и задания плавно съезжают
+		-- появилась/исчезла кнопка «Зарядить» — вкладки плавно съезжают
 		U.tween(hud.rail, 0.3, { Position = pos }, Enum.EasingStyle.Quart)
 		U.tween(hud.railScale, 0.3, { Scale = sc }, Enum.EasingStyle.Quart)
 	else
 		hud.rail.Position = pos
 		hud.railScale.Scale = sc
 	end
-	QuestUI.PlaceTracker(top + (need + EDGE_PAD) * sc + 10, animate)
 end
 
 -- Верхняя полоса Roblox (TopbarInset): справа от её кнопок свободное место, на телефоне туда встают вкладки.
@@ -3074,7 +3073,6 @@ function UI.Init()
 		end,
 		onApply = function(v)
 			UI.ToastsEnabled = v.toasts
-			QuestUI.SetVisible(v.showQuests)
 			if math.abs((UI.UserScale or 1) - v.uiScale) > 0.001 then
 				UI.UserScale = v.uiScale
 				updateScale()
