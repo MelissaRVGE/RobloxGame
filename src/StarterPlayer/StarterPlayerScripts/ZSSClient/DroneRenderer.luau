@@ -364,6 +364,31 @@ function Renderer.Init(fx)
 	end)
 
 	RunService.RenderStepped:Connect(onRender)
+
+	-- дроны, чей меш у этого игрока не загрузился, пересобираем процедурно (иначе виден только их свет)
+	task.spawn(function()
+		local failed = Builder.CheckMeshes()
+		if #failed == 0 then
+			return
+		end
+		warn("[ZSS] Меши дронов не загрузились, рисуем процедурно:", table.concat(failed, ", "))
+		local set = {}
+		for _, id in ipairs(failed) do
+			set[id] = true
+		end
+		for _, sw in pairs(swarms) do
+			for i, v in ipairs(sw.order) do
+				if set[v.def.id] then
+					local nv = makeVis(v.def, v.key)
+					nv.pos, nv.look, nv.mode, nv.target, nv.targetInst = v.pos, v.look, v.mode, v.target, v.targetInst
+					nv.home, nv.homeLook, nv.launchAt, nv.launched, nv.flyFrom, nv.flyT0 = v.home, v.homeLook, v.launchAt, v.launched, v.flyFrom, v.flyT0
+					v.model:Destroy()
+					sw.drones[v.key] = nv
+					sw.order[i] = nv
+				end
+			end
+		end
+	end)
 end
 
 return Renderer
