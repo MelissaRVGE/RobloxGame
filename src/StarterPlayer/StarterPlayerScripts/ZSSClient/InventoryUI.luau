@@ -48,7 +48,7 @@ local SLOT_DEFS = {
 	{ key = "armor", name = "Armor", icon = "🛡", side = 0, row = 1 },
 	{ key = "gloves", name = "Gloves", icon = "🧤", side = 0, row = 2 },
 	{ key = "boots", name = "Boots", icon = "🥾", side = 0, row = 3 },
-	{ key = "weapon", name = "Weapons", icon = "⚔", side = 1, row = 0 },
+	{ key = "weapon", name = "Weapon", icon = "⚔", side = 1, row = 0 },
 	{ key = "tool", name = "Tool", icon = "⛏", side = 1, row = 1 },
 	{ key = "backpack", name = "Backpack", icon = "🎒", side = 1, row = 2 },
 }
@@ -1352,8 +1352,8 @@ local function computeStats()
 	local rm = Buffs.Mult(player, "rage")
 	local dmg = wpn.stats.dmg * (1 + (perks.dmg or 0)) * rm
 	out.dmg = { v = dmg, text = U.fmt(math.floor(dmg + 0.5)), mult = rm, lines = { { wpn.name, U.fmt(wpn.stats.dmg) }, { "Quest Rewards", ("+%d%%"):format((perks.dmg or 0) * 100), C(255, 220, 120) }, { "Swarm Rage buff", multStr(rm), C(255, 120, 90) }, { "At Night", "x2", C(190, 170, 255) } } }
-	out.radius = { v = wpn.stats.radius, text = fmtNum(wpn.stats.radius), lines = { { "Weapons", fmtNum(wpn.stats.radius) }, { "Tool", fmtNum(tool.stats.radius) } } }
-	out.cd = { v = wpn.stats.cd, text = ("%.2f s"):format(wpn.stats.cd), lines = { { "Weapons", ("%.2f s"):format(wpn.stats.cd) }, { "Tool", ("%.2f s"):format(tool.stats.cd or 0.45) } } }
+	out.radius = { v = wpn.stats.radius, text = fmtNum(wpn.stats.radius), lines = { { "Weapon", fmtNum(wpn.stats.radius) }, { "Tool", fmtNum(tool.stats.radius) } } }
+	out.cd = { v = wpn.stats.cd, text = ("%.2f s"):format(wpn.stats.cd), lines = { { "Weapon", ("%.2f s"):format(wpn.stats.cd) }, { "Tool", ("%.2f s"):format(tool.stats.cd or 0.45) } } }
 	out.gather = { v = tool.stats.gather or 0, text = U.fmt(tool.stats.gather or 0), lines = { { tool.name, "+" .. (tool.stats.gather or 0) } } }
 	local scm = Buffs.Mult(player, "scrap")
 	local sc = (1 + t.scrap + (perks.scrap or 0)) * scm
