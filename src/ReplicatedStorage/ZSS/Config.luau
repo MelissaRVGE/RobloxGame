@@ -14,7 +14,7 @@ Config.StudioBonusGems = 0
 -- гача оплачивается ГЕМАМИ
 Config.PullCost = 10
 Config.Pull10Cost = 100 -- без скидки: ровно 10 одиночных круток
-Config.StartGems = 50
+Config.StartGems = 0 -- новый игрок начинает без гемов
 -- награда за время в игре (как ежечасные раздатчики в BSS): каждые interval секунд онлайн
 Config.PlaytimeReward = { interval = 600, gems = 5 }
 -- гемы нельзя купить за батареи: только квесты, босс и редкие находки
