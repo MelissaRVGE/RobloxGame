@@ -109,20 +109,36 @@ local function setHatsHidden(char, hidden)
 end
 
 -- под закрытым шлемом голова и лицо скрываются (иначе квадратная голова торчит из прорезей)
-local function setHeadHidden(head, hidden)
-	if not head then
-		return
+local function setHidden(part, hidden)
+	if part:GetAttribute("ZSS_OrigTr") == nil then
+		part:SetAttribute("ZSS_OrigTr", part.Transparency)
 	end
-	if head:GetAttribute("ZSS_OrigTr") == nil then
-		head:SetAttribute("ZSS_OrigTr", head.Transparency)
-	end
-	head.Transparency = hidden and 1 or head:GetAttribute("ZSS_OrigTr")
-	for _, d in ipairs(head:GetChildren()) do
+	part.Transparency = hidden and 1 or part:GetAttribute("ZSS_OrigTr")
+	for _, d in ipairs(part:GetChildren()) do
 		if d:IsA("Decal") then
 			if d:GetAttribute("ZSS_OrigTr") == nil then
 				d:SetAttribute("ZSS_OrigTr", d.Transparency)
 			end
 			d.Transparency = hidden and 1 or d:GetAttribute("ZSS_OrigTr")
+		end
+	end
+end
+
+local function setHeadHidden(head, hidden)
+	if head then
+		setHidden(head, hidden)
+	end
+end
+
+-- детали тела под 3D-снаряжением скрыты, меш сам изображает их: торс под бронёй,
+-- кисти, предплечья, стопы и голени R15 под перчатками и ботинками
+local COVERED = { "UpperTorso", "LowerTorso", "Torso", "LeftHand", "RightHand", "LeftLowerArm", "RightLowerArm", "LeftFoot", "RightFoot", "LeftLowerLeg", "RightLowerLeg" }
+
+local function setCoveredHidden(char, hide)
+	for _, n in ipairs(COVERED) do
+		local part = char:FindFirstChild(n)
+		if part and part:IsA("BasePart") then
+			setHidden(part, hide[part] == true)
 		end
 	end
 end
@@ -262,6 +278,7 @@ function Equipment.Apply(player)
 	local fit = IB.Fit(char)
 	local torsoBox = bp.torso.Size
 	local list = {}
+	local hide = {}
 	if g.armor and fit.torso then
 		local am = IB.Armor(Shop.ById[g.armor], fit.torso.box)
 		if g.backpack then
@@ -270,6 +287,13 @@ function Equipment.Apply(player)
 				if d:IsA("BasePart") and d.Name ~= "Wing" and d.Name ~= "Cape" and d.Position.Z > fit.torso.box.Z * 0.7 then
 					d:Destroy()
 				end
+			end
+		end
+		-- торс под 3D-бронёй скрыт: броня сама изображает его и ничего не торчит сквозь меш
+		local vest = am:FindFirstChild("Vest")
+		if vest and vest:IsA("MeshPart") then
+			for _, part in ipairs(fit.torso.hide) do
+				hide[part] = true
 			end
 		end
 		am.Name = "Armor_" .. player.UserId
@@ -302,16 +326,27 @@ function Equipment.Apply(player)
 	end
 	setHeadHidden(bp.head, hideHead)
 	setHatsHidden(char, g.helmet ~= nil)
+	local function limb(item, build, f)
+		local m = build(item, f.box, f.reach)
+		attach(folder, m, f.part, f.offset)
+		-- скрываем конечность только под 3D-мешем; запасные блочные перчатки и ботинки надеты поверх руки
+		if f.hide and m:FindFirstChild("Shell") then
+			for _, part in ipairs(f.hide) do
+				hide[part] = true
+			end
+		end
+	end
 	if g.gloves then
 		for _, f in ipairs(fit.gloves) do
-			attach(folder, IB.Glove(Shop.ById[g.gloves], f.box, f.reach), f.part, f.offset)
+			limb(Shop.ById[g.gloves], IB.Glove, f)
 		end
 	end
 	if g.boots then
 		for _, f in ipairs(fit.boots) do
-			attach(folder, IB.Boot(Shop.ById[g.boots], f.box, f.reach), f.part, f.offset)
+			limb(Shop.ById[g.boots], IB.Boot, f)
 		end
 	end
+	setCoveredHidden(char, hide)
 	watchBody(player, char)
 
 	-- характеристики

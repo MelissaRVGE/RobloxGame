@@ -832,8 +832,9 @@ end
 -- Используются собственные оси меша: грудь смотрит в -Z, Yaw (градусы) доворачивает меш, если он сгенерирован боком.
 -- SX / SY / SZ — размер относительно торса по осям (меш растягивается, чтобы обернуть торс),
 -- Up — сдвиг вверх (доля высоты торса), Back — сдвиг назад (доля глубины торса).
--- box — весь торс (у R15 верхний и нижний вместе, см. IB.Fit), поэтому броня закрывает его целиком
--- без блочного поддоспешника: его углы торчали сквозь меш прямоугольниками.
+-- box — весь торс (у R15 верхний и нижний вместе, см. IB.Fit).
+-- Торс под 3D-бронёй скрыт (IB.Fit: torso.hide), броня сама изображает торс: прежний блочный
+-- поддоспешник торчал углами сквозь меш прямоугольниками, а без него сквозь меш торчал сам торс.
 local function armorMesh(m, t, box)
 	local z = game:GetService("ReplicatedStorage"):FindFirstChild("ZSS")
 	local lib = z and z:FindFirstChild("ArmorMeshes")
@@ -1145,8 +1146,8 @@ end
 -- Меш натягивается на кисть (стопу) и часть предплечья (голени): box — кисть или стопа,
 -- reach — сколько захватить выше неё. Лицевая сторона меша смотрит по его собственной оси -Z;
 -- атрибуты шаблона SX/SY/SZ, Up, Fwd, Yaw — поправки размера, сдвига и поворота (по умолчанию — def).
--- box уже охватывает и кисть (стопу), и предплечье (голень) по ширине (IB.Fit), так что меш закрывает
--- конечность сам, без блочного рукава под ним.
+-- box охватывает и кисть (стопу), и предплечье (голень) по ширине (IB.Fit); сами они под мешем скрыты,
+-- поэтому блочный рукав под ним больше не нужен (его углы торчали сквозь меш).
 local function limbMesh(m, libName, key, box, reach, glow, def)
 	local z = game:GetService("ReplicatedStorage"):FindFirstChild("ZSS")
 	local lib = z and z:FindFirstChild(libName)
@@ -1185,8 +1186,9 @@ local function limbMesh(m, libName, key, box, reach, glow, def)
 	return true
 end
 
--- перчатка шире руки, но не настолько, чтобы влезать в торс; ботинки не должны задевать друг друга
-local GLOVE_FIT = Vector3.new(1.45, 1.08, 1.7)
+-- перчатка шире руки, но не настолько, чтобы влезать в торс; ботинки не должны задевать друг друга.
+-- Рука под перчаткой скрыта, поэтому запас нужен только на форму меша, а не на блочную руку
+local GLOVE_FIT = Vector3.new(1.3, 1.06, 1.5)
 local BOOT_FIT = Vector3.new(1.15, 1.04, 1.5)
 
 function IB.Glove(item, box, reach)
@@ -1913,7 +1915,8 @@ end
 
 -- посадка снаряжения по реальному телу персонажа (R15 и R6, любой рост, ширина и пропорции аватара).
 -- Для каждого слота: part — к чему крепить, offset — центр снаряжения в осях этой детали,
--- box — габарит, который снаряжение должно обхватить, reach — сколько захватить выше кисти/стопы.
+-- box — габарит, который снаряжение должно обхватить, reach — сколько захватить выше кисти/стопы,
+-- hide — детали тела, которые 3D-снаряжение заменяет собой (их нужно скрыть).
 -- Позы берутся из точек крепления суставов, а не из текущих CFrame, чтобы анимация не сбивала посадку.
 local function restRel(a, b, attName)
 	local a0 = a:FindFirstChild(attName)
@@ -1943,37 +1946,39 @@ function IB.Fit(char)
 			w = math.max(w, lt.Size.X)
 			d = math.max(d, lt.Size.Z)
 		end
-		fit.torso = { part = ut, box = Vector3.new(w, top - bot, d), offset = CFrame.new(0, (top + bot) / 2, 0), upper = ut.Size }
+		fit.torso = { part = ut, box = Vector3.new(w, top - bot, d), offset = CFrame.new(0, (top + bot) / 2, 0), hide = { ut, lt } }
 		for _, side in ipairs({ "Left", "Right" }) do
 			local hand = char:FindFirstChild(side .. "Hand")
 			if hand then
-				-- перчатка закрывает кисть и большую часть предплечья и не уже его
+				-- перчатка — кисть и предплечье до локтя; сами они под ней скрыты (hide), иначе блочная рука
+				-- торчит сквозь меш: форма перчатки не охватывает прямоугольник руки ни при каком масштабе
 				local arm = char:FindFirstChild(side .. "LowerArm")
-				table.insert(fit.gloves, { part = hand, offset = CFrame.new(), box = arm and wider(hand.Size, arm.Size) or hand.Size, reach = arm and arm.Size.Y * 0.8 or hand.Size.Y * 1.6 })
+				table.insert(fit.gloves, { part = hand, offset = CFrame.new(), box = arm and wider(hand.Size, arm.Size) or hand.Size, reach = arm and arm.Size.Y or hand.Size.Y * 1.6, hide = { hand, arm } })
 			end
 			local foot = char:FindFirstChild(side .. "Foot")
 			if foot then
-				-- ботинок закрывает стопу и нижнюю часть голени
+				-- ботинок — стопа и голень до колена, они под ним скрыты (как у перчаток)
 				local leg = char:FindFirstChild(side .. "LowerLeg")
-				table.insert(fit.boots, { part = foot, offset = CFrame.new(), box = leg and wider(foot.Size, leg.Size) or foot.Size, reach = leg and leg.Size.Y * 0.6 or foot.Size.Y * 1.5 })
+				table.insert(fit.boots, { part = foot, offset = CFrame.new(), box = leg and wider(foot.Size, leg.Size) or foot.Size, reach = leg and leg.Size.Y or foot.Size.Y * 1.5, hide = { foot, leg } })
 			end
 		end
 	else
 		local t = char:FindFirstChild("Torso")
 		if t then
-			fit.torso = { part = t, box = t.Size, offset = CFrame.new(), upper = t.Size }
+			fit.torso = { part = t, box = t.Size, offset = CFrame.new(), hide = { t } }
 		end
 		for _, side in ipairs({ "Left", "Right" }) do
-			-- у R6 рука и нога — один блок: кисть и стопа — нижние 30 % его высоты
+			-- у R6 рука и нога — один блок: кисть и стопа — нижние 30 % его высоты. Скрыть их нельзя
+			-- (пропала бы вся рука), поэтому перчатка и ботинок с запасом шире блока
 			local arm = char:FindFirstChild(side .. " Arm")
 			if arm then
 				local s = arm.Size
-				table.insert(fit.gloves, { part = arm, offset = CFrame.new(0, -s.Y * 0.35, 0), box = Vector3.new(s.X, s.Y * 0.3, s.Z), reach = s.Y * 0.35 })
+				table.insert(fit.gloves, { part = arm, offset = CFrame.new(0, -s.Y * 0.35, 0), box = Vector3.new(s.X * 1.15, s.Y * 0.3, s.Z * 1.15), reach = s.Y * 0.35 })
 			end
 			local leg = char:FindFirstChild(side .. " Leg")
 			if leg then
 				local s = leg.Size
-				table.insert(fit.boots, { part = leg, offset = CFrame.new(0, -s.Y * 0.36, -s.Z * 0.05), box = Vector3.new(s.X, s.Y * 0.3, s.Z * 1.1), reach = s.Y * 0.25 })
+				table.insert(fit.boots, { part = leg, offset = CFrame.new(0, -s.Y * 0.36, -s.Z * 0.05), box = Vector3.new(s.X * 1.2, s.Y * 0.3, s.Z * 1.25), reach = s.Y * 0.3 })
 			end
 		end
 	end
