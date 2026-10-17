@@ -2,6 +2,7 @@
 local Players = game:GetService("Players")
 local RS = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local Debris = game:GetService("Debris")
 
 local Shared = RS:WaitForChild("ZSS")
 local Config = require(Shared.Config)
@@ -45,6 +46,32 @@ local tabButtons = {}
 local detail = {}
 local busy = false
 local Toast = function() end
+local gridLayout
+
+-- ===== 2D-карточки расходников =====
+-- Своя палитра, строка эффекта и анимация у каждого расходника, который продаётся в магазине.
+local CW, CH = 225, 268
+local CELL_GEAR, CELL_CONSUM = UDim2.fromOffset(146, 182), UDim2.fromOffset(CW, CH)
+local CONSUM_ART = {
+	medkit = { color = C(255, 85, 95), anim = "beat", line = function(st)
+		return ("❤ +%d здоровья мгновенно"):format(st.heal)
+	end },
+	energycell = { color = C(70, 200, 255), anim = "charge", line = function(st)
+		return ("⚡ +%d%% заряда всему рою"):format(math.floor(st.energy * 100 + 0.5))
+	end },
+	grenade = { color = C(150, 215, 70), anim = "shake", line = function(st)
+		return ("💥 %d урона • радиус %d"):format(st.dmg, st.radius)
+	end },
+	adrenaline = { color = C(255, 90, 190), anim = "dash", line = function(st)
+		return ("» +%d ступени «Ускорения»"):format(st.stacks)
+	end },
+}
+local DEF_ART = { color = C(255, 200, 80), anim = "beat", line = function()
+	return ""
+end }
+local function artOf(item)
+	return CONSUM_ART[item.id] or DEF_ART
+end
 
 local function setVp(vp, item, yaw, pitch)
 	for _, c in ipairs(vp:GetChildren()) do
@@ -225,16 +252,49 @@ local function refreshDetail()
 	end
 end
 
+local function setDetailArt(item)
+	local a = detail.art
+	local col = artOf(item).color
+	a.root.Visible = true
+	a.icon.Image = Icons[item.id] or ""
+	U.tween(a.rays, 0.3, { ImageColor3 = col })
+	U.tween(a.glow, 0.3, { ImageColor3 = col })
+	U.tween(a.stroke, 0.3, { Color = col })
+	a.root.BackgroundColor3 = col:Lerp(C(14, 12, 10), 0.8)
+	-- иконка мягко «выпрыгивает» при выборе
+	a.popScale.Scale = 0.55
+	U.tween(a.popScale, 0.45, { Scale = 1 }, Enum.EasingStyle.Back)
+	a.icon.ImageTransparency = 1
+	U.tween(a.icon, 0.25, { ImageTransparency = 0 })
+	a.anim = artOf(item).anim
+end
+
 local function selectItem(id)
 	selected = id
 	local item = Shop.ById[id]
-	detail.model = setVp(detail.vp, item, 0, math.rad(12))
-	-- вращаем вокруг центра габаритов, а не вокруг рукояти
-	local bb = detail.model:GetBoundingBox()
-	detail.center = CFrame.new(bb.Position)
-	detail.rel = detail.center:Inverse() * detail.model:GetPivot()
+	if item.stack then
+		-- расходник: в панели та же 2D-картинка, что и на карточке
+		for _, c in ipairs(detail.vp:GetChildren()) do
+			if c:IsA("Model") then
+				c:Destroy()
+			end
+		end
+		detail.model = nil
+		setDetailArt(item)
+	else
+		detail.art.root.Visible = false
+		detail.model = setVp(detail.vp, item, 0, math.rad(12))
+		-- вращаем вокруг центра габаритов, а не вокруг рукояти
+		local bb = detail.model:GetBoundingBox()
+		detail.center = CFrame.new(bb.Position)
+		detail.rel = detail.center:Inverse() * detail.model:GetPivot()
+	end
 	for cid, c in pairs(cards) do
-		U.tween(c.stroke, 0.15, { Thickness = cid == id and 4 or 2 })
+		if c.big then
+			U.tween(c.stroke, 0.2, { Thickness = cid == id and 4 or 2, Transparency = cid == id and 0 or 0.15 })
+		else
+			U.tween(c.stroke, 0.15, { Thickness = cid == id and 4 or 2 })
+		end
 	end
 	refreshDetail()
 end
@@ -245,7 +305,24 @@ local function refreshCards()
 		c.card.Visible = item.slot == tab
 		local isOwned = owned(id)
 		local isEq = equippedId(item.slot) == id
-		if item.stack then
+		if c.big then
+			local can = State.data and State.data.batteries >= item.price
+			c.price.Text = "🔋 " .. U.fmt(item.price)
+			if c.can ~= can then
+				c.can = can
+				U.gradTo(c.priceGrad, can and C(110, 235, 90) or C(120, 115, 110), can and C(30, 150, 50) or C(60, 58, 55), 0.25)
+				U.tween(c.priceStroke, 0.25, { Color = can and C(200, 255, 170) or C(150, 145, 140) })
+			end
+			local n = consumCount(id)
+			if n ~= c.count then
+				if c.count and n > c.count then
+					U.pulseScale(c.badge, 1.35, 0.08, 0.35)
+				end
+				c.count = n
+				c.badge.Text = "×" .. n
+				U.fadeVisible(c.badge, n > 0, 0.2)
+			end
+		elseif item.stack then
 			c.price.Text = ("🔋 %s  •  x%d"):format(U.fmt(item.price), consumCount(id))
 			c.price.TextColor3 = T.Battery
 		elseif isEq then
@@ -276,6 +353,7 @@ end
 local function setTab(key)
 	local changed = tab ~= key or not win.Visible
 	tab = key
+	gridLayout.CellSize = key == "consumable" and CELL_CONSUM or CELL_GEAR
 	refreshCards()
 	if changed then
 		-- карточки новой вкладки появляются волной с лёгкой пружинкой
@@ -296,8 +374,13 @@ local function setTab(key)
 			end)
 		end
 	end
-	local first = Shop.BySlot[key][1]
-	local pick = first.id
+	local pick
+	for _, it in ipairs(Shop.BySlot[key]) do
+		if not it.noShop then
+			pick = it.id
+			break
+		end
+	end
 	local eq = equippedId(key)
 	if eq then
 		pick = eq
@@ -314,6 +397,14 @@ local function buy(item, qty)
 	if ok and res and res.ok then
 		Toast(("✔ Куплено: %s%s"):format(item.name, qty > 1 and (" ×" .. qty) or ""), "good")
 		U.play(U.Sounds.pop, 0.7, 1.2)
+		local c = cards[item.id]
+		if c and c.big then
+			c.celebrate(qty)
+		end
+		if detail.art.root.Visible then
+			detail.art.jump = os.clock()
+			detail.art.burst = os.clock()
+		end
 	else
 		Toast(res and res.err or "Ошибка покупки", "bad")
 	end
@@ -353,6 +444,346 @@ local function onAction()
 		end
 		Remotes.ShopEquip:FireServer(item.id)
 	end
+end
+
+
+local function sparkleAt(parent, pos, color, z)
+	local sp = new("ImageLabel", {
+		BackgroundTransparency = 1,
+		Image = Icons.twinkle,
+		ImageColor3 = color,
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = pos,
+		Size = UDim2.fromOffset(22, 22),
+		ZIndex = z or 8,
+		Parent = parent,
+	})
+	local sc = new("UIScale", { Scale = 0.25, Parent = sp })
+	U.tween(sc, 0.25, { Scale = 1 }, Enum.EasingStyle.Back)
+	U.tween(sp, 0.25, { Rotation = 90 })
+	task.delay(0.3, function()
+		U.tween(sc, 0.35, { Scale = 0.2 })
+		U.tween(sp, 0.35, { ImageTransparency = 1, Rotation = 180 })
+	end)
+	Debris:AddItem(sp, 0.7)
+end
+
+-- большая 2D-карточка расходника: лучи и свечение цвета предмета, «живая» иконка,
+-- рамка редкости, счётчик в рюкзаке и кнопка-цена
+local function buildConsumCard(grid, item)
+	local art = artOf(item)
+	local col = art.color
+	local g = Shop.Grades[item.grade]
+	local card = { item = item, big = true, ph = item.index * 0.73, fx = {} }
+	-- ячейка сетки (её UIScale — волна появления вкладки)
+	local cell = new("Frame", { Size = UDim2.fromOffset(CW, CH), BackgroundTransparency = 1, LayoutOrder = item.index, Visible = false, Parent = grid })
+	-- рамка редкости + масштаб наведения
+	local holder = new("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Parent = cell }, { U.corner(16) })
+	card.scale = U.scaleOf(holder)
+	card.stroke = U.stroke(g.color, 2, 0.15)
+	card.stroke.Parent = holder
+	local root = new("TextButton", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = C(255, 255, 255),
+		AutoButtonColor = false,
+		Text = "",
+		ClipsDescendants = true,
+		Parent = holder,
+	}, {
+		U.corner(16),
+		new("UIGradient", { Rotation = 90, Color = ColorSequence.new(col:Lerp(C(22, 18, 14), 0.68), C(18, 15, 12)) }),
+	})
+
+	-- витрина: тёмное окно с лучами и свечением
+	local stage = new("Frame", {
+		Position = UDim2.fromOffset(8, 8),
+		Size = UDim2.new(1, -16, 0, 150),
+		BackgroundColor3 = col:Lerp(C(10, 9, 8), 0.82),
+		ClipsDescendants = true,
+		ZIndex = 2,
+		Parent = root,
+	}, { U.corner(12), U.stroke(col, 1.5, 0.55) })
+	card.stage = stage
+	card.rays = new("ImageLabel", {
+		BackgroundTransparency = 1,
+		Image = Icons.dn.rays,
+		ImageColor3 = col,
+		ImageTransparency = 0.55,
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.fromOffset(300, 300),
+		ZIndex = 2,
+		Parent = stage,
+	})
+	card.glow = new("ImageLabel", {
+		BackgroundTransparency = 1,
+		Image = Icons.glow,
+		ImageColor3 = col,
+		ImageTransparency = 0.3,
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.fromOffset(190, 190),
+		ZIndex = 3,
+		Parent = stage,
+	})
+	card.glowScale = U.scaleOf(card.glow)
+	-- пол витрины: мягкая тень под предметом
+	new("ImageLabel", {
+		BackgroundTransparency = 1,
+		Image = Icons.glow,
+		ImageColor3 = C(0, 0, 0),
+		ImageTransparency = 0.35,
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.new(0.5, 0, 1, -16),
+		Size = UDim2.fromOffset(130, 26),
+		ZIndex = 3,
+		Parent = stage,
+	})
+	-- обёртка иконки: UIScale обёртки — покадровая анимация, UIScale иконки — наведение
+	local wrap = new("Frame", {
+		BackgroundTransparency = 1,
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.new(0.5, 0, 0.5, -2),
+		Size = UDim2.fromOffset(112, 112),
+		ZIndex = 5,
+		Parent = stage,
+	})
+	card.wrapScale = new("UIScale", { Parent = wrap })
+	card.icon = new("ImageLabel", {
+		BackgroundTransparency = 1,
+		Image = Icons[item.id] or "",
+		Size = UDim2.fromScale(1, 1),
+		ScaleType = Enum.ScaleType.Fit,
+		ZIndex = 5,
+		Parent = wrap,
+	})
+	card.iconScale = U.scaleOf(card.icon)
+
+	-- особые слои анимаций
+	if art.anim == "dash" then
+		for k = 1, 4 do
+			local ln = new("Frame", { BackgroundColor3 = col:Lerp(C(255, 255, 255), 0.4), BackgroundTransparency = 0.3, BorderSizePixel = 0, AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.fromOffset(30 + k * 7, 4), ZIndex = 4, Parent = stage }, { U.round() })
+			table.insert(card.fx, ln)
+		end
+	elseif art.anim == "beat" then
+		for k = 1, 3 do
+			local pl = new("TextLabel", { BackgroundTransparency = 1, Font = Enum.Font.GothamBlack, Text = "+", TextSize = 22, TextColor3 = col:Lerp(C(255, 255, 255), 0.35), AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.fromOffset(24, 24), ZIndex = 4, Parent = stage }, { U.textStroke(C(60, 0, 10), 1.2, 0.3) })
+			table.insert(card.fx, pl)
+		end
+	else
+		for k = 1, 3 do
+			local sp = new("ImageLabel", { BackgroundTransparency = 1, Image = Icons.twinkle, ImageColor3 = col:Lerp(C(255, 255, 255), 0.5), AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.fromOffset(16, 16), ZIndex = 6, Parent = stage })
+			table.insert(card.fx, sp)
+		end
+	end
+	-- блик, пробегающий по карточке
+	card.sheen = new("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(-0.4, 0, 0.5, 0), Size = UDim2.new(0, 28, 2, 0), Rotation = 22, BackgroundColor3 = C(255, 255, 255), BackgroundTransparency = 0.8, BorderSizePixel = 0, ZIndex = 9, Parent = root })
+	card.nextSheen = os.clock() + 1 + item.index % 4 * 0.6
+
+	-- плашка редкости и счётчик «в рюкзаке»
+	new("TextLabel", {
+		Position = UDim2.fromOffset(8, 8),
+		Size = UDim2.fromOffset(0, 20),
+		AutomaticSize = Enum.AutomaticSize.X,
+		BackgroundColor3 = g.color,
+		Font = Enum.Font.GothamBlack,
+		Text = g.name:upper(),
+		TextSize = 11,
+		TextColor3 = C(20, 18, 14),
+		ZIndex = 7,
+		Parent = stage,
+	}, { U.corner(10), new("UIPadding", { PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8) }) })
+	card.badge = new("TextLabel", {
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, -8, 0, 8),
+		Size = UDim2.fromOffset(46, 22),
+		BackgroundColor3 = C(0, 0, 0),
+		BackgroundTransparency = 0.35,
+		Font = Enum.Font.GothamBlack,
+		Text = "×0",
+		TextSize = 14,
+		TextColor3 = C(255, 255, 255),
+		Visible = false,
+		ZIndex = 7,
+		Parent = stage,
+	}, { U.corner(11), U.stroke(col, 1.5, 0.2) })
+
+	new("TextLabel", {
+		Position = UDim2.fromOffset(10, 164),
+		Size = UDim2.new(1, -20, 0, 26),
+		BackgroundTransparency = 1,
+		Font = Enum.Font.GothamBlack,
+		Text = item.name,
+		TextScaled = true,
+		TextColor3 = C(255, 255, 255),
+		ZIndex = 5,
+		Parent = root,
+	}, { U.textStroke(C(0, 0, 0), 1.6), new("UITextSizeConstraint", { MaxTextSize = 21 }) })
+	new("TextLabel", {
+		Position = UDim2.fromOffset(10, 192),
+		Size = UDim2.new(1, -20, 0, 18),
+		BackgroundTransparency = 1,
+		Font = Enum.Font.GothamBold,
+		Text = art.line(item.stats),
+		TextScaled = true,
+		TextColor3 = col:Lerp(C(255, 255, 255), 0.45),
+		ZIndex = 5,
+		Parent = root,
+	}, { U.textStroke(C(0, 0, 0), 1.2), new("UITextSizeConstraint", { MaxTextSize = 14 }) })
+
+	-- цена (покупка — кнопками в панели справа)
+	local pill = new("Frame", {
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.new(0.5, 0, 1, -10),
+		Size = UDim2.new(1, -24, 0, 40),
+		BackgroundColor3 = C(255, 255, 255),
+		ZIndex = 5,
+		Parent = root,
+	}, { U.corner(12) })
+	card.pill = pill
+	card.priceGrad = new("UIGradient", { Rotation = 90, Color = ColorSequence.new(C(110, 235, 90), C(30, 150, 50)), Parent = pill })
+	card.can = true
+	card.priceStroke = U.stroke(C(200, 255, 170), 2, 0.2)
+	card.priceStroke.Parent = pill
+	card.price = new("TextLabel", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		Font = Enum.Font.GothamBlack,
+		Text = "🔋 " .. U.fmt(item.price),
+		TextSize = 20,
+		TextColor3 = C(255, 255, 255),
+		ZIndex = 6,
+		Parent = pill,
+	}, { U.textStroke(C(0, 40, 10), 1.6) })
+
+	-- наведение: карточка приподнимается, иконка крупнее, лучи и свечение ярче
+	root.MouseEnter:Connect(function()
+		card.hover = true
+		U.tween(card.scale, 0.22, { Scale = 1.04 }, Enum.EasingStyle.Back)
+		U.tween(card.iconScale, 0.28, { Scale = 1.14 }, Enum.EasingStyle.Back)
+		U.tween(card.glow, 0.22, { ImageTransparency = 0.08 })
+		U.tween(card.rays, 0.3, { ImageTransparency = 0.25 })
+		if selected ~= item.id then
+			U.tween(card.stroke, 0.22, { Thickness = 3, Transparency = 0 })
+		end
+		U.play(U.Sounds.hover, 0.15, 1.15)
+	end)
+	root.MouseLeave:Connect(function()
+		card.hover = false
+		U.tween(card.scale, 0.22, { Scale = 1 })
+		U.tween(card.iconScale, 0.28, { Scale = 1 })
+		U.tween(card.glow, 0.22, { ImageTransparency = 0.3 })
+		U.tween(card.rays, 0.3, { ImageTransparency = 0.55 })
+		if selected ~= item.id then
+			U.tween(card.stroke, 0.22, { Thickness = 2, Transparency = 0.15 })
+		end
+	end)
+	root.MouseButton1Down:Connect(function()
+		U.tween(card.scale, 0.07, { Scale = 0.97 })
+	end)
+	root.Activated:Connect(function()
+		U.tween(card.scale, 0.35, { Scale = card.hover and 1.04 or 1 }, Enum.EasingStyle.Back)
+		U.play(U.Sounds.tick, 0.4, 1.3)
+		card.jump = os.clock()
+		for _ = 1, 4 do
+			sparkleAt(stage, UDim2.new(0.5 + (math.random() - 0.5) * 0.6, 0, 0.5 + (math.random() - 0.5) * 0.6, 0), col:Lerp(C(255, 255, 255), 0.4))
+		end
+		selectItem(item.id)
+	end)
+
+	-- покупка: прыжок иконки, вспышка свечения и россыпь искр
+	function card.celebrate(qty)
+		card.jump = os.clock()
+		U.pulseScale(pill, 1.08, 0.08, 0.35)
+		card.burst = os.clock()
+		for _ = 1, 4 + qty * 2 do
+			local a = math.random() * math.pi * 2
+			sparkleAt(stage, UDim2.new(0.5 + math.cos(a) * 0.32, 0, 0.5 + math.sin(a) * 0.36, 0), col:Lerp(C(255, 255, 255), 0.35))
+		end
+	end
+	card.card = cell
+	return card
+end
+
+-- покадровая анимация 2D-картинки (карточка и панель справа)
+local function animArt(o, anim, t, dt, ph)
+	local rot, sc, raySpeed, glowSc = 0, 1, 16, 1
+	if anim == "beat" then
+		-- сердцебиение: два толчка и пауза
+		local k = (t + ph) % 1.3
+		local b = math.exp(-((k - 0.1) / 0.06) ^ 2) + 0.6 * math.exp(-((k - 0.34) / 0.06) ^ 2)
+		sc = 1 + 0.07 * b
+		glowSc = 1 + 0.18 * b
+		rot = math.sin(t * 1.2 + ph) * 3
+		for i, pl in ipairs(o.fx) do
+			local q = (t * 0.45 + i / 3 + ph) % 1
+			pl.Position = UDim2.fromScale(0.5 + (i - 2) * 0.28 + math.sin(q * 6 + i) * 0.03, 0.85 - q * 0.7)
+			pl.TextTransparency = math.abs(q - 0.5) * 2
+			pl.Rotation = math.sin(q * 6 + i) * 15
+		end
+	elseif anim == "charge" then
+		-- заряд: лучи быстрее, свечение мерцает, искры по орбите
+		raySpeed = 60
+		sc = 1 + 0.03 * math.sin(t * 4 + ph)
+		rot = math.sin(t * 1.6 + ph) * 4
+		glowSc = 1 + 0.08 * math.sin(t * 11) + 0.05 * math.sin(t * 17 + 1)
+		for i, sp in ipairs(o.fx) do
+			local a = t * 1.8 + i * math.pi * 2 / 3
+			sp.Position = UDim2.fromScale(0.5 + math.cos(a) * 0.3, 0.5 + math.sin(a) * 0.36)
+			sp.Rotation = t * 140 + i * 40
+			sp.ImageTransparency = 0.15 + 0.5 * (0.5 + 0.5 * math.sin(a))
+		end
+	elseif anim == "shake" then
+		-- граната раз в 2.4 с вздрагивает, вокруг вспыхивают искры
+		local k = ((t + ph) % 2.4) / 0.5
+		if k < 1 then
+			rot = math.sin(k * math.pi * 6) * 10 * (1 - k)
+			sc = 1 + math.sin(k * math.pi) * 0.06
+			glowSc = 1 + math.sin(k * math.pi) * 0.25
+		else
+			rot = math.sin(t * 1.4 + ph) * 2
+		end
+		for i, sp in ipairs(o.fx) do
+			local q = (((t + ph) % 2.4) / 0.9 + i * 0.12)
+			local a = i * 2.1 + 0.6
+			sp.Position = UDim2.fromScale(0.5 + math.cos(a) * (0.18 + q * 0.18), 0.5 + math.sin(a) * (0.2 + q * 0.2))
+			sp.ImageTransparency = q < 1 and math.clamp(q * 1.2, 0, 1) or 1
+			sp.Rotation = q * 180
+		end
+	elseif anim == "dash" then
+		-- адреналин: шприц наклонён «в рывке», позади летят полосы скорости
+		rot = -8 + math.sin(t * 6 + ph) * 3
+		sc = 1 + 0.03 * math.sin(t * 6 + ph)
+		raySpeed = 30
+		for i, ln in ipairs(o.fx) do
+			local q = (t * 1.4 + i * 0.27) % 1
+			ln.Position = UDim2.fromScale(0.42 - q * 0.38, (40 + i * 18) / 150)
+			ln.BackgroundTransparency = 0.2 + 0.8 * q
+		end
+	end
+	-- прыжок по клику/покупке
+	if o.jump then
+		local k = (t - o.jump) / 0.5
+		if k < 1 then
+			sc *= 1 + math.sin(k * math.pi) * 0.16
+			rot += math.sin(k * math.pi * 2) * 12 * (1 - k)
+		else
+			o.jump = nil
+		end
+	end
+	-- вспышка свечения после покупки
+	if o.burst then
+		local k = (t - o.burst) / 0.6
+		if k < 1 then
+			glowSc *= 1 + 0.5 * (1 - k) ^ 2
+		else
+			o.burst = nil
+		end
+	end
+	o.icon.Rotation = rot
+	o.wrapScale.Scale = sc
+	o.glowScale.Scale = glowSc
+	o.rays.Rotation = (o.rays.Rotation + raySpeed * dt) % 360
 end
 
 local function build()
@@ -498,10 +929,17 @@ local function build()
 		BorderSizePixel = 0,
 		Parent = win,
 	}, {
-		new("UIGridLayout", { CellSize = UDim2.fromOffset(146, 182), CellPadding = UDim2.fromOffset(8, 8), SortOrder = Enum.SortOrder.LayoutOrder }),
 		new("UIPadding", { PaddingTop = UDim.new(0, 4), PaddingLeft = UDim.new(0, 4) }),
 	})
+	gridLayout = new("UIGridLayout", { CellSize = CELL_GEAR, CellPadding = UDim2.fromOffset(8, 8), SortOrder = Enum.SortOrder.LayoutOrder, Parent = grid })
 	for _, item in ipairs(Shop.Items) do
+		if item.noShop then
+			continue -- выпадает только с зомби и босса, в магазине не продаётся
+		end
+		if item.stack then
+			cards[item.id] = buildConsumCard(grid, item)
+			continue
+		end
 		local g = Shop.Grades[item.grade]
 		local card = btn({
 			BackgroundColor3 = U.darken(g.color, 0.2),
@@ -568,6 +1006,35 @@ local function build()
 		LightDirection = Vector3.new(-0.4, -1, 0.6),
 		Parent = panel,
 	}, { U.corner(12) })
+	-- 2D-витрина расходника (поверх 3D-превью)
+	do
+		local a = { fx = {}, orbit = {} }
+		a.root = new("Frame", {
+			Position = UDim2.fromOffset(10, 10),
+			Size = UDim2.new(1, -20, 0, 180),
+			BackgroundColor3 = C(20, 16, 14),
+			ClipsDescendants = true,
+			Visible = false,
+			ZIndex = 3,
+			Parent = panel,
+		}, { U.corner(12) })
+		a.grad = new("UIGradient", { Rotation = 90, Color = ColorSequence.new(C(255, 255, 255), C(90, 90, 90)), Parent = a.root })
+		a.stroke = U.stroke(C(255, 255, 255), 1.5, 0.45)
+		a.stroke.Parent = a.root
+		a.rays = new("ImageLabel", { BackgroundTransparency = 1, Image = Icons.dn.rays, ImageTransparency = 0.45, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(380, 380), ZIndex = 3, Parent = a.root })
+		a.glow = new("ImageLabel", { BackgroundTransparency = 1, Image = Icons.glow, ImageTransparency = 0.15, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(230, 230), ZIndex = 4, Parent = a.root })
+		a.glowScale = U.scaleOf(a.glow)
+		new("ImageLabel", { BackgroundTransparency = 1, Image = Icons.glow, ImageColor3 = C(0, 0, 0), ImageTransparency = 0.3, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 1, -18), Size = UDim2.fromOffset(160, 30), ZIndex = 4, Parent = a.root })
+		a.wrap = new("Frame", { BackgroundTransparency = 1, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, -2), Size = UDim2.fromOffset(138, 138), ZIndex = 6, Parent = a.root })
+		a.popScale = new("UIScale", { Parent = a.wrap })
+		local inner = new("Frame", { BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), ZIndex = 6, Parent = a.wrap })
+		a.wrapScale = new("UIScale", { Parent = inner })
+		a.icon = new("ImageLabel", { BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), ScaleType = Enum.ScaleType.Fit, ZIndex = 6, Parent = inner })
+		for _ = 1, 3 do
+			table.insert(a.orbit, new("ImageLabel", { BackgroundTransparency = 1, Image = Icons.twinkle, AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.fromOffset(18, 18), ZIndex = 7, Parent = a.root }))
+		end
+		detail.art = a
+	end
 	detail.name = new("TextLabel", {
 		Position = UDim2.fromOffset(12, 196),
 		Size = UDim2.new(1, -24, 0, 28),
@@ -691,8 +1158,33 @@ function SUI.Init(toastFn)
 			refreshDetail()
 		end
 	end)
-	RunService.RenderStepped:Connect(function()
+	RunService.RenderStepped:Connect(function(dt)
 		if win.Visible then
+			local t = os.clock()
+			if tab == "consumable" then
+				for _, c in pairs(cards) do
+					if c.big and c.card.Visible then
+						animArt(c, artOf(c.item).anim, t, dt, c.ph)
+						if t >= c.nextSheen then
+							c.nextSheen = t + 3.5 + math.random() * 1.5
+							c.sheen.Position = UDim2.new(-0.4, 0, 0.5, 0)
+							U.tween(c.sheen, 0.75, { Position = UDim2.new(1.4, 0, 0.5, 0) }, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut)
+						end
+					end
+				end
+			end
+			local a = detail.art
+			if a.root.Visible then
+				animArt(a, a.anim, t, dt, 0)
+				-- в панели вокруг предмета медленно кружат искры его цвета
+				for i, sp in ipairs(a.orbit) do
+					local ang = t * 0.9 + i * math.pi * 2 / 3
+					sp.Position = UDim2.fromScale(0.5 + math.cos(ang) * 0.3, 0.5 + math.sin(ang) * 0.36)
+					sp.Rotation = t * 90 + i * 40
+					sp.ImageTransparency = 0.2 + 0.5 * (0.5 + 0.5 * math.sin(ang))
+					sp.ImageColor3 = a.glow.ImageColor3:Lerp(C(255, 255, 255), 0.5)
+				end
+			end
 			if detail.model and detail.model.Parent then
 				detail.model:PivotTo(detail.center * CFrame.Angles(0, os.clock() * 0.9, 0) * detail.rel)
 			end

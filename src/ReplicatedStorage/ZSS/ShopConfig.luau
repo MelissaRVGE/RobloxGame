@@ -297,6 +297,7 @@ end
 --   refill — кучи поля снова полные, orbs = { n, cat } — сферы баффов рядом, minis = { n, t } — мини-дроны,
 --   convert — весь рюкзак сразу в батареи, bomb = { r, mult, dmg } — сбор кучи вокруг + урон зомби.
 -- field = true — работает только на поле. model — 3D-модель карточки (ItemBuilder), fx — эффект, sfx — звук.
+-- В магазине не продаются (noShop): выпадают только с зомби и босса и из наград.
 local CONSUMABLES = {
 	{ "lube", "Смазка для дронов", 400, 1, "Капля машинного масла в каждый привод. Бодрит рой.",
 		{ energy = 0.15, buffs = { dgather = 1 } }, { kind = "can", c1 = C(70, 120, 60), c2 = C(240, 200, 70) },
@@ -363,7 +364,7 @@ local CONSUMABLES = {
 for _, c in ipairs(CONSUMABLES) do
 	table.insert(S.Items, {
 		id = c[1], slot = "consumable", name = c[2], price = c[3], grade = c[4], desc = c[5], icon = c[1], stack = true,
-		stats = {}, use = c[6], model = c[7], fx = c[8], sfx = c[9],
+		stats = {}, use = c[6], model = c[7], fx = c[8], sfx = c[9], noShop = true,
 	})
 end
 
