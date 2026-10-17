@@ -73,6 +73,16 @@ do
 	Config.RainbowSequence = ColorSequence.new(kp)
 end
 
+-- радуга, плавно бегущая по оттенку: для фона мифических карточек (каждый кадр — новый сдвиг)
+function Config.RainbowFlow(t, sat, val)
+	local shift = ((t or os.clock()) * 0.12) % 1
+	local kp = {}
+	for i = 0, 6 do
+		table.insert(kp, ColorSequenceKeypoint.new(i / 6, Color3.fromHSV((i / 6 * 0.85 + shift) % 1, sat or 0.8, val or 1)))
+	end
+	return ColorSequence.new(kp)
+end
+
 -- Базовые характеристики по редкости.
 -- Рой — главный источник дохода (как пчёлы в BSS): дрон за сбор приносит намного больше, чем один
 -- взмах инструмента, а каждая следующая редкость заметно сильнее предыдущей.

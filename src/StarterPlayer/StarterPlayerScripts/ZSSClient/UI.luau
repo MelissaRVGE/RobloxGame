@@ -31,6 +31,7 @@ local gui
 local scales = {} -- UIScale объекты, адаптируемые под экран
 local respScale = 1
 local rainbowGrads = {}
+local rainbowBgs = {} -- фоны мифических карточек: радуга плавно перетекает по оттенку
 local secretStrokes = {}
 local hud, inv, gacha = {}, {}, {}
 
@@ -86,6 +87,14 @@ end
 local function rainbowify(parent)
 	local g = new("UIGradient", { Color = Config.RainbowSequence, Parent = parent })
 	table.insert(rainbowGrads, g)
+	return g
+end
+
+-- радужный фон карточки (цвет фона белый, градиент красит его)
+local function rainbowBg(frame, rotation, val)
+	frame.BackgroundColor3 = C(255, 255, 255)
+	local g = new("UIGradient", { Rotation = rotation or 35, Color = Config.RainbowFlow(os.clock(), 0.75, val or 0.8), Parent = frame })
+	table.insert(rainbowBgs, { g = g, val = val or 0.8 })
 	return g
 end
 
@@ -1978,7 +1987,11 @@ local function buildInventory()
 		end)
 		U.corner(12).Parent = card
 		local stroke = rarityStroke(card, def.rarity, 2.5)
-		new("UIGradient", { Rotation = 90, Color = ColorSequence.new(C(255, 255, 255), C(90, 90, 90)), Parent = card })
+		if r.rainbow then
+			rainbowBg(card, 35, 0.72)
+		else
+			new("UIGradient", { Rotation = 90, Color = ColorSequence.new(C(255, 255, 255), C(90, 90, 90)), Parent = card })
+		end
 		local vp = new("ViewportFrame", {
 			Position = UDim2.fromOffset(4, 4),
 			Size = UDim2.new(1, -8, 0, 80),
@@ -2652,6 +2665,9 @@ local function buildGacha()
 		end)
 		U.corner(8).Parent = cell
 		rarityStroke(cell, def.rarity, 1.5)
+		if Config.Rarities[def.rarity].rainbow then
+			rainbowBg(cell, 35, 0.75)
+		end
 		local vp = new("ViewportFrame", {
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
@@ -3266,6 +3282,11 @@ function UI.Init()
 		local t = os.clock()
 		for _, g in ipairs(rainbowGrads) do
 			g.Rotation = (t * 90) % 360
+		end
+		for _, b in ipairs(rainbowBgs) do
+			if b.g.Parent and b.g.Parent.Visible ~= false then
+				b.g.Color = Config.RainbowFlow(t, 0.75, b.val)
+			end
 		end
 		local pulse = 0.55 + 0.45 * math.abs(math.sin(t * 3))
 		for _, s in ipairs(secretStrokes) do
