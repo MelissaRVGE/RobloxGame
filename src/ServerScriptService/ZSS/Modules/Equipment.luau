@@ -338,6 +338,26 @@ function Equipment.Apply(player)
 	giveWeapon(player, p)
 end
 
+-- выдать расходник: новый сам встаёт в первую свободную ячейку хотбара (потом его можно переложить)
+function Equipment.GiveConsum(player, id, qty)
+	local p = Data.Get(player)
+	if not p or not Shop.ById[id] then
+		return false
+	end
+	p.consum = p.consum or {}
+	p.consum[id] = (p.consum[id] or 0) + qty
+	local Hotbar = require(RS.ZSS.Hotbar)
+	p.hotbar = Hotbar.Normalize(p.hotbar)
+	if not Hotbar.IndexOf(p.hotbar, id) then
+		local free = Hotbar.FirstEmpty(p.hotbar)
+		if free then
+			p.hotbar[free] = id
+		end
+	end
+	Data.MarkDirty(player)
+	return true
+end
+
 function Equipment.Buy(player, id, qty)
 	local p = Data.Get(player)
 	local item = Shop.ById[id]
@@ -356,17 +376,7 @@ function Equipment.Buy(player, id, qty)
 			return { ok = false, err = ("🔋 Не хватает батарей: нужно %d"):format(cost) }
 		end
 		p.batteries -= cost
-		p.consum[id] = (p.consum[id] or 0) + qty
-		-- новый расходник сам встаёт в первую свободную ячейку хотбара (потом его можно переложить)
-		local Hotbar = require(RS.ZSS.Hotbar)
-		p.hotbar = Hotbar.Normalize(p.hotbar)
-		if not Hotbar.IndexOf(p.hotbar, id) then
-			local free = Hotbar.FirstEmpty(p.hotbar)
-			if free then
-				p.hotbar[free] = id
-			end
-		end
-		Data.MarkDirty(player)
+		Equipment.GiveConsum(player, id, qty)
 		Remotes.FX:FireAllClients("purchase", { owner = player.UserId })
 		return { ok = true, qty = qty }
 	end

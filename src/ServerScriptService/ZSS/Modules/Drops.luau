@@ -286,10 +286,17 @@ local function collect(part, player)
 	if not info or info.taken then
 		return
 	end
-	if Data.AddItem(player, info.item.id, 1) then
+	local it = info.item
+	local ok
+	if it.consum then
+		ok = Equipment.GiveConsum(player, it.id, 1)
+	else
+		ok = Data.AddItem(player, it.id, 1)
+	end
+	if ok then
 		info.taken = true
 		crates[part] = nil
-		Remotes.FX:FireClient(player, "itemdrop", { id = info.item.id, pos = part.Position })
+		Remotes.FX:FireClient(player, "itemdrop", { id = it.id, pos = part.Position, c = it.consum, tier = it.tier, name = it.name })
 		require(script.Parent.Quests).Event(player, "find")
 		part:Destroy()
 	else
@@ -343,7 +350,7 @@ function Drops.SpawnItem(owner, item, pos)
 	light.Range = 10
 	light.Brightness = 1.6
 	light.Parent = p
-	billboard(p, Icons.items[item.id] or Icons.lootCrate, 2, Vector3.new(0, 2.6, 0), tier.color)
+	billboard(p, (item.consum and Icons[item.id] or Icons.items[item.id]) or Icons.lootCrate, 2, Vector3.new(0, 2.6, 0), tier.color)
 	sparkle(p, tier.color, item.tier == "Common" and 4 or 12)
 	crates[p] = { owner = owner, item = item, born = os.clock() }
 	p.Touched:Connect(function(hit)
@@ -354,7 +361,7 @@ function Drops.SpawnItem(owner, item, pos)
 		end
 	end)
 	p.Parent = getFolder()
-	Remotes.FX:FireClient(owner, "lootspawn", { id = item.id, pos = p.Position })
+	Remotes.FX:FireClient(owner, "lootspawn", { id = item.id, pos = p.Position, c = item.consum, tier = item.tier, name = item.name })
 	task.delay(Buffs.Loot.lifetime, function()
 		if p.Parent then
 			crates[p] = nil

@@ -397,6 +397,7 @@ local function onDeath(z)
 				Data.AddGems(plr, gems)
 				Data.AddBatteries(plr, bats)
 				local got = Loot.Many(plr, math.random(BC.items[1], BC.items[2]), 2.5, pos)
+				Loot.ManyConsum(plr, math.random(2, 4), pos)
 				local names = {}
 				for _, it in ipairs(got) do
 					table.insert(names, it.name)
