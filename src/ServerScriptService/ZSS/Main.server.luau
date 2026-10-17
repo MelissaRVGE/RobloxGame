@@ -168,7 +168,27 @@ local SETTING_KEYS = {
 	preset = "string", shadows = "boolean", effects = "boolean", particles = "boolean", fov = "number",
 	sensitivity = "number", shake = "boolean", master = "number", sfx = "number", ui = "number",
 	uiScale = "number", showQuests = "boolean", showDamage = "boolean", toasts = "boolean",
+	keys = "table",
 }
+-- переназначенные горячие клавиши: { [действие] = "ИмяKeyCode" }, только существующие клавиши
+local function cleanKeys(t)
+	local out, n = {}, 0
+	for id, name in pairs(t) do
+		if typeof(id) == "string" and #id <= 16 and typeof(name) == "string" and #name <= 24 then
+			local ok, kc = pcall(function()
+				return Enum.KeyCode[name]
+			end)
+			if ok and kc then
+				out[id] = name
+				n += 1
+				if n >= 32 then
+					break
+				end
+			end
+		end
+	end
+	return out
+end
 Remotes.SaveSettings.OnServerEvent:Connect(function(player, t)
 	local p = Data.Get(player)
 	if not p or typeof(t) ~= "table" then
@@ -182,6 +202,8 @@ Remotes.SaveSettings.OnServerEvent:Connect(function(player, t)
 				v = math.clamp(v, 0, 200)
 			elseif kind == "string" then
 				v = v:sub(1, 12)
+			elseif kind == "table" then
+				v = cleanKeys(v)
 			end
 			clean[k] = v
 		end
