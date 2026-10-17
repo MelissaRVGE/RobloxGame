@@ -38,17 +38,32 @@ local function boardGui(id)
 	return screen and screen:FindFirstChild("Gui")
 end
 
+-- числа полностью, без K/M/B: 14242455 -> "14 242 455"
 local function fmt(n)
 	n = math.floor(n or 0)
-	if n >= 1e9 then
-		return ("%.1fB"):format(n / 1e9)
-	elseif n >= 1e6 then
-		return ("%.1fM"):format(n / 1e6)
-	elseif n >= 1e4 then
-		return ("%.1fK"):format(n / 1e3)
-	end
 	local s = tostring(n):reverse():gsub("(%d%d%d)", "%1 "):reverse()
-	return (s:gsub("^ ", ""))
+	return (s:gsub("^ ", ""):gsub("^%- ", "-"))
+end
+
+-- колонка значения шире, чтобы полное число влезало; длинные числа плавно ужимаются шрифтом
+local VALUE_W = 180
+local function fitRow(row)
+	if row:GetAttribute("FullNums") then
+		return
+	end
+	row:SetAttribute("FullNums", true)
+	local v, nm = row.Value, row.Name_
+	local grow = VALUE_W - v.Size.X.Offset
+	if grow > 0 then
+		v.Size = UDim2.new(v.Size.X.Scale, VALUE_W, v.Size.Y.Scale, v.Size.Y.Offset)
+		nm.Size = UDim2.new(nm.Size.X.Scale, nm.Size.X.Offset - grow, nm.Size.Y.Scale, nm.Size.Y.Offset)
+	end
+	local maxTs = v.TextSize
+	v.TextScaled = true
+	local c = v:FindFirstChildOfClass("UITextSizeConstraint") or Instance.new("UITextSizeConstraint")
+	c.MaxTextSize = maxTs
+	c.MinTextSize = 10
+	c.Parent = v
 end
 
 local function render(id, entries)
@@ -65,6 +80,7 @@ local function render(id, entries)
 			if row:GetAttribute("BaseTr") == nil then
 				row:SetAttribute("BaseTr", row.BackgroundTransparency)
 			end
+			fitRow(row)
 			if e then
 				row.Name_.Text = e.name
 				row.Value.Text = fmt(e.value)
