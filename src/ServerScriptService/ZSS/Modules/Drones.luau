@@ -71,6 +71,17 @@ end
 
 local Buffs = require(RS.ZSS.BuffsConfig)
 
+-- общий замок роя для баффов на весь рой: два одинаковых дрона не держат бафф без перерыва,
+-- следующий сработает только после полной перезарядки первого
+local function swarmLock(c, id, cd)
+	c.s.locks = c.s.locks or {}
+	if (c.s.locks[id] or 0) > c.now then
+		return false
+	end
+	c.s.locks[id] = c.now + cd
+	return true
+end
+
 -- сбор дрона: способности роя × «Сбор дронов» со снаряжения × бафф «Смазка роя»
 local function gatherMult(player)
 	return (player:GetAttribute("ZSS_DroneGather") or 1) * Buffs.Mult(player, "dgather")
@@ -169,16 +180,16 @@ A.magnet = function(c)
 	if not c.field then
 		return false
 	end
-	local tiles = Fields.TilesNear(c.field, c.hrp.Position, 9)
+	local tiles = Fields.TilesNear(c.field, c.hrp.Position, 7)
 	if #tiles == 0 then
 		return false
 	end
 	local targets = {}
 	for _, t in ipairs(tiles) do
-		collect(c, c.d, t, 0.8)
+		collect(c, c.d, t, 0.6)
 		table.insert(targets, Fields.TopPos(t))
 	end
-	fx("magnet", { owner = c.player.UserId, pos = c.hrp.Position, radius = 9, targets = targets })
+	fx("magnet", { owner = c.player.UserId, pos = c.hrp.Position, radius = 7, targets = targets })
 	return true
 end
 
@@ -250,8 +261,8 @@ A.cloud = function(c)
 			for _, z in ipairs(Zombies.InRadius(field, pos, 12, player)) do
 				Zombies.Damage(z, 10, player)
 			end
-			for _, t in ipairs(Fields.TilesNear(field, pos, 6)) do
-				Fields.Collect(player, t, d.stats.gather, 0.5 * buffMult(s, "scrap", os.clock()))
+			for _, t in ipairs(Fields.TilesNear(field, pos, 5)) do
+				Fields.Collect(player, t, d.stats.gather, 0.3 * buffMult(s, "scrap", os.clock()) * gatherMult(player))
 			end
 			task.wait(1)
 		end
@@ -264,9 +275,9 @@ A.phase = function(c)
 		return false
 	end
 	local targets = {}
-	for _ = 1, 8 do
+	for _ = 1, 6 do
 		local t = c.field.tiles[math.random(#c.field.tiles)]
-		collect(c, c.d, t, 2)
+		collect(c, c.d, t, 1.5)
 		table.insert(targets, Fields.TopPos(t))
 	end
 	fx("phase", { owner = c.player.UserId, key = c.d.key, targets = targets })
@@ -277,13 +288,13 @@ A.nova = function(c)
 	if not c.field then
 		return false
 	end
-	local zs = Zombies.InRadius(c.field, c.hrp.Position, 25, c.player)
+	local zs = Zombies.InRadius(c.field, c.hrp.Position, 22, c.player)
 	if #zs == 0 then
 		return false
 	end
-	fx("ring", { pos = c.hrp.Position, radius = 25, color = Color3.fromRGB(255, 120, 30), style = "fire" })
+	fx("ring", { pos = c.hrp.Position, radius = 22, color = Color3.fromRGB(255, 120, 30), style = "fire" })
 	for _, z in ipairs(zs) do
-		Zombies.Damage(z, 90, c.player)
+		droneDamage(c, z, 75)
 	end
 	return true
 end
@@ -292,8 +303,11 @@ A.overclock = function(c)
 	if not c.field then
 		return false
 	end
-	addBuff(c.s, "speed", 2, 10)
-	fx("aura", { owner = c.player.UserId, color = Color3.fromRGB(220, 90, 255), duration = 10 })
+	if not swarmLock(c, "overclock", 30) then
+		return false
+	end
+	addBuff(c.s, "speed", 1.35, 8)
+	fx("aura", { owner = c.player.UserId, color = Color3.fromRGB(220, 90, 255), duration = 8 })
 	return true
 end
 
@@ -313,8 +327,8 @@ A.orbital = function(c)
 		for _, zz in ipairs(Zombies.InRadius(field, pos, 20, player)) do
 			Zombies.Damage(zz, 400, player)
 		end
-		for _, t in ipairs(Fields.TilesNear(field, pos, 10)) do
-			Fields.Collect(player, t, d.stats.gather, 3 * buffMult(s, "scrap", os.clock()))
+		for _, t in ipairs(Fields.TilesNear(field, pos, 8)) do
+			Fields.Collect(player, t, d.stats.gather, 2 * buffMult(s, "scrap", os.clock()) * gatherMult(player))
 		end
 	end)
 	return true
@@ -328,8 +342,8 @@ A.gold = function(c)
 	if #tiles == 0 then
 		return false
 	end
-	for _ = 1, 10 do
-		Fields.SetGold(tiles[math.random(#tiles)], 15)
+	for _ = 1, 12 do
+		Fields.SetGold(tiles[math.random(#tiles)], 18)
 	end
 	fx("ring", { pos = c.hrp.Position, radius = 18, color = Color3.fromRGB(255, 210, 50), style = "gold" })
 	return true
@@ -340,11 +354,11 @@ A.swarm = function(c)
 		return false
 	end
 	local s = c.s
-	for _ = 1, 5 do
+	for _ = 1, 6 do
 		s.miniCounter += 1
 		local key = "m" .. s.miniCounter
 		local d = newDrone(key, "mini", true)
-		d.expires = c.now + 15
+		d.expires = c.now + 18
 		d.pos = c.hrp.Position
 		s.drones[key] = d
 		table.insert(s.order, key)
@@ -358,7 +372,10 @@ A.prism = function(c)
 	if not c.field then
 		return false
 	end
-	addBuff(c.s, "scrap", 3, 15)
+	if not swarmLock(c, "prism", 40) then
+		return false
+	end
+	addBuff(c.s, "scrap", 2, 15)
 	fx("aura", { owner = c.player.UserId, rainbow = true, duration = 15 })
 	return true
 end
@@ -407,11 +424,125 @@ A.doomsday = function(c)
 				Zombies.Damage(z, z.hum.MaxHealth * 0.7, player)
 			end
 		end
-		for _, t in ipairs(Fields.TilesNear(field, pos, 30)) do
-			Fields.Collect(player, t, d.stats.gather, 5)
+		for _, t in ipairs(Fields.TilesNear(field, pos, 20)) do
+			Fields.Collect(player, t, d.stats.gather, 3 * gatherMult(player))
 		end
-		addBuff(s, "scrap", 5, 20)
-		addBuff(s, "speed", 1.5, 20)
+		addBuff(s, "scrap", 3, 15)
+		addBuff(s, "speed", 1.5, 15)
+	end)
+	return true
+end
+
+-- Буровик: бурит землю под тобой и оглушает зомби вокруг
+A.quake = function(c)
+	if not c.field then
+		return false
+	end
+	local pos = c.hrp.Position
+	local tiles = Fields.TilesNear(c.field, pos, 5)
+	if #tiles == 0 then
+		return false
+	end
+	local targets = {}
+	for _, t in ipairs(tiles) do
+		collect(c, c.d, t, 1.6)
+		table.insert(targets, Fields.TopPos(t))
+	end
+	for _, z in ipairs(Zombies.InRadius(c.field, pos, 10, c.player)) do
+		Zombies.Slow(z, 3)
+		droneDamage(c, z, 20)
+	end
+	fx("quake", { owner = c.player.UserId, key = c.d.key, pos = pos, radius = 10, targets = targets })
+	return true
+end
+
+-- Буревестник: гроза над полем, молнии бьют зомби и выбивают лом
+A.storm = function(c)
+	if not c.field then
+		return false
+	end
+	local field, player, s, d = c.field, c.player, c.s, c.d
+	local center = c.hrp.Position
+	fx("storm", { owner = player.UserId, pos = center, radius = 14, duration = 10 })
+	task.spawn(function()
+		for _ = 1, 10 do
+			task.wait(1)
+			local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+			if not player.Parent or not hrp then
+				break
+			end
+			center = hrp.Position
+			local points = {}
+			local zs = Zombies.InRadius(field, center, 24, player)
+			for i = 1, math.min(2, #zs) do
+				local z = zs[math.random(#zs)]
+				Zombies.Damage(z, 45 * d.stats.damage / Config.RarityStats.Legendary.damage * (player:GetAttribute("ZSS_DroneDmg") or 1), player)
+				table.insert(points, z.root.Position)
+			end
+			local tiles = Fields.TilesNear(field, center, 14)
+			for _ = 1, math.min(2, #tiles) do
+				local t = tiles[math.random(#tiles)]
+				Fields.Collect(player, t, d.stats.gather, 1.5 * buffMult(s, "scrap", os.clock()) * gatherMult(player))
+				table.insert(points, Fields.TopPos(t))
+			end
+			if #points > 0 then
+				fx("bolts", { points = points })
+			end
+		end
+	end)
+	return true
+end
+
+-- Хронос: перематывает время на поле
+A.timewarp = function(c)
+	if not c.field then
+		return false
+	end
+	if not swarmLock(c, "timewarp", 40) then
+		return false
+	end
+	local pos = c.hrp.Position
+	for _, t in ipairs(Fields.TilesNear(c.field, pos, 16)) do
+		t.fill = 1
+		Fields.UpdateTile(t)
+	end
+	for _, z in ipairs(Zombies.InField(c.field, c.player)) do
+		Zombies.Slow(z, 6)
+	end
+	addBuff(c.s, "speed", 1.6, 12)
+	fx("timewarp", { owner = c.player.UserId, key = c.d.key, pos = pos, radius = 16, duration = 12 })
+	return true
+end
+
+-- Сингулярность: чёрная дыра всасывает зомби и лом
+A.blackhole = function(c)
+	if not c.field then
+		return false
+	end
+	local z0 = Zombies.Nearest(c.field, c.hrp.Position, 30, c.player)
+	local pos = z0 and z0.root.Position or c.hrp.Position
+	pos = Vector3.new(pos.X, c.field.cfg.center.Y + 4, pos.Z)
+	local field, player, s, d = c.field, c.player, c.s, c.d
+	fx("blackhole", { pos = pos, radius = 25, duration = 6 })
+	task.spawn(function()
+		for _ = 1, 6 do
+			task.wait(1)
+			if not player.Parent then
+				break
+			end
+			for _, z in ipairs(Zombies.InRadius(field, pos, 25, player)) do
+				Zombies.Slow(z, 1.2)
+				if z.boss then
+					Zombies.Damage(z, 1500, player)
+				else
+					z.rewardMult = 2
+					Zombies.Damage(z, z.hum.MaxHealth * 0.12, player)
+				end
+			end
+			for _, t in ipairs(Fields.TilesNear(field, pos, 14)) do
+				Fields.Collect(player, t, d.stats.gather, 1.5 * buffMult(s, "scrap", os.clock()) * gatherMult(player))
+			end
+		end
 	end)
 	return true
 end
