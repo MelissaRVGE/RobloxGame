@@ -13,10 +13,19 @@ local function state(p, npcId)
 	p.quests = p.quests or {}
 	local s = p.quests[npcId]
 	if not s then
-		s = { stage = 1, active = false, prog = {} }
+		s = { stage = 1, active = false, prog = {}, v = Q.Version }
 		p.quests[npcId] = s
 	end
 	s.prog = s.prog or {}
+	-- цепочки поменялись: переводим номер задания на новую цепочку, прогресс текущего — с нуля
+	if (s.v or 1) ~= Q.Version then
+		local map = Q.ById[npcId] and Q.ById[npcId].migrate
+		if map and (s.v or 1) == 1 then
+			s.stage = map[math.clamp(s.stage, 1, #map)]
+		end
+		s.prog = {}
+		s.v = Q.Version
+	end
 	return s
 end
 
@@ -74,8 +83,10 @@ local function matches(g, data)
 	data = data or {}
 	if g.t == "kill" then
 		return (not g.field or g.field == data.field) and (not g.night or data.night == true)
+	elseif g.t == "scrap" then
+		return (not g.field or g.field == data.field) and (not g.res or g.res == data.res)
 	elseif g.t == "use" then
-		return g.id == data.id
+		return g.id == data.id or (not g.id and not data.find)
 	elseif g.t == "craft" then
 		return not g.slot or g.slot == data.slot
 	end
