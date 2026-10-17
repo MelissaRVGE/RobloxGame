@@ -2304,20 +2304,21 @@ local function summary(results)
 		}, { U.textStroke(C(0, 0, 0), 3) })
 		-- лицевая сторона
 		local front = new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Visible = false, ZIndex = 4, Parent = card })
+		local faceGrad = new("UIGradient", {
+			Rotation = rar.rainbow and 35 or 90,
+			Color = rar.rainbow and Config.RainbowFlow(os.clock(), 0.75, 0.85) or ColorSequence.new(col, C(10, 10, 10)),
+			Transparency = rar.rainbow and NumberSequence.new(0.05, 0.25) or NumberSequence.new(0, 0.6),
+		})
 		new("Frame", {
 			Size = UDim2.fromScale(1, 1),
-			BackgroundColor3 = col,
-			BackgroundTransparency = 0.55,
+			BackgroundColor3 = rar.rainbow and C(255, 255, 255) or col,
+			BackgroundTransparency = rar.rainbow and 0 or 0.55,
 			ZIndex = 4,
 			Parent = front,
-		}, {
-			U.corner(14),
-			new("UIGradient", {
-				Rotation = 90,
-				Color = rar.rainbow and Config.RainbowSequence or ColorSequence.new(col, C(10, 10, 10)),
-				Transparency = NumberSequence.new(0, 0.6),
-			}),
-		})
+		}, { U.corner(14), faceGrad })
+		if rar.rainbow then
+			table.insert(ctx.rainbowFlows, faceGrad)
+		end
 		local vp = new("ViewportFrame", {
 			Position = UDim2.fromOffset(5, 6),
 			Size = UDim2.new(1, -10, 0, 128),
@@ -2535,6 +2536,7 @@ local function run(results, opts)
 		shakeAmp = 0,
 		shakeBase = 0,
 		rainbowGrads = {},
+		rainbowFlows = {},
 		bgTint = C(130, 230, 60),
 		cleanupUI = {},
 		sounds = {},
@@ -2662,6 +2664,9 @@ local function run(results, opts)
 		end
 		for _, g in ipairs(c.rainbowGrads) do
 			g.Rotation = (t * 120) % 360
+		end
+		for _, g in ipairs(c.rainbowFlows) do
+			g.Color = Config.RainbowFlow(t, 0.75, 0.85)
 		end
 		-- радужная машина для MYTHIC
 		if c.forgeRainbow then
