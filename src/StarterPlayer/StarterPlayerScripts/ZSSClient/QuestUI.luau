@@ -22,7 +22,6 @@ local C = Color3.fromRGB
 local QuestUI = {}
 local api
 local dlg = {}
-local tracker = {}
 local cells = {}
 local conv = {}
 local openNpc
@@ -199,42 +198,6 @@ function QuestUI.Close()
 	openNpc = nil
 end
 
--- ===== СПИСОК ПРИНЯТЫХ ЗАДАНИЙ (слева) =====
-local trackerVisible = true
-local trackerSig = nil
-
-local function buildTracker()
-	local f = new("Frame", {
-		Name = "QuestTracker",
-		Position = UDim2.fromOffset(112, 180),
-		Size = UDim2.fromOffset(290, 0),
-		AutomaticSize = Enum.AutomaticSize.Y,
-		BackgroundTransparency = 1,
-		Parent = api.gui,
-	}, { new("UIListLayout", { Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder }) })
-	tracker.frame = f
-	tracker.scale = api.addScale(f)
-	-- заголовок со сворачиванием
-	local head = new("TextButton", { Size = UDim2.new(1, 0, 0, 34), BackgroundColor3 = C(20, 24, 30), BackgroundTransparency = 0.1, Text = "", AutoButtonColor = false, LayoutOrder = 0, Parent = f }, { U.corner(10) })
-	local hst = U.stroke(C(255, 255, 255), 1.5)
-	hst.Parent = head
-	new("UIGradient", { Color = ColorSequence.new(C(255, 200, 80), C(255, 120, 60)), Parent = hst })
-	new("ImageLabel", { BackgroundTransparency = 1, Image = Icons.quest, Position = UDim2.fromOffset(6, 3), Size = UDim2.fromOffset(28, 28), Parent = head })
-	tracker.title = new("TextLabel", { Position = UDim2.fromOffset(40, 0), Size = UDim2.new(1, -70, 1, 0), BackgroundTransparency = 1, Font = Enum.Font.GothamBlack, TextSize = 15, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = C(255, 225, 150), Text = "ЗАДАНИЯ", Parent = head }, { U.textStroke(C(0, 0, 0), 1.4) })
-	tracker.arrow = new("TextLabel", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -8, 0, 0), Size = UDim2.fromOffset(24, 34), BackgroundTransparency = 1, Font = Enum.Font.GothamBlack, TextSize = 14, TextColor3 = C(255, 225, 150), Text = "▼", Parent = head })
-	tracker.collapsed = false
-	head.Activated:Connect(function()
-		tracker.collapsed = not tracker.collapsed
-		tracker.arrow.Text = tracker.collapsed and "▶" or "▼"
-		for _, c in ipairs(f:GetChildren()) do
-			if c:IsA("Frame") and c.Name == "Card" then
-				U.fadeVisible(c, not tracker.collapsed, 0.18)
-			end
-		end
-	end)
-	tracker.cards = {}
-end
-
 -- маленькая «плашка» награды: иконка + число
 local function rewardChip(parent, image, text, color, order)
 	local chip = new("Frame", { Size = UDim2.fromOffset(0, 20), AutomaticSize = Enum.AutomaticSize.X, BackgroundColor3 = C(12, 14, 18), BackgroundTransparency = 0.2, LayoutOrder = order, Parent = parent }, {
@@ -289,8 +252,7 @@ local function rewardRow(card, r, perkText, order)
 end
 
 local function makeCard(npc, q, order, parent, subText)
-	parent = parent or tracker.frame
-	local card = new("Frame", { Name = "Card", Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundColor3 = C(16, 19, 24), BackgroundTransparency = 0.12, LayoutOrder = order, Visible = parent ~= tracker.frame or not tracker.collapsed, Parent = parent }, {
+	local card = new("Frame", { Name = "Card", Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundColor3 = C(16, 19, 24), BackgroundTransparency = 0.12, LayoutOrder = order, Parent = parent }, {
 		U.corner(10),
 		U.pad(8),
 		new("UIListLayout", { Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder }),
@@ -329,53 +291,6 @@ local function updateCard(c, v)
 	end
 	c.ready.Visible = v.ready == true
 	U.tween(c.stroke, 0.25, { Color = v.ready and C(140, 255, 100) or c.npc.color })
-end
-
-local function refreshTracker()
-	local d = State.data
-	if not tracker.frame then
-		return
-	end
-	tracker.frame.Visible = trackerVisible
-	if not d or not d.quests then
-		return
-	end
-	-- состав карточек меняется только при взятии/сдаче квеста
-	local active = {}
-	local sig = ""
-	for _, npc in ipairs(Q.NPCs) do
-		local v = d.quests[npc.id]
-		local q = v and v.active and npc.quests[v.stage]
-		if q then
-			table.insert(active, { npc = npc, q = q, v = v })
-			sig ..= npc.id .. v.stage .. ";"
-		end
-	end
-	if sig ~= trackerSig then
-		trackerSig = sig
-		for _, c in pairs(tracker.cards) do
-			c.card:Destroy()
-		end
-		tracker.cards = {}
-		for i, a in ipairs(active) do
-			tracker.cards[a.npc.id] = makeCard(a.npc, a.q, i)
-		end
-	end
-	tracker.title.Text = ("ЗАДАНИЯ  (%d)"):format(#active)
-	tracker.frame:FindFirstChildOfClass("TextButton").Visible = #active > 0
-	for _, a in ipairs(active) do
-		local c = tracker.cards[a.npc.id]
-		if c then
-			updateCard(c, a.v)
-		end
-	end
-end
-
-function QuestUI.SetVisible(on)
-	trackerVisible = on
-	if tracker.frame then
-		tracker.frame.Visible = on
-	end
 end
 
 -- ===== КНИГА ЗАДАНИЙ (кнопка «Задания» в левом меню, как в BSS) =====
@@ -862,43 +777,20 @@ local function updateConv()
 	end, 0.3)
 end
 
--- на ПК трекер стоит под сеткой вкладок (y считает UI.FitRail)
-local desktopTop = 360
-function QuestUI.PlaceTracker(y, animate)
-	desktopTop = y
-	if tracker.frame and not tracker.mobile then
-		if animate then
-			U.tween(tracker.frame, 0.3, { Position = UDim2.fromOffset(12, y) }, Enum.EasingStyle.Quart)
-		else
-			tracker.frame.Position = UDim2.fromOffset(12, y)
-		end
-	end
-end
-
 function QuestUI.ApplyLayout(mobile)
 	book.mobile = mobile
 	if book.win and book.win.Visible then
 		placeBook()
-	end
-	if tracker.frame then
-		tracker.mobile = mobile
-		tracker.frame.Position = mobile and UDim2.fromOffset(6, 160) or UDim2.fromOffset(12, desktopTop)
-		tracker.frame.Visible = trackerVisible
-		if mobile then
-			tracker.scale.Scale = math.min(tracker.scale.Scale, 0.72)
-		end
 	end
 end
 
 function QuestUI.Init(a)
 	api = a
 	buildDialog()
-	buildTracker()
 	buildBook()
 	buildCells()
 	buildConv()
 	local function onData()
-		refreshTracker()
 		refreshMarkers()
 		QuestUI.Refresh()
 		QuestUI.RefreshBook()
