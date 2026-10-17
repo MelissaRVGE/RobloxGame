@@ -18,6 +18,7 @@ local BagUI = require(script.Parent.BagUI)
 local QuestUI = require(script.Parent.QuestUI)
 local SettingsUI = require(script.Parent.SettingsUI)
 local HS = require(script.Parent.HotbarSlots)
+local Keybinds = require(script.Parent.Keybinds)
 local FXmod = require(script.Parent.FX)
 local ItemsCfg = require(Shared:WaitForChild("ItemsConfig"))
 
@@ -697,17 +698,19 @@ local function buildHUD()
 		})
 		local img = iconImg(slot, "medkit", UDim2.new(1, -16, 1, -16), UDim2.fromOffset(8, 8), 3)
 		img.Visible = false
-		new("TextLabel", {
+		hud.slotKeys = hud.slotKeys or {}
+		table.insert(hud.slotKeys, { i = i, lbl = new("TextLabel", {
 			Position = UDim2.fromOffset(5, 3),
 			Size = UDim2.fromOffset(16, 16),
 			BackgroundTransparency = 1,
 			Font = Enum.Font.GothamBlack,
+			TextXAlignment = Enum.TextXAlignment.Left,
 			Text = tostring(i),
 			TextSize = 14,
 			TextColor3 = C(255, 255, 255),
 			ZIndex = 5,
 			Parent = slot,
-		}, { U.textStroke(C(0, 0, 0), 1.5) })
+		}, { U.textStroke(C(0, 0, 0), 1.5) }) })
 		local count = new("TextLabel", {
 			AnchorPoint = Vector2.new(1, 1),
 			Position = UDim2.new(1, -4, 1, -2),
@@ -1758,7 +1761,7 @@ local function buildInventory()
 		TextXAlignment = Enum.TextXAlignment.Left,
 		Parent = header,
 	}, { U.textStroke(C(0, 0, 0), 2) })
-	new("TextLabel", {
+	hud.dronesHot = new("TextLabel", {
 		Position = UDim2.fromOffset(300, 18),
 		Size = UDim2.fromOffset(34, 24),
 		BackgroundColor3 = C(50, 60, 50),
@@ -3171,15 +3174,58 @@ function UI.Init()
 	})
 	HS.toast = UI.Toast
 
-	-- горячие клавиши: Y — инвентарь, G — гача, N — магазин, B — инвентарь, M — карта, Q — задания, Esc — закрыть окна
+	-- горячие клавиши: назначения в Keybinds (меняются в настройках), Esc всегда закрывает окна
+	local KEY_ACTIONS = {
+		drones = function()
+			UI.ToggleInventory()
+		end,
+		gacha = function()
+			UI.OnMenu("gacha")
+		end,
+		shop = function()
+			UI.OnMenu("shop")
+		end,
+		bag = function()
+			QuestUI.CloseBook()
+			BagUI.Toggle()
+		end,
+		map = function()
+			UI.ToggleMap()
+		end,
+		convert = function()
+			UI.GoConverter()
+		end,
+		settings = function()
+			SettingsUI.Toggle()
+		end,
+		donate = function()
+			QuestUI.CloseBook()
+			DonateUI.Toggle()
+		end,
+		quests = function()
+			QuestUI.ToggleBook()
+		end,
+	}
 	game:GetService("UserInputService").InputBegan:Connect(function(input, processed)
-		if processed or GachaAnim.IsPlaying() then
+		if processed or GachaAnim.IsPlaying() or Keybinds.Capturing then
 			return
 		end
-		local HOTKEYS = { [Enum.KeyCode.One] = 1, [Enum.KeyCode.Two] = 2, [Enum.KeyCode.Three] = 3, [Enum.KeyCode.Four] = 4, [Enum.KeyCode.Five] = 5, [Enum.KeyCode.Six] = 6 }
-		if HOTKEYS[input.KeyCode] then
-			local n = HOTKEYS[input.KeyCode]
-			-- в инвентаре навёл на предмет и нажал 3–6 — предмет ложится в эту ячейку
+		if input.KeyCode == Enum.KeyCode.Escape then
+			SettingsUI.Close()
+			BagUI.Close()
+			QuestUI.Close()
+			closeWindow(inv.win, inv.scale)
+			closeWindow(gacha.win, gacha.scale)
+			closeWindow(mapWin.win, mapWin.scale)
+			ShopUI.Close()
+			DonateUI.Close()
+			return
+		end
+		local id = Keybinds.Action(input.KeyCode)
+		local a = id and Keybinds.ById[id]
+		if a and a.slot then
+			local n = a.slot
+			-- в инвентаре навёл на предмет и нажал клавишу ячейки 3–6 — предмет ложится в эту ячейку
 			local hk = BagUI.IsOpen() and HS.HoverKey()
 			if hk and n >= HS.First then
 				HS.Assign(n - HS.First + 1, hk)
@@ -3189,37 +3235,31 @@ function UI.Init()
 			else
 				UI.UseSlot(n)
 			end
-		elseif input.KeyCode == Enum.KeyCode.M then
-			UI.ToggleMap()
-		elseif input.KeyCode == Enum.KeyCode.Y then
-			UI.ToggleInventory()
-		elseif input.KeyCode == Enum.KeyCode.G then
-			UI.OnMenu("gacha")
-		elseif input.KeyCode == Enum.KeyCode.N then
-			UI.OnMenu("shop")
-		elseif input.KeyCode == Enum.KeyCode.B then
-			QuestUI.CloseBook()
-			BagUI.Toggle()
-		elseif input.KeyCode == Enum.KeyCode.R then
-			UI.GoConverter()
-		elseif input.KeyCode == Enum.KeyCode.P then
-			SettingsUI.Toggle()
-		elseif input.KeyCode == Enum.KeyCode.H then
-			QuestUI.CloseBook()
-			DonateUI.Toggle()
-		elseif input.KeyCode == Enum.KeyCode.Q then
-			QuestUI.ToggleBook()
-		elseif input.KeyCode == Enum.KeyCode.Escape then
-			SettingsUI.Close()
-			BagUI.Close()
-			QuestUI.Close()
-			closeWindow(inv.win, inv.scale)
-			closeWindow(gacha.win, gacha.scale)
-			closeWindow(mapWin.win, mapWin.scale)
-			ShopUI.Close()
-			DonateUI.Close()
+		elseif id and KEY_ACTIONS[id] then
+			KEY_ACTIONS[id]()
 		end
 	end)
+
+	-- значки клавиш на кнопках следуют за назначениями из настроек
+	local function syncKeyBadges()
+		local function badge(lbl, id, minW)
+			if lbl then
+				local s = Keybinds.Short(Keybinds.Get(id))
+				lbl.Text = s
+				lbl.Size = UDim2.fromOffset(math.max(minW, utf8.len(s) * 7 + 6), lbl.Size.Y.Offset)
+			end
+		end
+		for key, b in pairs(hud.buttons) do
+			badge(b.hot, key, 18)
+		end
+		badge(hud.setHot, "settings", 16)
+		badge(hud.dronesHot, "drones", 34)
+		for _, e in ipairs(hud.slotKeys or {}) do
+			e.lbl.Text = Keybinds.Short(Keybinds.Get("slot" .. e.i))
+		end
+	end
+	Keybinds.Changed:Connect(syncKeyBadges)
+	syncKeyBadges()
 
 	ProximityPromptService.PromptTriggered:Connect(function(prompt)
 		if prompt.Name == "GachaPrompt" then

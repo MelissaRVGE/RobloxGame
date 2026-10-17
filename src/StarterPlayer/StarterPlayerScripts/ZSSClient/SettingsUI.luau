@@ -12,6 +12,8 @@ local U = require(script.Parent.U)
 local State = require(script.Parent.State)
 local FX = require(script.Parent.FX)
 local WorldLOD = require(script.Parent.WorldLOD)
+local Keybinds = require(script.Parent.Keybinds)
+local TweenService = game:GetService("TweenService")
 
 local player = Players.LocalPlayer
 local new = U.new
@@ -40,6 +42,7 @@ S.Defaults = {
 	showQuests = true,
 	showDamage = true,
 	toasts = true,
+	keys = {}, -- переназначенные горячие клавиши (только отличные от стандартных)
 }
 S.Values = table.clone(S.Defaults)
 local loaded = false
@@ -212,10 +215,114 @@ local function segmented(page, order, key, iconText, title, desc, options)
 	return w
 end
 
+-- клавиша, которую нельзя поменять (мышь, Esc, E и т.п.)
 local function keyRow(page, order, key, text)
-	local r = new("Frame", { Size = UDim2.new(1, -8, 0, 40), BackgroundColor3 = C(26, 30, 36), LayoutOrder = order, Parent = page }, { U.corner(10) })
-	new("TextLabel", { Position = UDim2.fromOffset(12, 6), Size = UDim2.fromOffset(64, 28), BackgroundColor3 = C(235, 238, 242), Font = Enum.Font.GothamBlack, Text = key, TextSize = 14, TextColor3 = C(20, 24, 30), Parent = r }, { U.corner(7), U.stroke(C(140, 150, 160), 1.5) })
-	new("TextLabel", { Position = UDim2.fromOffset(88, 0), Size = UDim2.new(1, -100, 1, 0), BackgroundTransparency = 1, Font = Enum.Font.GothamBold, Text = text, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = C(220, 226, 232), Parent = r })
+	local r = new("Frame", { Size = UDim2.new(1, -8, 0, 40), BackgroundColor3 = C(22, 25, 30), LayoutOrder = order, Parent = page }, { U.corner(10) })
+	new("TextLabel", { Position = UDim2.fromOffset(12, 6), Size = UDim2.fromOffset(84, 28), BackgroundColor3 = C(190, 196, 204), Font = Enum.Font.GothamBlack, Text = key, TextSize = 13, TextColor3 = C(30, 34, 40), Parent = r }, { U.corner(7), U.stroke(C(110, 118, 128), 1.5) })
+	new("TextLabel", { Position = UDim2.fromOffset(108, 0), Size = UDim2.new(1, -120, 1, 0), BackgroundTransparency = 1, Font = Enum.Font.GothamBold, Text = text, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = C(170, 178, 188), TextTruncate = Enum.TextTruncate.AtEnd, Parent = r })
+end
+
+-- ===== ПЕРЕНАЗНАЧЕНИЕ КЛАВИШ =====
+local bindRows = {}
+local capture -- строка, которая сейчас ждёт новую клавишу
+
+local function stopCapture()
+	local c = capture
+	if not c then
+		return
+	end
+	capture = nil
+	if c.pulse then
+		c.pulse:Cancel()
+		c.pulse = nil
+	end
+	-- игровые клавиши оживают чуть позже, чтобы это же нажатие не открыло окно
+	task.delay(0.15, function()
+		if not capture then
+			Keybinds.Capturing = false
+		end
+	end)
+	c.sync()
+end
+
+local function bindRow(page, order, action)
+	local r = new("Frame", { Size = UDim2.new(1, -8, 0, 44), BackgroundColor3 = C(26, 30, 36), LayoutOrder = order, Parent = page }, { U.corner(10) })
+	local rst = U.stroke(C(55, 62, 72), 1.2)
+	rst.Parent = r
+	local cap = new("TextButton", { Position = UDim2.fromOffset(12, 7), Size = UDim2.fromOffset(84, 30), BackgroundColor3 = C(235, 238, 242), Font = Enum.Font.GothamBlack, Text = "", TextSize = 14, TextColor3 = C(20, 24, 30), AutoButtonColor = false, Parent = r }, { U.corner(7) })
+	local cst = U.stroke(C(140, 150, 160), 1.5)
+	cst.Parent = cap
+	local lbl = new("TextLabel", { Position = UDim2.fromOffset(108, 0), Size = UDim2.new(1, -160, 1, 0), BackgroundTransparency = 1, Font = Enum.Font.GothamBold, Text = action.label, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = C(220, 226, 232), TextTruncate = Enum.TextTruncate.AtEnd, Parent = r })
+	-- ↺ — вернуть стандартную клавишу этого действия (видна, только если клавиша изменена)
+	local back = new("TextButton", { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -10, 0.5, 0), Size = UDim2.fromOffset(32, 32), BackgroundColor3 = C(40, 46, 56), Font = Enum.Font.GothamBlack, Text = "↺", TextSize = 18, TextColor3 = C(200, 220, 240), AutoButtonColor = false, Visible = false, Parent = r }, { U.corner(8) })
+	local row = { action = action, cap = cap, lbl = lbl }
+	local errUntil = 0
+	function row.sync()
+		if capture == row then
+			return
+		end
+		local kc = Keybinds.Get(action.id)
+		local custom = Keybinds.Overrides[action.id] ~= nil
+		cap.Text = Keybinds.Name(kc)
+		U.tween(cap, 0.18, { BackgroundColor3 = C(235, 238, 242), TextColor3 = C(20, 24, 30) })
+		U.tween(cst, 0.18, { Color = custom and ACCENT or C(140, 150, 160), Thickness = custom and 2 or 1.5 })
+		U.tween(rst, 0.18, { Color = C(55, 62, 72) })
+		if os.clock() >= errUntil then
+			lbl.Text = action.label
+			U.tween(lbl, 0.18, { TextColor3 = C(220, 226, 232) })
+		end
+		U.fadeVisible(back, custom, 0.15)
+	end
+	function row.fail(msg)
+		errUntil = os.clock() + 1.8
+		lbl.Text = msg
+		lbl.TextColor3 = C(255, 120, 110)
+		U.play(U.Sounds.error, 0.45, 0.8)
+		local p0 = UDim2.fromOffset(12, 7)
+		task.spawn(function()
+			for k = 1, 4 do
+				U.tween(cap, 0.04, { Position = p0 + UDim2.fromOffset(k % 2 == 0 and -6 or 6, 0) }).Completed:Wait()
+			end
+			U.tween(cap, 0.05, { Position = p0 })
+		end)
+		task.delay(1.8, function()
+			if os.clock() >= errUntil then
+				row.sync()
+			end
+		end)
+	end
+	U.pressFx(cap, { hover = 1.05, hoverSound = false })
+	cap.Activated:Connect(function()
+		if capture == row then
+			stopCapture()
+			return
+		end
+		stopCapture()
+		capture = row
+		Keybinds.Capturing = true
+		errUntil = 0
+		U.play(U.Sounds.tap, 0.5, 1.25)
+		cap.Text = "…"
+		lbl.Text = "Нажми новую клавишу  •  Esc — отмена"
+		U.tween(lbl, 0.18, { TextColor3 = ACCENT })
+		U.tween(rst, 0.18, { Color = ACCENT })
+		U.tween(cst, 0.18, { Color = ACCENT, Thickness = 2 })
+		cap.BackgroundColor3 = C(235, 238, 242)
+		-- мягкое «дыхание» колпачка, пока ждём нажатие
+		row.pulse = TweenService:Create(cap, TweenInfo.new(0.55, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), { BackgroundColor3 = C(120, 205, 255) })
+		row.pulse:Play()
+	end)
+	U.pressFx(back, { hover = 1.1, hoverSound = false })
+	back.Activated:Connect(function()
+		local a = Keybinds.ById[action.id]
+		local ok, info = Keybinds.Assign(action.id, Enum.KeyCode[a.default])
+		if ok then
+			U.play(U.Sounds.tap, 0.5, 0.95)
+			S.OnKeysChanged(action.id, info)
+		end
+	end)
+	table.insert(bindRows, row)
+	return row
 end
 
 local function header(page, order, text)
@@ -326,13 +433,33 @@ local function build()
 		return ("%.2f"):format(v)
 	end)
 	toggle(c, 2, "shake", "📳", "Тряска камеры", "При взрывах и ударах босса")
-	header(c, 3, "ГОРЯЧИЕ КЛАВИШИ")
-	local keys = {
-		{ "Y", "Инвентарь дронов" }, { "G", "Гача (Лаборатория дронов)" }, { "N", "Магазин" }, { "B", "Рюкзак" }, { "M", "Карта и телепорт" }, { "R", "Телепорт к Переработчику" },
-		{ "P", "Настройки" }, { "E", "Взаимодействие (NPC, станции, переработчик)" }, { "1 / 2", "Оружие / инструмент добычи" }, { "3–5", "Расходники" }, { "ЛКМ", "Удар оружием / добыча инструментом" }, { "Esc", "Закрыть окна" },
-	}
-	for i, k in ipairs(keys) do
-		keyRow(c, 10 + i, k[1], k[2])
+	-- на телефоне/планшете без клавиатуры список клавиш не нужен
+	if UIS.KeyboardEnabled then
+		header(c, 3, "ГОРЯЧИЕ КЛАВИШИ")
+		new("TextLabel", { Size = UDim2.new(1, -8, 0, 18), BackgroundTransparency = 1, Font = Enum.Font.GothamBold, Text = "Нажми на клавишу, затем новую. Занятая клавиша поменяется местами.", TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = C(150, 160, 172), TextTruncate = Enum.TextTruncate.AtEnd, LayoutOrder = 4, Parent = c })
+		for i, a in ipairs(Keybinds.Actions) do
+			bindRow(c, 10 + i, a)
+		end
+		local resetKeys = api.button({ Size = UDim2.new(1, -8, 0, 40), BackgroundColor3 = C(40, 48, 60), Font = Enum.Font.GothamBlack, Text = "↺ СТАНДАРТНЫЕ КЛАВИШИ", TextSize = 14, TextColor3 = C(200, 225, 255), LayoutOrder = 60, Parent = c }, function()
+			stopCapture()
+			Keybinds.Reset()
+			S.OnKeysChanged()
+		end)
+		U.corner(10).Parent = resetKeys
+		header(c, 70, "ПОСТОЯННЫЕ КЛАВИШИ")
+		local fixed = {
+			{ "E", "Взаимодействие (NPC, станции, переработчик)" },
+			{ "ЛКМ", "Удар оружием / добыча инструментом" },
+			{ "Наведи", "В инвентаре: навести на предмет + клавиша ячейки 3–6" },
+			{ "Тащи", "Перетащить предмет в ячейку хотбара" },
+			{ "ПКМ", "Очистить ячейку хотбара" },
+			{ "Колесо", "Приблизить персонажа в инвентаре" },
+			{ "Enter", "Пропустить гачу (вместе с назначенной клавишей)" },
+			{ "Esc", "Закрыть окна" },
+		}
+		for i, k in ipairs(fixed) do
+			keyRow(c, 70 + i, k[1], k[2])
+		end
 	end
 	-- ЗВУК
 	local pct = function(v)
@@ -349,7 +476,10 @@ local function build()
 	toggle(ui, 4, "toasts", "🔔", "Уведомления", "Сообщения вверху экрана (важные показываются всегда)")
 	-- сброс
 	local reset = api.button({ Size = UDim2.new(1, -8, 0, 44), BackgroundColor3 = C(70, 40, 40), Font = Enum.Font.GothamBlack, Text = "↺ СБРОСИТЬ ВСЕ НАСТРОЙКИ", TextSize = 15, TextColor3 = C(255, 210, 200), LayoutOrder = 99, Parent = ui }, function()
+		stopCapture()
 		S.Values = table.clone(S.Defaults)
+		Keybinds.Reset()
+		S.Values.keys = Keybinds.Export()
 		applyAll()
 		save()
 		for _, w in ipairs(widgets) do
@@ -426,7 +556,18 @@ function S.Toggle()
 	end
 end
 
+-- после любого переназначения: сохранить в профиль и обновить строки
+function S.OnKeysChanged(id, swappedWith)
+	S.Values.keys = Keybinds.Export()
+	save()
+	if swappedWith and api.toast then
+		local a, b = Keybinds.ById[id], Keybinds.ById[swappedWith]
+		api.toast(("«%s» теперь на %s, «%s» — на %s"):format(a.label, Keybinds.Name(Keybinds.Get(id)), b.label, Keybinds.Name(Keybinds.Get(swappedWith))), "good")
+	end
+end
+
 function S.Close()
+	stopCapture()
 	if win then
 		api.closeWindow(win, scaleObj)
 	end
@@ -452,8 +593,38 @@ function S.Init(a)
 				S.Values[k] = v
 			end
 		end
+		Keybinds.Load(S.Values.keys)
+		S.Values.keys = Keybinds.Export()
 		applyAll()
 	end
+	-- все строки клавиш следят за назначениями (в т.ч. после обмена местами)
+	Keybinds.Changed:Connect(function()
+		for _, r in ipairs(bindRows) do
+			r.sync()
+		end
+	end)
+	-- ловим новую клавишу для строки, которая ждёт нажатие
+	UIS.InputBegan:Connect(function(input)
+		local row = capture
+		if not row or input.UserInputType ~= Enum.UserInputType.Keyboard then
+			return
+		end
+		local kc = input.KeyCode
+		if kc == Enum.KeyCode.Escape then
+			U.play(U.Sounds.tap, 0.4, 0.8)
+			stopCapture()
+			return
+		end
+		local ok, info = Keybinds.Assign(row.action.id, kc)
+		stopCapture()
+		if ok then
+			U.play(U.Sounds.chime, 0.4, 1.2)
+			U.pulseScale(row.cap, 1.15, 0.08, 0.3)
+			S.OnKeysChanged(row.action.id, info)
+		else
+			row.fail(("%s занята: %s"):format(Keybinds.Name(kc), info))
+		end
+	end)
 	State.Changed:Connect(onData)
 	if State.data then
 		onData(State.data)
