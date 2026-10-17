@@ -418,6 +418,7 @@ local function buildHUD()
 		{ key = "map", icon = "teleport", label = "Карта", color = C(255, 90, 80), hot = "M" },
 		{ key = "bag", icon = "bag", label = "Инвентарь", color = C(80, 170, 255), hot = "B" },
 		{ key = "convert", icon = "converter", label = "Переработка", color = C(120, 240, 110), hot = "R" },
+		{ key = "quests", icon = "quest", label = "Задания", color = C(255, 200, 80), hot = "Q" },
 		{ key = "donate", icon = "donate", label = "Donate", color = C(255, 90, 170), hot = "H" },
 	}
 	hud.buttons = {}
@@ -982,6 +983,14 @@ local function updateHUD(d)
 	end
 	U.fadeVisible(bag.sub, kinds > 0)
 	bag.sub.Text = ("%d/%d"):format(kinds, ItemsCfg.BagSlots)
+	-- задания: сколько можно сдать прямо сейчас
+	local qb = hud.buttons.quests
+	local ready = QuestUI.ReadyCount()
+	if ready > 0 then
+		qb.sub.Text = "✔ " .. ready
+		qb.sub.BackgroundColor3 = C(60, 170, 40)
+	end
+	U.fadeVisible(qb.sub, ready > 0)
 	local dr = hud.buttons.drones
 	dr.sub.Visible = true
 	dr.sub.Text = ("%d/%d"):format(d.equippedTotal, d.maxSlots)
@@ -1320,6 +1329,7 @@ function UI.ToggleMap()
 		closeWindow(gacha.win, gacha.scale)
 		ShopUI.Close()
 		DonateUI.Close()
+		QuestUI.CloseBook()
 		UI.UpdateMap()
 		openWindow(mapWin.win, mapWin.scale)
 	end
@@ -2271,6 +2281,7 @@ function UI.ToggleInventory()
 		closeWindow(gacha.win, gacha.scale)
 		ShopUI.Close()
 		DonateUI.Close()
+		QuestUI.CloseBook()
 		openWindow(inv.win, inv.scale)
 		if not inv.selected then
 			local pick = SORTED[#SORTED].id
@@ -2771,10 +2782,14 @@ function UI.OpenGacha()
 		return
 	end
 	closeWindow(inv.win, inv.scale)
+	QuestUI.CloseBook()
 	openWindow(gacha.win, gacha.scale)
 end
 
 function UI.OnMenu(key)
+	if key ~= "quests" then
+		QuestUI.CloseBook()
+	end
 	if key == "drones" then
 		UI.ToggleInventory()
 	elseif key == "gacha" then
@@ -2803,6 +2818,8 @@ function UI.OnMenu(key)
 		UI.GoConverter()
 	elseif key == "donate" then
 		DonateUI.Toggle()
+	elseif key == "quests" then
+		QuestUI.ToggleBook()
 	end
 end
 
@@ -2977,6 +2994,10 @@ function UI.Init()
 	QuestUI.Init({
 		gui = gui,
 		addScale = addScale,
+		-- правый край панели валюты: книга заданий открывается рядом с левой колонкой HUD
+		hudRight = function()
+			return hud.panel.AbsolutePosition.X + hud.panel.AbsoluteSize.X
+		end,
 		openWindow = openWindow,
 		closeWindow = closeWindow,
 		button = button,
@@ -3063,7 +3084,7 @@ function UI.Init()
 	})
 	HS.toast = UI.Toast
 
-	-- горячие клавиши: Y — инвентарь, G — гача, N — магазин, B — инвентарь, M — карта, Esc — закрыть окна
+	-- горячие клавиши: Y — инвентарь, G — гача, N — магазин, B — инвентарь, M — карта, Q — задания, Esc — закрыть окна
 	game:GetService("UserInputService").InputBegan:Connect(function(input, processed)
 		if processed or GachaAnim.IsPlaying() then
 			return
@@ -3090,13 +3111,17 @@ function UI.Init()
 		elseif input.KeyCode == Enum.KeyCode.N then
 			UI.OnMenu("shop")
 		elseif input.KeyCode == Enum.KeyCode.B then
+			QuestUI.CloseBook()
 			BagUI.Toggle()
 		elseif input.KeyCode == Enum.KeyCode.R then
 			UI.GoConverter()
 		elseif input.KeyCode == Enum.KeyCode.P then
 			SettingsUI.Toggle()
 		elseif input.KeyCode == Enum.KeyCode.H then
+			QuestUI.CloseBook()
 			DonateUI.Toggle()
+		elseif input.KeyCode == Enum.KeyCode.Q then
+			QuestUI.ToggleBook()
 		elseif input.KeyCode == Enum.KeyCode.Escape then
 			SettingsUI.Close()
 			BagUI.Close()

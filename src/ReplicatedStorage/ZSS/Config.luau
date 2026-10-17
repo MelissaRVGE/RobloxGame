@@ -286,10 +286,10 @@ Config.GachaZone = { center = Vector3.new(-100, 0, 0), radius = 40 }
 Config.BasePos = Vector3.new(0, 4, -6)
 
 -- ===== ЭНЕРГИЯ ДРОНОВ =====
--- workTime: сколько секунд активной работы хватает полного заряда
+-- workTime: сколько секунд активной работы хватает полного заряда (+5 минут к прежним 150–270 сек)
 -- chargeTime: сколько секунд заряжается с 0 до 100% на станции (максимум 90 сек у SECRET)
 Config.Energy = {
-	workTime = { Uncommon = 150, Rare = 170, Epic = 190, Legendary = 215, Mythic = 240, Secret = 270 },
+	workTime = { Uncommon = 450, Rare = 470, Epic = 490, Legendary = 515, Mythic = 540, Secret = 570 },
 	chargeTime = { Uncommon = 30, Rare = 42, Epic = 54, Legendary = 66, Mythic = 78, Secret = 90 },
 }
 -- ===== УЛЬИ-ЗАРЯДКИ (соты на стене) =====
