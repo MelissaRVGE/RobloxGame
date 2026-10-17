@@ -11,6 +11,7 @@ local Remotes = Shared:WaitForChild("Remotes")
 local U = require(script.Parent.U)
 local State = require(script.Parent.State)
 local FX = require(script.Parent.FX)
+local WorldLOD = require(script.Parent.WorldLOD)
 
 local player = Players.LocalPlayer
 local new = U.new
@@ -53,6 +54,9 @@ local function applyAll()
 			e.Enabled = v.effects
 		end
 	end
+	-- дальность фонарей/частиц и тени мелкого декора: по пресету, а в «своих» настройках — по тумблерам
+	local lv = v.preset == "low" and 1 or v.preset == "med" and 2 or v.preset == "high" and 3 or ((v.shadows and v.particles) and 3 or (v.particles and 2 or 1))
+	WorldLOD.SetLevel(lv)
 	FX.Particles = v.particles and 1 or 0.35
 	FX.ShakeEnabled = v.shake
 	FX.ShowDamage = v.showDamage
@@ -437,6 +441,13 @@ function S.Init(a)
 			return
 		end
 		loaded = true
+		-- на телефоне без сохранённых настроек начинаем со «Среднего»: без пост-эффектов, ближе дальность света
+		if UIS.TouchEnabled and not UIS.KeyboardEnabled and not (d.settings and d.settings.preset) then
+			S.Values.preset = "med"
+			for k, v in pairs(PRESETS.med) do
+				S.Values[k] = v
+			end
+		end
 		for k, v in pairs(d.settings or {}) do
 			if S.Defaults[k] ~= nil and typeof(v) == typeof(S.Defaults[k]) then
 				S.Values[k] = v

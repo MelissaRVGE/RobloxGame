@@ -114,12 +114,92 @@ end
 -- ===== Плавность: все изменения интерфейса идут через твины, без резких скачков =====
 local weakK = { __mode = "k" }
 
+-- ===== Телефоны: окна всегда влезают в экран, мелкие кнопки получают большую зону касания =====
+local UIS = game:GetService("UserInputService")
+
+-- сенсорный экран без клавиатуры (телефон/планшет)
+function U.isTouch()
+	return UIS.TouchEnabled and not UIS.KeyboardEnabled
+end
+
+-- подсказки «нажми E» на телефоне превращаются в «нажми на кнопку» (там нет клавиатуры)
+function U.touchText(s)
+	if typeof(s) ~= "string" or not UIS.TouchEnabled or UIS.KeyboardEnabled then
+		return s
+	end
+	s = s:gsub("([Нн])ажми E", "%1ажми на кнопку"):gsub("([Нн])ажать E", "%1ажать на кнопку")
+	return s
+end
+
+-- Наибольший масштаб окна (не больше target), при котором оно целиком помещается на своём ScreenGui
+-- с учётом якоря и позиции. Окна, которые слишком велики для экрана телефона, ужимаются, а не обрезаются.
+local FIT_MARGIN = 6
+function U.fit(win, target)
+	local root = win and win:FindFirstAncestorOfClass("ScreenGui")
+	if not root or win.Parent ~= root then
+		return target
+	end
+	local ps = root.AbsoluteSize
+	if ps.X < 50 or ps.Y < 50 then
+		return target
+	end
+	local w = win.Size.X.Scale * ps.X + win.Size.X.Offset
+	local h = win.Size.Y.Scale * ps.Y + win.Size.Y.Offset
+	local s = target
+	local function axis(size, pos, ap, total)
+		if size <= 1 then
+			return
+		end
+		if ap > 0 then
+			s = math.min(s, (pos - FIT_MARGIN) / (ap * size))
+		end
+		if ap < 1 then
+			s = math.min(s, (total - FIT_MARGIN - pos) / ((1 - ap) * size))
+		end
+	end
+	axis(w, win.Position.X.Scale * ps.X + win.Position.X.Offset, win.AnchorPoint.X, ps.X)
+	axis(h, win.Position.Y.Scale * ps.Y + win.Position.Y.Offset, win.AnchorPoint.Y, ps.Y)
+	return math.max(s, 0.2)
+end
+
+-- Невидимая зона касания вокруг маленькой кнопки (крестик окна): палец попадает, даже если кнопка мелкая.
+function U.hitPad(b, onClick, grow)
+	-- только на сенсорных экранах: мышью точно попадают и так, а наведение на кнопку должно работать
+	if not b or not UIS.TouchEnabled or b:FindFirstChild("HitPad") then
+		return
+	end
+	grow = grow or 0.8
+	local pad = U.new("TextButton", {
+		Name = "HitPad",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.fromScale(1 + grow, 1 + grow),
+		BackgroundTransparency = 1,
+		Text = "",
+		AutoButtonColor = false,
+		Selectable = false,
+		ZIndex = b.ZIndex + 5,
+		Parent = b,
+	})
+	pad.Activated:Connect(function()
+		local sc = b:FindFirstChild("PressScale")
+		if sc then
+			U.tween(sc, 0.07, { Scale = 0.88 }).Completed:Connect(function()
+				U.tween(sc, 0.35, { Scale = 1 }, Enum.EasingStyle.Elastic)
+			end)
+		end
+		onClick()
+	end)
+	return pad
+end
+
 -- Плавное открытие окна: из точки с пружинкой. Если окно как раз закрывается, разворачивает анимацию обратно.
 function U.openPanel(win, sc, target)
 	local token = (sc:GetAttribute("AnimToken") or 0) + 1
 	sc:SetAttribute("AnimToken", token)
 	sc:SetAttribute("Animating", true)
 	sc:SetAttribute("Closing", nil)
+	target = U.fit(win, target)
 	sc:SetAttribute("BaseScale", target)
 	if not win.Visible then
 		sc.Scale = target * 0.05

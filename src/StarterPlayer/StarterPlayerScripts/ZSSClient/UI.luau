@@ -73,7 +73,9 @@ local function updateScale()
 	respScale *= UI.UserScale or 1
 	for _, s in ipairs(scales) do
 		if not s:GetAttribute("Animating") then
-			s.Scale = respScale
+			-- окна, которые не влезают в экран телефона, ужимаются под него
+			s.Scale = s.Parent and U.fit(s.Parent, respScale) or respScale
+			s:SetAttribute("BaseScale", s.Scale)
 		end
 	end
 	if UI.ApplyLayout then
@@ -106,6 +108,13 @@ local function button(props, onClick)
 		end
 	end)
 	U.pressFx(b)
+	-- крестики окон мелкие на телефоне — даём им зону касания побольше
+	if props.Text == "X" and onClick then
+		U.hitPad(b, function()
+			U.play(U.Sounds.click, 0.45, 1.05)
+			onClick()
+		end)
+	end
 	return b
 end
 
@@ -152,6 +161,7 @@ local function dismissToast(f, t)
 end
 
 function UI.Toast(text, kind)
+	text = U.touchText(text)
 	if UI.ToastsEnabled == false and (kind == nil or kind == "info" or kind == "good" or kind == "speed" or kind == "night") then
 		return
 	end
@@ -360,11 +370,15 @@ local function buildHUD()
 	sbs.Parent = setBtn
 	new("UIGradient", { Rotation = 45, Color = ColorSequence.new(C(90, 200, 255), C(170, 120, 255)), Parent = sbs })
 	local gearImg = new("ImageLabel", { BackgroundTransparency = 1, Image = Icons.gear, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(36, 36), ZIndex = 3, Parent = setBtn })
-	new("TextLabel", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 2, 0, -4), Size = UDim2.fromOffset(16, 16), BackgroundColor3 = C(255, 255, 255), Font = Enum.Font.GothamBlack, Text = "P", TextSize = 10, TextColor3 = C(20, 20, 20), ZIndex = 5, Parent = setBtn }, { U.corner(5) })
+	hud.setHot = new("TextLabel", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 2, 0, -4), Size = UDim2.fromOffset(16, 16), BackgroundColor3 = C(255, 255, 255), Font = Enum.Font.GothamBlack, Text = "P", TextSize = 10, TextColor3 = C(20, 20, 20), ZIndex = 5, Parent = setBtn }, { U.corner(5) })
 	setBtn.MouseEnter:Connect(function()
 		U.tween(gearImg, 0.4, { Rotation = gearImg.Rotation + 90 }, Enum.EasingStyle.Back)
 	end)
 	hud.setBtn = setBtn
+	U.hitPad(setBtn, function()
+		U.play(U.Sounds.click, 0.45, 1.05)
+		SettingsUI.Toggle()
+	end, 0.35)
 	hud.fill, hud.fillGrad, hud.scrap = hud.scrapBar.fill, hud.scrapBar.grad, hud.scrapBar.text
 	-- предупреждение о разряженных дронах (появляется только при необходимости)
 	hud.chargeBtn = button({
@@ -860,6 +874,30 @@ function UI.FitRail(animate)
 	QuestUI.PlaceTracker(top + (need + EDGE_PAD) * sc + 10, animate)
 end
 
+-- Верхняя полоса Roblox (TopbarInset): справа от её кнопок свободное место, на телефоне туда встают вкладки.
+-- Возвращает рамку этой области или nil, если полосы нет / она слишком узкая.
+function UI.LayoutTopArea()
+	local tb = GuiService.TopbarInset
+	local area = UI.TopArea
+	if not area or tb.Height < 30 then
+		return nil
+	end
+	-- правый край не заходит под вырез/скругление экрана
+	local right = tb.Max.X
+	local probe = UI.SafeProbe
+	if probe and probe.AbsoluteSize.X > 50 then
+		right = math.min(right, probe.AbsolutePosition.X + probe.AbsoluteSize.X)
+	end
+	local left = tb.Min.X + 6
+	right -= 6
+	if right - left < 220 then
+		return nil
+	end
+	area.Position = UDim2.fromOffset(left, tb.Min.Y + 2)
+	area.Size = UDim2.fromOffset(right - left, tb.Height - 4)
+	return area
+end
+
 -- раскладка под устройство
 function UI.ApplyLayout(mode)
 	if not hud.rail then
@@ -872,22 +910,37 @@ function UI.ApplyLayout(mode)
 	list.Parent = mobile and hud.rail or nil
 	hud.railGrid.Parent = (not mobile) and hud.rail or nil
 	if mobile then
-		-- телефон: вкладки строкой в правом верхнем углу (снизу джойстик и прыжок)
+		-- телефон: вкладки строкой справа в верхней полосе Roblox (рядом с её кнопками),
+		-- чтобы не занимать и без того низкий экран; снизу джойстик и прыжок
 		list.FillDirection = Enum.FillDirection.Horizontal
 		list.HorizontalAlignment = Enum.HorizontalAlignment.Right
-		list.VerticalAlignment = Enum.VerticalAlignment.Top
-		hud.rail.AnchorPoint = Vector2.new(1, 0)
+		list.Padding = UDim.new(0, 8)
 		hud.rail.Size = UDim2.fromOffset(#hud.railFx * 88, 86)
-		hud.rail.Position = UDim2.new(1, -6, 0, 4)
-		hud.railScale.Scale = respScale * 0.85
+		local area = UI.TopArea and UI.LayoutTopArea()
+		if area then
+			list.VerticalAlignment = Enum.VerticalAlignment.Center
+			hud.rail.Parent = area
+			hud.rail.AnchorPoint = Vector2.new(1, 0.5)
+			hud.rail.Position = UDim2.new(1, 0, 0.5, 0)
+			local a = area.AbsoluteSize
+			hud.railScale.Scale = math.min((a.Y - 2) / 82, a.X / (#hud.railFx * 88), 0.75)
+		else
+			list.VerticalAlignment = Enum.VerticalAlignment.Top
+			hud.rail.Parent = gui
+			hud.rail.AnchorPoint = Vector2.new(1, 0)
+			hud.rail.Position = UDim2.new(1, -6, 0, 4)
+			hud.railScale.Scale = respScale * 0.85
+		end
 	else
+		hud.rail.Parent = gui
 		list.FillDirection = Enum.FillDirection.Vertical
 		list.HorizontalAlignment = Enum.HorizontalAlignment.Left
 		list.VerticalAlignment = Enum.VerticalAlignment.Top
 		hud.rail.AnchorPoint = Vector2.new(0, 0)
 		UI.FitRail()
 	end
-	BagUI.ApplyLayout(mobile)
+	-- вкладки ушли в верхнюю полосу — верх экрана свободен, часы и полоса босса стоят как на ПК
+	BagUI.ApplyLayout(mobile and hud.rail.Parent == gui)
 	QuestUI.ApplyLayout(mobile)
 	if toastHolder then
 		toastHolder.Position = mobile and UDim2.new(0.5, 0, 0, 96) or UDim2.new(0.5, 0, 0, 132)
@@ -897,6 +950,10 @@ function UI.ApplyLayout(mode)
 		if b.hot then
 			b.hot.Visible = not mobile
 		end
+	end
+	-- на телефоне клавиш нет: прячем подсказку-клавишу у шестерёнки
+	if hud.setHot then
+		hud.setHot.Visible = not mobile
 	end
 	-- на телефоне хотбар выше (над кнопками экрана), ячейки крупнее
 	hud.hotbar.Position = mobile and UDim2.new(0.5, 0, 1, -8) or UDim2.new(0.5, 0, 1, -14)
@@ -2853,6 +2910,7 @@ end
 -- ===== БАННЕР ЗОНЫ =====
 local currentZone = nil
 local function showBanner(title, sub, color)
+	sub = U.touchText(sub)
 	hud.banner.Visible = true
 	local s1 = hud.bannerTitle:FindFirstChildOfClass("UIStroke")
 	local s2 = hud.bannerSub:FindFirstChildOfClass("UIStroke")
@@ -2945,8 +3003,27 @@ function UI.Init()
 		DisplayOrder = 10,
 		Parent = pg,
 	})
-	updateScale()
 	gui.ScreenInsets = Enum.ScreenInsets.CoreUISafeInsets -- учитывает и верхнюю панель Roblox, и вырез экрана
+	-- отдельный слой для вкладок в верхней полосе Roblox (телефоны) и «щуп» безопасной зоны экрана
+	local topGui = new("ScreenGui", {
+		Name = "ZSS_TopBar",
+		ResetOnSpawn = false,
+		IgnoreGuiInset = true,
+		ScreenInsets = Enum.ScreenInsets.None,
+		ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+		DisplayOrder = 10,
+		Parent = pg,
+	})
+	UI.TopArea = new("Frame", { Name = "TopArea", BackgroundTransparency = 1, Parent = topGui })
+	local probeGui = new("ScreenGui", {
+		Name = "ZSS_SafeProbe",
+		ResetOnSpawn = false,
+		IgnoreGuiInset = true,
+		ScreenInsets = Enum.ScreenInsets.DeviceSafeInsets,
+		Parent = pg,
+	})
+	UI.SafeProbe = new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Parent = probeGui })
+	updateScale()
 	buildHUD()
 	buildInventory()
 	buildGacha()
@@ -3048,6 +3125,9 @@ function UI.Init()
 		end
 	end)
 	workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(updateScale)
+	-- размеры ScreenGui и верхней полосы обновляются на кадр позже камеры — пересчитываем ещё раз
+	gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(updateScale)
+	GuiService:GetPropertyChangedSignal("TopbarInset"):Connect(updateScale)
 
 	local function onData(d)
 		updateHUD(d)
@@ -3151,6 +3231,35 @@ function UI.Init()
 		end
 	end
 	gacha.showDef(featured[1])
+
+	-- пока открыто окно, подсказки «E»/«коснись» у пультов не висят поверх него (на телефоне их значок закрывал витрину)
+	local WINDOWS = { "Inventory", "Gacha", "Map", "Backpack", "Settings", "QuestDialog", "QuestBook", "CellShop", "Donate" }
+	local shopGui = player.PlayerGui:FindFirstChild("ZSS_Shop")
+	local promptsHidden = false
+	task.spawn(function()
+		while true do
+			task.wait(0.2)
+			local open = GachaAnim.IsPlaying()
+			for _, n in ipairs(WINDOWS) do
+				local w = gui:FindFirstChild(n)
+				if w and w.Visible then
+					open = true
+					break
+				end
+			end
+			shopGui = shopGui or player.PlayerGui:FindFirstChild("ZSS_Shop")
+			if not open and shopGui then
+				local w = shopGui:FindFirstChildWhichIsA("Frame")
+				open = w ~= nil and w.Visible
+			end
+			if open ~= promptsHidden then
+				promptsHidden = open
+				pcall(function()
+					ProximityPromptService.MaxPromptsVisible = open and 0 or 16
+				end)
+			end
+		end
+	end)
 
 	local lastZone = 0
 	RunService.RenderStepped:Connect(function(dt)

@@ -17,6 +17,7 @@ local DayNight = require(script.DayNight)
 local TierGates = require(script.TierGates)
 local FieldTilesFX = require(script.FieldTilesFX)
 local OwnerOnly = require(script.OwnerOnly)
+local WorldLOD = require(script.WorldLOD)
 
 OwnerOnly.Init()
 FX.Init(Renderer)
@@ -29,6 +30,7 @@ DayNight.Init()
 UI.Init()
 TierGates.Init(State, UI)
 FieldTilesFX.Init()
+task.spawn(WorldLOD.Init) -- ждёт карту, не задерживая загрузку данных
 
 Remotes.DataSync.OnClientEvent:Connect(State.Set)
 task.spawn(function()
