@@ -469,6 +469,178 @@ H.doomsday = function(d)
 	end)
 end
 
+-- Буровик: земля трескается, из плит бьют фонтаны пыли
+H.quake = function(d)
+	local from = dronePos(d.owner, d.key)
+	local col = C(255, 150, 50)
+	FX.Ring(d.pos, d.radius, C(150, 90, 40), 0.7)
+	for i, t in ipairs(d.targets) do
+		task.delay(i * 0.03, function()
+			FX.Burst(t, ColorSequence.new(C(190, 140, 90), C(90, 65, 45)), 10, 1.2, 9, SMOKE_TEX)
+			FX.Burst(t, col, 6, 0.4, 8)
+		end)
+	end
+	if from then
+		FX.Beam(from, Vector3.new(from.X, d.pos.Y - 2.6, from.Z), col, 0.35, 0.4)
+	end
+	U.play(U.Sounds.thud, 0.6, 0.7)
+	local hrp = ownerRoot(player.UserId)
+	if hrp and (hrp.Position - d.pos).Magnitude < 40 then
+		FX.Shake(0.4)
+	end
+end
+
+-- Буревестник: тёмная грозовая туча над игроком
+H.storm = function(d)
+	local hrp = ownerRoot(d.owner)
+	local cloud = part({ size = Vector3.one * 0.2, cf = CFrame.new(d.pos + Vector3.new(0, 16, 0)), tr = 1, life = d.duration + 3 })
+	local a = Instance.new("Attachment")
+	a.Parent = cloud
+	local e = Instance.new("ParticleEmitter")
+	e.Texture = SMOKE_TEX
+	e.Color = ColorSequence.new(C(70, 78, 100), C(35, 40, 55))
+	e.Size = NumberSequence.new(6, 11)
+	e.Lifetime = NumberRange.new(1.8, 2.6)
+	e.Speed = NumberRange.new(1, 3)
+	e.SpreadAngle = Vector2.new(180, 15)
+	e.Rate = math.max(4, 22 * FX.Particles)
+	e.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.25, 0.35), NumberSequenceKeypoint.new(1, 1) })
+	e.Parent = a
+	local t0 = os.clock()
+	local conn
+	conn = RunService.Heartbeat:Connect(function()
+		if os.clock() - t0 > d.duration or not cloud.Parent then
+			conn:Disconnect()
+			e.Enabled = false
+			return
+		end
+		if hrp and hrp.Parent then
+			-- туча плавно следует за владельцем
+			cloud.CFrame = cloud.CFrame:Lerp(CFrame.new(hrp.Position + Vector3.new(0, 16, 0)), 0.05)
+		end
+	end)
+end
+
+H.bolts = function(d)
+	for _, p in ipairs(d.points) do
+		local top = p + Vector3.new(math.random(-3, 3), 18, math.random(-3, 3))
+		FX.Lightning(top, p, C(150, 220, 255))
+		local flash = part({ shape = Enum.PartType.Ball, size = Vector3.one * 3, cf = CFrame.new(p), color = C(200, 240, 255), tr = 0.2, life = 0.5 })
+		tw(flash, 0.35, { Size = Vector3.one * 0.2, Transparency = 1 })
+	end
+	U.play(U.Sounds.hit, 0.5, 1.4)
+end
+
+-- Хронос: циферблат на земле, стрелки откручиваются назад
+H.timewarp = function(d)
+	local pos, r = d.pos, d.radius
+	local ground = Vector3.new(pos.X, pos.Y - 2.5, pos.Z)
+	local col = C(120, 240, 255)
+	local face = part({ shape = Enum.PartType.Cylinder, size = Vector3.new(0.15, 1, 1), cf = CFrame.new(ground) * CFrame.Angles(0, 0, math.rad(90)), color = col, tr = 0.55, life = 2.4 })
+	tw(face, 0.5, { Size = Vector3.new(0.15, r * 2, r * 2) }, Enum.EasingStyle.Back)
+	local hands = {}
+	for i, len in ipairs({ r * 0.85, r * 0.55 }) do
+		local h = part({ size = Vector3.new(0.5, 0.2, len), cf = CFrame.new(ground + Vector3.new(0, 0.15, 0)) * CFrame.new(0, 0, -len / 2), color = i == 1 and C(255, 230, 150) or C(255, 255, 255), tr = 0.1, life = 2.4 })
+		hands[i] = { p = h, len = len, speed = i == 1 and -7 or -2.5 }
+	end
+	for k = 0, 11 do
+		local ang = k / 12 * math.pi * 2
+		local m = part({ size = Vector3.new(0.4, 0.2, 1.4), cf = CFrame.new(ground + Vector3.new(math.cos(ang) * r * 0.9, 0.12, math.sin(ang) * r * 0.9)) * CFrame.Angles(0, -ang + math.pi / 2, 0), color = C(255, 230, 150), tr = 0.2, life = 2.4 })
+		tw(m, 2.2, { Transparency = 1 }, Enum.EasingStyle.Sine, Enum.EasingDirection.In)
+	end
+	local t0 = os.clock()
+	local conn
+	conn = RunService.Heartbeat:Connect(function()
+		local t = os.clock() - t0
+		if t > 2.2 then
+			conn:Disconnect()
+			return
+		end
+		for _, h in ipairs(hands) do
+			if h.p.Parent then
+				h.p.CFrame = CFrame.new(ground + Vector3.new(0, 0.15, 0)) * CFrame.Angles(0, t * h.speed, 0) * CFrame.new(0, 0, -h.len / 2)
+			end
+		end
+	end)
+	task.delay(1.6, function()
+		tw(face, 0.6, { Transparency = 1 })
+		for _, h in ipairs(hands) do
+			tw(h.p, 0.6, { Transparency = 1 })
+		end
+	end)
+	FX.Ring(pos, r, col, 0.9, true)
+	FX.Burst(ground, col, 40, 0.6, 14)
+	U.play(U.Sounds.riser, 0.5, 1.3)
+	H.aura({ owner = d.owner, color = col, duration = d.duration })
+end
+
+-- Сингулярность: чёрная дыра с аккреционным диском
+H.blackhole = function(d)
+	local pos, r, dur = d.pos, d.radius, d.duration
+	local core = part({ shape = Enum.PartType.Ball, size = Vector3.one * 0.5, cf = CFrame.new(pos), color = C(0, 0, 0), mat = Enum.Material.SmoothPlastic, life = dur + 2 })
+	tw(core, 0.6, { Size = Vector3.one * 5 }, Enum.EasingStyle.Back)
+	local glow = part({ shape = Enum.PartType.Ball, size = Vector3.one * 0.5, cf = CFrame.new(pos), color = C(255, 30, 50), mat = Enum.Material.ForceField, life = dur + 2 })
+	tw(glow, 0.6, { Size = Vector3.one * 8 })
+	local disc = part({ shape = Enum.PartType.Cylinder, size = Vector3.new(0.2, 1, 1), cf = CFrame.new(pos) * CFrame.Angles(0, 0, math.rad(90)), color = C(255, 70, 40), tr = 0.35, life = dur + 2 })
+	tw(disc, 0.8, { Size = Vector3.new(0.2, 15, 15) })
+	local inner = part({ shape = Enum.PartType.Cylinder, size = Vector3.new(0.25, 1, 1), cf = CFrame.new(pos) * CFrame.Angles(0, 0, math.rad(90)), color = C(255, 200, 120), tr = 0.25, life = dur + 2 })
+	tw(inner, 0.8, { Size = Vector3.new(0.25, 9, 9) })
+	local light = Instance.new("PointLight")
+	light.Color = C(255, 40, 60)
+	light.Range = 30
+	light.Brightness = 3
+	light.Parent = glow
+	-- частицы, которые затягивает внутрь
+	local shell = part({ shape = Enum.PartType.Ball, size = Vector3.one * 20, cf = CFrame.new(pos), tr = 1, life = dur + 2 })
+	local e = Instance.new("ParticleEmitter")
+	e.Texture = SPARK_TEX
+	e.Color = ColorSequence.new(C(255, 120, 80), C(140, 0, 30))
+	e.Size = NumberSequence.new(0.2, 0.7)
+	e.Lifetime = NumberRange.new(0.75, 0.85)
+	e.Speed = NumberRange.new(11, 12)
+	e.Shape = Enum.ParticleEmitterShape.Sphere
+	e.ShapeStyle = Enum.ParticleEmitterShapeStyle.Surface
+	e.ShapeInOut = Enum.ParticleEmitterShapeInOut.Inward
+	e.Rate = math.max(10, 70 * FX.Particles)
+	e.LightEmission = 1
+	e.Transparency = NumberSequence.new(1, 0)
+	e.Parent = shell
+	local t0 = os.clock()
+	local conn
+	conn = RunService.Heartbeat:Connect(function()
+		local t = os.clock() - t0
+		if t > dur or not disc.Parent then
+			conn:Disconnect()
+			return
+		end
+		local tilt = CFrame.new(pos) * CFrame.Angles(math.rad(12), 0, 0)
+		disc.CFrame = tilt * CFrame.Angles(0, t * 2.2, math.rad(90))
+		inner.CFrame = tilt * CFrame.Angles(0, -t * 3.5, math.rad(90))
+	end)
+	for i = 0, dur - 1 do
+		task.delay(i + 1, function()
+			FX.Ring(pos + Vector3.new(0, 2.6, 0), r, C(255, 30, 50), 0.9, true)
+		end)
+	end
+	task.delay(dur, function()
+		e.Enabled = false
+		for _, p in ipairs({ core, glow, disc, inner }) do
+			if p.Parent then
+				tw(p, 0.45, { Size = Vector3.one * 0.1, Transparency = 1 }, Enum.EasingStyle.Back, Enum.EasingDirection.In)
+			end
+		end
+		task.delay(0.45, function()
+			FX.Burst(pos, ColorSequence.new(C(255, 220, 200), C(255, 20, 40)), 80, 2, 45)
+			U.play(U.Sounds.deepBoom, 0.8, 0.8)
+			local hrp = ownerRoot(player.UserId)
+			if hrp and (hrp.Position - pos).Magnitude < 80 then
+				FX.Shake(1)
+			end
+		end)
+	end)
+	U.play(U.Sounds.charge, 0.6, 0.5)
+end
+
 H.zdeath = function(d)
 	FX.Burst(d.pos, d.glow and C(140, 255, 60) or C(120, 20, 20), 20, 0.9, 10, SMOKE_TEX)
 	FX.Burst(d.pos, d.glow and C(160, 255, 90) or C(90, 140, 60), 14, 0.5, 14)

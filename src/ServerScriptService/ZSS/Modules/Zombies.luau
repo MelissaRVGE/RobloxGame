@@ -495,7 +495,7 @@ function Zombies.Kill(z, player, rewardMult)
 end
 
 function Zombies.Slow(z, duration)
-	z.slowUntil = os.clock() + duration
+	z.slowUntil = math.max(z.slowUntil or 0, os.clock() + duration)
 end
 
 -- player (необязательно): только зомби этого игрока и общий босс

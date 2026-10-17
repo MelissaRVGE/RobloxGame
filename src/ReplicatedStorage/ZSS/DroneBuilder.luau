@@ -280,6 +280,25 @@ local function buildFromMesh(def, scale, tpl)
 	if has("souls") then
 		emitter(core, { color = Config.RainbowSequence, rate = 10, size0 = 0.4 * s, size1 = 0, life0 = 0.8, life1 = 1.6, speed0 = 0.5, speed1 = 1.2, accel = Vector3.new(0, 2.5, 0) })
 	end
+	-- новые дроны: пыль из-под бура, искры грозы, частицы времени, всасывание в ядро
+	if has("drilldust") then
+		emitter(core, { texture = SMOKE_TEX, color = ColorSequence.new(Color3.fromRGB(200, 150, 100), Color3.fromRGB(110, 80, 55)), rate = 4, size0 = 0.3 * s, size1 = 0.9 * s, t0 = 0.5, life0 = 0.6, life1 = 1.1, speed0 = 0.5, speed1 = 1.2, pos = Vector3.new(0, -topY, 0), accel = Vector3.new(0, -1, 0) })
+		emitter(core, { color = Color3.fromRGB(255, 170, 60), rate = 6, size0 = 0.15 * s, speed0 = 2, speed1 = 4, life0 = 0.15, life1 = 0.3, pos = Vector3.new(0, -topY, 0) })
+	end
+	if has("storm") then
+		emitter(core, { texture = SMOKE_TEX, color = ColorSequence.new(Color3.fromRGB(90, 100, 130), Color3.fromRGB(50, 55, 75)), rate = 4, size0 = 0.5 * s, size1 = 1.2 * s, t0 = 0.6, life0 = 0.8, life1 = 1.4, speed0 = 0.2, speed1 = 0.6, pos = Vector3.new(0, topY + 0.3 * s, 0) })
+	end
+	if has("clock") then
+		emitter(core, { color = ColorSequence.new(Color3.fromRGB(140, 245, 255), Color3.fromRGB(255, 230, 150)), rate = 8, size0 = 0.22 * s, size1 = 0, life0 = 1, life1 = 1.6, speed0 = 0.3, speed1 = 0.8, accel = Vector3.new(0, 1.2, 0) })
+		for k = 0, 1 do
+			local ang = k * math.pi
+			newPart(model, { name = "OrbitBall", shape = Ball, size = Vector3.one * 0.22 * s, cf = CFrame.new(math.cos(ang) * (radius + 0.4 * s), 0.2 * s, math.sin(ang) * (radius + 0.4 * s)), color = Color3.fromRGB(140, 245, 255), mat = Mat.Neon, orbit = -1.6 })
+		end
+	end
+	if has("void") then
+		emitter(core, { color = ColorSequence.new(Color3.fromRGB(255, 60, 80), Color3.fromRGB(90, 0, 20)), rate = 14, size0 = 0.25 * s, size1 = 0, life0 = 0.5, life1 = 0.9, speed0 = 0.4, speed1 = 1, spread = Vector2.new(180, 180) })
+		emitter(core, { texture = SMOKE_TEX, color = ColorSequence.new(Color3.fromRGB(40, 0, 10), Color3.fromRGB(0, 0, 0)), rate = 5, size0 = 0.6 * s, size1 = 1.4 * s, t0 = 0.5, life0 = 0.8, life1 = 1.4, speed0 = 0.3, speed1 = 0.8, light = 0 })
+	end
 	if rarity.order >= 3 then
 		local light = Instance.new("PointLight")
 		light.Color = rcol

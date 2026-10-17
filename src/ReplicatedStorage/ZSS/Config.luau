@@ -95,7 +95,7 @@ Config.RarityStats = {
 	Secret = { gather = 300, damage = 42, speed = 40, gatherTime = 1.0 },
 }
 
--- ===== 20 ДРОНОВ =====
+-- ===== 24 ДРОНА =====
 -- look: body (ball/box/cyl/disc/diamond/skull), size, c1 (корпус), c2 (акцент), mat, eye, rotors, extras
 Config.Drones = {
 	-- UNCOMMON (белые)
@@ -129,7 +129,7 @@ Config.Drones = {
 		look = { body = "diamond", size = 1, c1 = C(120, 190, 255), c2 = C(225, 245, 255), mat = "Ice", eye = C(180, 240, 255), rotors = 4, extras = { "icicles", "snow" } } },
 	{ id = "magnet", name = "Магнит", rarity = "Rare",
 		desc = "Мощный электромагнит. Лом сам летит к нему.",
-		ability = { id = "magnet", name = "Магнитное поле", cd = 14, desc = "Притягивает лом со всех плит в радиусе 9 вокруг тебя." },
+		ability = { id = "magnet", name = "Магнитное поле", cd = 16, desc = "Притягивает лом со всех плит в радиусе 7 вокруг тебя." },
 		look = { body = "ball", size = 1, c1 = C(40, 110, 230), c2 = C(150, 190, 255), mat = "Metal", eye = C(255, 255, 255), rotors = 4, extras = { "magnet" } } },
 	{ id = "volt", name = "Вольт", rarity = "Rare",
 		desc = "Высоковольтный дрон с катушкой Теслы.",
@@ -149,60 +149,80 @@ Config.Drones = {
 	-- EPIC (фиолетовые)
 	{ id = "plague", name = "Чумной", rarity = "Epic",
 		desc = "Распыляет токсин, который разъедает даже мёртвую плоть.",
-		ability = { id = "cloud", name = "Токсичное облако", cd = 18, desc = "Облако на 8 сек: травит зомби (10 урона/сек) и собирает лом в радиусе 6." },
+		ability = { id = "cloud", name = "Токсичное облако", cd = 22, desc = "Облако на 8 сек: травит зомби (10 урона/сек) и понемногу собирает лом в радиусе 5." },
 		look = { body = "ball", size = 1, c1 = C(110, 40, 170), c2 = C(120, 255, 80), mat = "Slate", eye = C(140, 255, 90), rotors = 4, extras = { "canister", "toxic" } } },
 	{ id = "phantom", name = "Фантом", rarity = "Epic",
 		desc = "Экспериментальный фазовый дрон. Летает без винтов.",
-		ability = { id = "phase", name = "Фазовый сдвиг", cd = 15, desc = "Телепортируется по полю и собирает 8 случайных плит с бонусом x2." },
+		ability = { id = "phase", name = "Фазовый сдвиг", cd = 18, desc = "Телепортируется по полю и собирает 6 случайных плит с бонусом x1.5." },
 		look = { body = "diamond", size = 1, c1 = C(170, 90, 255), c2 = C(230, 200, 255), mat = "Glass", eye = C(240, 220, 255), rotors = 0, extras = { "ghost" } } },
 	{ id = "inferno", name = "Инферно", rarity = "Epic",
 		desc = "Огнемётный дрон. Внутри всегда горит.",
-		ability = { id = "nova", name = "Огненный шторм", cd = 14, desc = "Огненная волна сжигает зомби в радиусе 25 (90 урона)." },
+		ability = { id = "nova", name = "Огненный шторм", cd = 15, desc = "Огненная волна сжигает зомби в радиусе 22 (75 урона)." },
 		look = { body = "box", size = 1, c1 = C(90, 30, 140), c2 = C(255, 120, 30), mat = "Basalt", eye = C(255, 150, 40), rotors = 4, extras = { "flame", "vents" } },
 		mods = { damage = 1.3 } },
 	{ id = "overclock", name = "Разгон", rarity = "Epic",
 		desc = "Командный дрон с разогнанным процессором.",
-		ability = { id = "overclock", name = "Разгон", cd = 25, desc = "Разгоняет весь рой: скорость сбора и атаки x2 на 10 сек." },
+		ability = { id = "overclock", name = "Разгон", cd = 30, desc = "Разгоняет весь рой: скорость сбора и атаки x1.35 на 8 сек. Несколько Разгонов не складываются." },
 		look = { body = "cyl", size = 1, c1 = C(140, 50, 220), c2 = C(255, 90, 255), mat = "Metal", eye = C(255, 120, 255), rotors = 4, extras = { "speedtrail" } } },
+	{ id = "drill", name = "Буровик", rarity = "Epic",
+		desc = "Шахтёрский дрон с алмазным буром. Достаёт лом из-под земли.",
+		ability = { id = "quake", name = "Сейсмобур", cd = 16, desc = "Вгрызается в землю: собирает плиты в радиусе 5 x1.6, оглушает зомби в радиусе 10 (−60% скорости на 3 сек, 20 урона)." },
+		look = { body = "cyl", size = 1, c1 = C(120, 50, 190), c2 = C(255, 140, 30), mat = "Metal", eye = C(255, 160, 50), rotors = 4, extras = { "drilldust" } },
+		mods = { gather = 1.1, speed = 0.9 } },
 
 	-- LEGENDARY (жёлтые)
 	{ id = "goliath", name = "Голиаф", rarity = "Legendary",
 		desc = "Тяжёлый боевой дрон с наводчиком орбитального удара.",
-		ability = { id = "orbital", name = "Орбитальный удар", cd = 20, desc = "Удар со спутника: 400 урона в радиусе 20 и сбор лома x3 в центре." },
+		ability = { id = "orbital", name = "Орбитальный удар", cd = 22, desc = "Удар со спутника: 400 урона в радиусе 20 и сбор лома x2 в радиусе 8." },
 		look = { body = "box", size = 1.3, c1 = C(255, 195, 30), c2 = C(40, 35, 30), mat = "DiamondPlate", eye = C(255, 80, 30), rotors = 6, extras = { "cannon", "antenna" } },
 		mods = { damage = 1.3 } },
 	{ id = "midas", name = "Мидас", rarity = "Legendary",
 		desc = "Всё, к чему он прикасается, становится золотом.",
-		ability = { id = "gold", name = "Золотое касание", cd = 25, desc = "10 плит рядом становятся золотыми на 15 сек — они дают x5 лома." },
+		ability = { id = "gold", name = "Золотое касание", cd = 24, desc = "12 плит рядом становятся золотыми на 18 сек — они дают x5 лома." },
 		look = { body = "ball", size = 1.1, c1 = C(255, 205, 50), c2 = C(255, 245, 200), mat = "Foil", eye = C(255, 255, 255), rotors = 4, extras = { "sparkles" } },
 		mods = { gather = 1.2 } },
 	{ id = "queen", name = "Королева роя", rarity = "Legendary",
 		desc = "Матка-дрон. Собирает мини-дронов прямо в полёте.",
-		ability = { id = "swarm", name = "Рой", cd = 30, desc = "Выпускает 5 мини-дронов на 15 сек, которые собирают лом вместе с роем." },
+		ability = { id = "swarm", name = "Рой", cd = 30, desc = "Выпускает 6 мини-дронов на 18 сек, которые собирают лом вместе с роем." },
 		look = { body = "diamond", size = 1.15, c1 = C(255, 180, 40), c2 = C(130, 70, 15), mat = "Metal", eye = C(255, 120, 0), rotors = 4, extras = { "crown", "wings", "orbit" } } },
+	{ id = "tempest", name = "Буревестник", rarity = "Legendary",
+		desc = "Метеодрон, который научился вызывать грозу.",
+		ability = { id = "storm", name = "Грозовой фронт", cd = 30, desc = "Гроза над полем на 10 сек: каждую секунду молнии бьют 2 зомби (45 урона) и выбивают лом из 2 плит рядом x1.5." },
+		look = { body = "disc", size = 1.1, c1 = C(255, 200, 40), c2 = C(30, 40, 80), mat = "Metal", eye = C(110, 210, 255), rotors = 4, extras = { "lightning", "storm" } },
+		mods = { damage = 1.2, speed = 1.1 } },
 
 	-- MYTHIC (радужные)
 	{ id = "prism", name = "Призма", rarity = "Mythic",
 		desc = "Кристаллический дрон, преломляющий свет в чистую энергию.",
-		ability = { id = "prism", name = "Радужный резонанс", cd = 35, desc = "Весь собираемый лом x3 на 15 сек." },
+		ability = { id = "prism", name = "Радужный резонанс", cd = 40, desc = "Весь собираемый лом x2 на 15 сек. Несколько Призм не складываются." },
 		look = { body = "diamond", size = 1.15, c1 = C(255, 255, 255), c2 = C(255, 255, 255), mat = "Glass", eye = C(255, 255, 255), rotors = 4, extras = { "prism", "orbit", "sparkles" } } },
 	{ id = "necro", name = "Некродрон", rarity = "Mythic",
 		desc = "Собран из черепа первого зомби. Говорят, он слышит мёртвых.",
 		ability = { id = "reap", name = "Жатва душ", cd = 30, desc = "Забирает 50% здоровья у всех зомби на поле (боссу — 3000), награда за них x2." },
 		look = { body = "skull", size = 1.15, c1 = C(30, 28, 34), c2 = C(255, 255, 255), mat = "Slate", eye = C(0, 255, 200), rotors = 4, extras = { "souls", "spikes" } },
 		mods = { damage = 1.3 } },
+	{ id = "chrono", name = "Хронос", rarity = "Mythic",
+		desc = "Часовой механизм из будущего. Время для него — просто ресурс.",
+		ability = { id = "timewarp", name = "Петля времени", cd = 40, desc = "Перематывает время: плиты в радиусе 16 снова полные, зомби на поле замедлены на 6 сек, рой работает x1.6 быстрее 12 сек." },
+		look = { body = "disc", size = 1.15, c1 = C(230, 190, 110), c2 = C(90, 230, 255), mat = "Metal", eye = C(120, 240, 255), rotors = 4, extras = { "clock", "sparkles" } },
+		mods = { speed = 1.25 } },
 
 	-- SECRET (красный)
 	{ id = "apocalypse", name = "Апокалипсис", rarity = "Secret",
 		desc = "Прототип «Омега». Его не должно было существовать.",
-		ability = { id = "doomsday", name = "Судный день", cd = 45, desc = "Ядерный удар: забирает 70% здоровья у всех зомби (боссу — 8000), собирает лом в радиусе 30 x5 и даёт x5 к сбору на 20 сек." },
+		ability = { id = "doomsday", name = "Судный день", cd = 45, desc = "Ядерный удар: забирает 70% здоровья у всех зомби (боссу — 8000), собирает лом в радиусе 20 x3 и даёт x3 к сбору на 15 сек." },
 		look = { body = "box", size = 1.4, c1 = C(28, 14, 16), c2 = C(255, 25, 30), mat = "CorrodedMetal", eye = C(255, 0, 0), rotors = 6, extras = { "spikes", "flame", "cannon" } } },
+	{ id = "singularity", name = "Сингулярность", rarity = "Secret",
+		desc = "В его ядре заперта крошечная чёрная дыра. Лучше не смотреть внутрь.",
+		ability = { id = "blackhole", name = "Горизонт событий", cd = 55, desc = "Чёрная дыра на 6 сек: каждую секунду забирает 12% здоровья у зомби в радиусе 25 (боссу — 1500) и всасывает лом с плит в радиусе 14 x1.5. Награда за убитых x2." },
+		look = { body = "ball", size = 1.35, c1 = C(14, 10, 18), c2 = C(255, 30, 50), mat = "Basalt", eye = C(255, 40, 60), rotors = 6, extras = { "void" } },
+		mods = { gather = 1.1 } },
 }
 
 -- Мини-дрон (призывается Королевой роя, в гаче не выпадает)
 Config.MiniDrone = { id = "mini", name = "Мини-дрон", rarity = "Legendary",
 	look = { body = "ball", size = 0.6, c1 = C(255, 200, 60), c2 = C(90, 55, 10), mat = "Metal", eye = C(255, 120, 0), rotors = 2, extras = {} },
-	mods = { gather = 0.4, damage = 0 } }
+	mods = { gather = 0.5, damage = 0 } }
 
 Config.DroneById = {}
 Config.DronesByRarity = {}
