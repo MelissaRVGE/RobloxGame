@@ -302,7 +302,7 @@ local function pumpkinIcon(parent)
 	local cam = Instance.new("Camera")
 	cam.FieldOfView = 30
 	-- лицо тыквы смотрит в локальную -Z: камера спереди и чуть сверху
-	local dist = size.Magnitude * 1.75
+	local dist = size.Magnitude * 1.3
 	cam.CFrame = CFrame.lookAt(Vector3.new(dist * 0.22, dist * 0.32, -dist), Vector3.new(0, -size.Y * 0.04, 0))
 	cam.Parent = vp
 	vp.CurrentCamera = cam
