@@ -54,6 +54,7 @@ function Halloween.AddPumpkins(player, n, pos)
 	end
 	n = math.floor(n)
 	p.pumpkins += n
+	p.totalPumpkins = (p.totalPumpkins or 0) + n -- для лидерборда «собрано за всё время»
 	Data.MarkDirty(player)
 	if pos then
 		Remotes.Popup:FireClient(player, pos, "🎃 +" .. n, "pumpkin")
