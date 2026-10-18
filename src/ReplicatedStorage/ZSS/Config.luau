@@ -299,18 +299,20 @@ Config.Halloween = {
 	ghosts = { chance = 0.4, hp = 1.3, pumpkins = { 1, 3 }, consumMult = 2 },
 	-- Тыквенный Колосс: тыквы и трофей за победу
 	boss = { pumpkins = { 40, 90 }, name = "Pumpkin Colossus" },
-	-- гача «Тыквенный котёл»: крутки за тыквы, свой гарант
+	-- гача «Тыквенный котёл»: крутки за тыквы; шансы и гарант те же, что у обычной гачи (ниже)
 	gacha = {
 		pullCost = 30,
 		pull10Cost = 300,
-		weights = { Uncommon = 7000, Rare = 2200, Epic = 600, Legendary = 160, Mythic = 36, Secret = 4 },
-		pity = {
-			{ rarity = "Secret", pulls = 1500 },
-			{ rarity = "Mythic", pulls = 600 },
-			{ rarity = "Legendary", pulls = 150 },
-		},
 	},
 }
+do
+	local w = {}
+	for key, r in pairs(Config.Rarities) do
+		w[key] = r.weight
+	end
+	Config.Halloween.gacha.weights = w
+	Config.Halloween.gacha.pity = Config.Pity
+end
 
 function Config.HalloweenOn()
 	return Config.Halloween.enabled == true
