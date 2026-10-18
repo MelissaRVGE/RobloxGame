@@ -51,6 +51,12 @@ local function defaultProfile()
 		passes = {}, -- купленные пропуска доната: key -> true
 		donateOnce = {}, -- купленные разовые наборы доната
 		receipts = {}, -- PurchaseId последних покупок за Robux (чтобы не выдать дважды)
+		-- Хэллоуин: тыквы, гарант и крутки «Тыквенного котла», трофеи Тыквенного Колосса, косметика
+		pumpkins = 0,
+		hpity = { Legendary = 0, Mythic = 0, Secret = 0 },
+		hpulls = 0,
+		trophies = 0,
+		cosmetics = {},
 	}
 end
 
@@ -327,6 +333,11 @@ function Data.Snapshot(p)
 		settings = p.settings or {},
 		totalBatteries = p.totalBatteries or 0,
 		quests = Data.QuestView and Data.QuestView(p) or {},
+		pumpkins = p.pumpkins or 0,
+		hpity = p.hpity or { Legendary = 0, Mythic = 0, Secret = 0 },
+		hpulls = p.hpulls or 0,
+		trophies = p.trophies or 0,
+		cosmetics = p.cosmetics or {},
 	}
 end
 

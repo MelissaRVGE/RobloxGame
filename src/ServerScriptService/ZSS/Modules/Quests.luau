@@ -82,7 +82,7 @@ end
 local function matches(g, data)
 	data = data or {}
 	if g.t == "kill" then
-		return (not g.field or g.field == data.field) and (not g.night or data.night == true)
+		return (not g.field or g.field == data.field) and (not g.night or data.night == true) and (not g.ghost or data.ghost == true)
 	elseif g.t == "scrap" then
 		return (not g.field or g.field == data.field) and (not g.res or g.res == data.res)
 	elseif g.t == "use" then
@@ -142,6 +142,16 @@ local function giveReward(player, p, r)
 	for id, n in pairs(r.consum or {}) do
 		p.consum = p.consum or {}
 		p.consum[id] = (p.consum[id] or 0) + n
+	end
+	if r.pumpkins then
+		p.pumpkins = (p.pumpkins or 0) + r.pumpkins
+	end
+	if r.cosmetic then
+		p.cosmetics = p.cosmetics or {}
+		p.cosmetics[r.cosmetic] = true
+		if r.cosmetic == "witchhat" then
+			task.defer(require(script.Parent.Halloween).ApplyHat, player)
+		end
 	end
 	if r.perk then
 		p.perks = p.perks or {}

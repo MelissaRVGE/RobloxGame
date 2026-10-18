@@ -127,6 +127,10 @@ function Fields.Collect(player, tile, base, mult)
 		Remotes.Popup:FireClient(player, Fields.TopPos(tile), "+" .. added, gold > 1 and "gold" or ("res:" .. tile.res))
 		require(script.Parent.Quests).Event(player, "scrap", { field = f.cfg.id, res = tile.res }, added)
 	end
+	-- хэллоуинская тыква на плитке
+	if tile.pumpkin then
+		require(script.Parent.Halloween).OnCollect(player, tile)
+	end
 	-- случайная находка в куче лома
 	Loot.TryDrop(player, "droneGather", f.index, Fields.TopPos(tile))
 	-- добыча — активность: рядом может появиться «добывающий» бафф

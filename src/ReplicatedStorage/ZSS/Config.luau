@@ -219,18 +219,107 @@ Config.Drones = {
 		mods = { gather = 1.1 } },
 }
 
+-- ===== ХЭЛЛОУИН: 8 ДРОНОВ ИЗ ХЭЛЛОУИНСКОЙ ГАЧИ =====
+-- event = "halloween": такие дроны не выпадают в обычной гаче и капсулах, только в «Тыквенном котле»
+local HALLOWEEN_DRONES = {
+	{ id = "gourd", name = "Gourdling", rarity = "Uncommon", event = "halloween",
+		desc = "A carved pumpkin that learned to fly. Still smells of pie.",
+		ability = { id = "pumpkinbomb", name = "Pumpkin Bomb", cd = 8, desc = "Lobs a pumpkin at the nearest zombie: 22 damage to every zombie within 8 studs of the impact." },
+		look = { body = "ball", size = 1, c1 = C(255, 140, 30), c2 = C(60, 120, 40), mat = "SmoothPlastic", eye = C(255, 220, 60), rotors = 4, extras = { "candle" } } },
+	{ id = "batbot", name = "Bat Bot", rarity = "Uncommon", event = "halloween",
+		desc = "Sleeps upside down on the charging station. Sees in the dark with sonar.",
+		ability = { id = "echo", name = "Echo Swoop", cd = 10, desc = "Sonar finds 3 tiles within 14 studs and collects them x1.1." },
+		look = { body = "ball", size = 0.95, c1 = C(70, 66, 80), c2 = C(150, 40, 60), mat = "Metal", eye = C(255, 50, 60), rotors = 2, extras = { "bats" } } },
+	{ id = "candycorn", name = "Candy Corn", rarity = "Rare", event = "halloween",
+		desc = "Pure sugar on propellers. Nobody knows who built it, or why.",
+		ability = { id = "sugar", name = "Sugar Rush", cd = 18, desc = "Gives you 2 stacks of Speed Boost and collects tiles within 6 studs x0.8." },
+		look = { body = "diamond", size = 1, c1 = C(255, 170, 40), c2 = C(255, 250, 235), mat = "SmoothPlastic", eye = C(255, 255, 255), rotors = 4, extras = { "sparkles" } } },
+	{ id = "spider", name = "Widow", rarity = "Rare", event = "halloween",
+		desc = "Eight legs, eight eyes, one goal: keep zombies stuck in place.",
+		ability = { id = "web", name = "Web Trap", cd = 10, desc = "Webs every zombie within 20 studs: −60% speed for 6 s and 15 damage." },
+		look = { body = "ball", size = 1, c1 = C(40, 70, 160), c2 = C(220, 225, 235), mat = "Metal", eye = C(90, 230, 255), rotors = 4, extras = { "web" } },
+		mods = { damage = 1.2 } },
+	{ id = "wraith", name = "Wraith", rarity = "Epic", event = "halloween",
+		desc = "A restless spirit bound to a drone core. It never stops wandering the fields.",
+		ability = { id = "haunt", name = "Haunting", cd = 16, desc = "Haunts the field: hits up to 5 zombies within 26 studs for 50 damage and collects 5 random tiles nearby x1.3." },
+		look = { body = "diamond", size = 1.05, c1 = C(120, 60, 190), c2 = C(200, 160, 255), mat = "Glass", eye = C(220, 180, 255), rotors = 4, extras = { "ghost", "wisps" } } },
+	{ id = "jackodrone", name = "Jack-o'-Drone", rarity = "Legendary", event = "halloween",
+		desc = "The king of the pumpkin patch. Its candle has been burning for a hundred years.",
+		ability = { id = "lantern", name = "Lantern Blaze", cd = 24, desc = "A blast of lantern fire: 260 damage within 18 studs and tiles within 10 studs collected x2." },
+		look = { body = "ball", size = 1.2, c1 = C(255, 150, 30), c2 = C(40, 30, 20), mat = "SmoothPlastic", eye = C(255, 200, 40), rotors = 4, extras = { "candle", "flame", "sparkles" } },
+		mods = { damage = 1.2 } },
+	{ id = "reaper", name = "Reaper", rarity = "Mythic", event = "halloween",
+		desc = "It comes for every zombie in the end. With a drone-sized scythe.",
+		ability = { id = "harvest", name = "Harvest Moon", cd = 38, desc = "One swing of the scythe takes 40% health from every zombie on the field (2500 to the boss, x2 reward) and collects tiles within 12 studs x1.5." },
+		look = { body = "skull", size = 1.2, c1 = C(25, 22, 30), c2 = C(170, 255, 120), mat = "Slate", eye = C(150, 255, 110), rotors = 4, extras = { "souls", "wisps" } },
+		mods = { damage = 1.3 } },
+	{ id = "pumpkinking", name = "Pumpkin King", rarity = "Secret", event = "halloween",
+		desc = "Ruler of Halloween night. When it rises, the whole field burns orange.",
+		ability = { id = "terror", name = "Night of Terror", cd = 50, desc = "Halloween night falls on the field: takes 70% health from every zombie (8000 to the boss, x2 reward), collects tiles within 18 studs x3, gives x2.5 gathering for 15 s and +3 🎃." },
+		look = { body = "ball", size = 1.4, c1 = C(255, 110, 20), c2 = C(30, 10, 40), mat = "SmoothPlastic", eye = C(255, 60, 20), rotors = 6, extras = { "flame", "candle", "wisps" } } },
+}
+for _, d in ipairs(HALLOWEEN_DRONES) do
+	table.insert(Config.Drones, d)
+end
+
 -- Мини-дрон (призывается Королевой роя, в гаче не выпадает)
 Config.MiniDrone = { id = "mini", name = "Mini Drone", rarity = "Legendary",
 	look = { body = "ball", size = 0.6, c1 = C(255, 200, 60), c2 = C(90, 55, 10), mat = "Metal", eye = C(255, 120, 0), rotors = 2, extras = {} },
 	mods = { gather = 0.5, damage = 0 } }
 
 Config.DroneById = {}
-Config.DronesByRarity = {}
+Config.DronesByRarity = {} -- пул обычной гачи и капсул (без дронов событий)
+Config.EventPool = {} -- event -> rarity -> { дроны }
 for i, d in ipairs(Config.Drones) do
 	d.index = i
 	Config.DroneById[d.id] = d
-	Config.DronesByRarity[d.rarity] = Config.DronesByRarity[d.rarity] or {}
-	table.insert(Config.DronesByRarity[d.rarity], d)
+	if d.event then
+		Config.EventPool[d.event] = Config.EventPool[d.event] or {}
+		local pool = Config.EventPool[d.event]
+		pool[d.rarity] = pool[d.rarity] or {}
+		table.insert(pool[d.rarity], d)
+	else
+		Config.DronesByRarity[d.rarity] = Config.DronesByRarity[d.rarity] or {}
+		table.insert(Config.DronesByRarity[d.rarity], d)
+	end
+end
+
+-- ===== ХЭЛЛОУИН (событие) =====
+-- enabled = false выключает всё событие разом: тыквы на полях, ночь с призраками, тыквенного Колосса,
+-- ведьму с квестами и обменом, хэллоуинскую гачу и декор. Дроны и тыквы у игроков остаются.
+Config.Halloween = {
+	enabled = true,
+	-- «Призрачная роща» за южной стеной базы: ведьма, котёл-гача, тыквенная грядка
+	zone = { center = Vector3.new(0, 0, -68), radius = 30 },
+	-- тыквы на полях: столько светящихся тыкв на поле одновременно, сколько тыкв даёт сбор (по номеру поля)
+	pumpkins = { perField = 4, value = { 1, 2, 3, 4, 6 }, respawn = { 40, 80 } },
+	-- Призрачная ночь: ночь длиннее, часть зомби — призраки в костюмах
+	night = 900,
+	ghosts = { chance = 0.4, hp = 1.3, pumpkins = { 1, 3 }, consumMult = 2 },
+	-- Тыквенный Колосс: тыквы и трофей за победу
+	boss = { pumpkins = { 40, 90 }, name = "Pumpkin Colossus" },
+	-- гача «Тыквенный котёл»: крутки за тыквы, свой гарант
+	gacha = {
+		pullCost = 30,
+		pull10Cost = 300,
+		weights = { Uncommon = 7000, Rare = 2200, Epic = 600, Legendary = 160, Mythic = 36, Secret = 4 },
+		pity = {
+			{ rarity = "Secret", pulls = 1500 },
+			{ rarity = "Mythic", pulls = 600 },
+			{ rarity = "Legendary", pulls = 150 },
+		},
+	},
+}
+
+function Config.HalloweenOn()
+	return Config.Halloween.enabled == true
+end
+
+function Config.HalloweenChanceText(rarity)
+	local pct = Config.Halloween.gacha.weights[rarity] / 100
+	local s = string.format("%.2f", pct)
+	s = s:gsub("0+$", ""):gsub("%.$", "")
+	return s .. "%"
 end
 
 -- ===== ПОЛЯ =====
@@ -301,6 +390,9 @@ Config.Boss = {
 
 -- Смена дня и ночи (секунды). Ночью зомби бьют x2, но награда тоже x2
 Config.DayNight = { day = 1800, night = 600, damageMult = 2, rewardMult = 2 }
+if Config.Halloween.enabled then
+	Config.DayNight.night = Config.Halloween.night -- Призрачная ночь длиннее
+end
 
 -- Границы карты: невидимые стены по подножию гор (X/Z) и потолок (Y)
 Config.MapBounds = { minX = -158, maxX = 148, minZ = -92, maxZ = 596, yMin = -40, yMax = 260 }
@@ -360,6 +452,7 @@ Config.Locations = {
 	{ id = "base", name = "Survivor Base", desc = "Recycler and charging stations" },
 	{ id = "gacha", name = "Drone Lab", desc = "Gacha: new drones" },
 	{ id = "shop", name = "Shop", desc = "Weapons, tools, gear" },
+	{ id = "halloween", name = "Haunted Grove", desc = "Witch, Pumpkin Cauldron gacha", event = "halloween" },
 	{ id = "wasteland", field = true },
 	{ id = "deadcity", field = true },
 	{ id = "swamp", field = true },

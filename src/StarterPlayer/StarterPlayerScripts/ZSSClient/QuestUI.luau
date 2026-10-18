@@ -38,6 +38,12 @@ local function rewardText(r)
 	if r.gems then
 		table.insert(parts, "💎 " .. r.gems)
 	end
+	if r.pumpkins then
+		table.insert(parts, "🎃 " .. r.pumpkins)
+	end
+	if r.cosmetic == "witchhat" then
+		table.insert(parts, "🧙 Witch Hat")
+	end
 	for id, n in pairs(r.items or {}) do
 		table.insert(parts, itemName(id) .. " x" .. n)
 	end
@@ -205,7 +211,7 @@ local function rewardChip(parent, image, text, color, order)
 		new("UIPadding", { PaddingLeft = UDim.new(0, 2), PaddingRight = UDim.new(0, 6) }),
 		new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, VerticalAlignment = Enum.VerticalAlignment.Center, Padding = UDim.new(0, 3) }),
 	})
-	new("ImageLabel", { BackgroundTransparency = 1, Image = image or "", Size = UDim2.fromOffset(18, 18), LayoutOrder = 1, Parent = chip })
+	new("ImageLabel", { BackgroundTransparency = 1, Image = image or "", Size = UDim2.fromOffset(image and 18 or 0, 18), LayoutOrder = 1, Parent = chip })
 	new("TextLabel", { Size = UDim2.fromOffset(0, 18), AutomaticSize = Enum.AutomaticSize.X, BackgroundTransparency = 1, Font = Enum.Font.GothamBlack, TextSize = 12, TextColor3 = color, Text = text, LayoutOrder = 2, Parent = chip })
 end
 
@@ -219,6 +225,14 @@ local function addRewardChips(parent, r, perkText)
 	if r.gems then
 		o += 1
 		rewardChip(parent, Icons.gem, tostring(r.gems), C(130, 225, 255), o)
+	end
+	if r.pumpkins then
+		o += 1
+		rewardChip(parent, Icons.pumpkin, (Icons.pumpkin and "" or "🎃 ") .. r.pumpkins, C(255, 170, 60), o)
+	end
+	if r.cosmetic == "witchhat" then
+		o += 1
+		rewardChip(parent, nil, "🧙 WITCH HAT", C(200, 140, 255), o)
 	end
 	-- находки по редкости: сначала простые материалы, потом редкие
 	local ids = {}

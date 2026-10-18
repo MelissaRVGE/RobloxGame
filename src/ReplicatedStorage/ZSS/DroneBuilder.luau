@@ -336,6 +336,25 @@ local function buildFromMesh(def, scale, tpl)
 		emitter(core, { color = ColorSequence.new(Color3.fromRGB(255, 60, 80), Color3.fromRGB(90, 0, 20)), rate = 14, size0 = 0.25 * s, size1 = 0, life0 = 0.5, life1 = 0.9, speed0 = 0.4, speed1 = 1, spread = Vector2.new(180, 180) })
 		emitter(core, { texture = SMOKE_TEX, color = ColorSequence.new(Color3.fromRGB(40, 0, 10), Color3.fromRGB(0, 0, 0)), rate = 5, size0 = 0.6 * s, size1 = 1.4 * s, t0 = 0.5, life0 = 0.8, life1 = 1.4, speed0 = 0.3, speed1 = 0.8, light = 0 })
 	end
+	-- хэллоуинские дроны: огонёк свечи внутри тыквы, призрачные огоньки, летучие мыши, нити паутины
+	if has("candle") then
+		emitter(core, { texture = FIRE_TEX, color = ColorSequence.new(Color3.fromRGB(255, 220, 90), Color3.fromRGB(255, 90, 10)), rate = 10, size0 = 0.35 * s, size1 = 0.05 * s, t0 = 0.2, life0 = 0.25, life1 = 0.45, speed0 = 0.5, speed1 = 1.2, accel = Vector3.new(0, 3, 0), pos = Vector3.new(0, topY * 0.75, 0) })
+		local cl = Instance.new("PointLight")
+		cl.Color = Color3.fromRGB(255, 150, 40)
+		cl.Range = 6 * s + 2
+		cl.Brightness = 1.4
+		cl.Parent = core
+	end
+	if has("wisps") then
+		emitter(core, { color = ColorSequence.new(Color3.fromRGB(210, 160, 255), Color3.fromRGB(120, 255, 150)), rate = 9, size0 = 0.3 * s, size1 = 0, life0 = 1, life1 = 1.8, speed0 = 0.3, speed1 = 0.9, accel = Vector3.new(0, 1.5, 0), spread = Vector2.new(180, 180) })
+		trail(core, Vector3.new(0, -0.4 * s, 0), Vector3.new(0, 0.4 * s, 0), Color3.fromRGB(190, 140, 255), 0.5)
+	end
+	if has("bats") then
+		emitter(core, { color = Color3.fromRGB(40, 30, 50), rate = 2, size0 = 0.3 * s, size1 = 0.2 * s, life0 = 0.8, life1 = 1.4, speed0 = 2, speed1 = 4, light = 0, spread = Vector2.new(180, 60) })
+	end
+	if has("web") then
+		emitter(core, { color = Color3.fromRGB(235, 240, 250), rate = 3, size0 = 0.18 * s, size1 = 0.05 * s, life0 = 1, life1 = 1.6, speed0 = 0.2, speed1 = 0.5, accel = Vector3.new(0, -1.2, 0), pos = Vector3.new(0, -topY, 0) })
+	end
 	if rarity.order >= 3 then
 		local light = Instance.new("PointLight")
 		light.Color = rcol

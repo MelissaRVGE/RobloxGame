@@ -224,6 +224,7 @@ local function build(field)
 	bb.MaxDistance = 80
 	bb.Adornee = head
 	local nameLbl = Instance.new("TextLabel")
+	nameLbl.Name = "Name"
 	nameLbl.BackgroundTransparency = 1
 	nameLbl.Size = UDim2.fromScale(1, 0.42)
 	nameLbl.Font = Enum.Font.GothamBlack
@@ -315,6 +316,7 @@ function Zombies.Spawn(field, owner)
 		dead = false,
 		rewardMult = 1,
 	}
+	require(script.Parent.Halloween).Decorate(z)
 	Zombies.Active[m] = z
 	field.zcount += 1
 	slot(owner, field).n += 1
@@ -354,7 +356,8 @@ function Zombies.OnDeath(z)
 			Loot.TryDrop(killer, "zombieKill", z.field.index, z.root.Position)
 			Loot.TryConsum(killer, z.field.index, z.root.Position)
 			require(script.Parent.Drops).ZombieKilled(z.root.Position, z.field, killer)
-			require(script.Parent.Quests).Event(killer, "kill", { field = z.field.cfg.id, night = Loot.IsNight() })
+			require(script.Parent.Quests).Event(killer, "kill", { field = z.field.cfg.id, night = Loot.IsNight(), ghost = z.ghost })
+			require(script.Parent.Halloween).OnZombieDeath(z, killer)
 		end
 	end
 	fxTo(z, "zdeath", { pos = z.root.Position, glow = z.field.cfg.id == "radzone" })

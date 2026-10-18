@@ -245,6 +245,44 @@ Q.NPCs = {
 	},
 }
 
+-- Хэллоуин: ведьма в Призрачной роще (цепочка из 6 заданий, финал — шляпа ведьмы).
+-- Есть только пока включено событие (Config.Halloween.enabled).
+-- Цели события: pumpkin — собрать тыквы, hpull — крутки «Тыквенного котла», kill ghost — убить призраков
+Q.Witch = {
+	id = "witch",
+	name = "Witch Hazel",
+	role = "Haunted Grove Witch",
+	color = C(190, 110, 255),
+	event = "halloween",
+	greet = "Heh-heh... The veil is thin tonight, darling. Bring me pumpkins and I'll brew you something wicked.",
+	quests = {
+		{ title = "Pumpkin Picking", text = "Glowing pumpkins have sprouted on every field. Your drones can pick them like any scrap pile. Fetch me a few, and squash some walkers on the way.",
+			goals = { { t = "pumpkin", n = 30 }, { t = "kill", n = 20 } },
+			reward = { gems = 10, pumpkins = 30, consum = { luckycoin = 1 } } },
+		{ title = "Ghost Lights", text = "When night falls, the dead put on costumes and walk the fields as ghosts. Send a few of them back to the other side.",
+			goals = { { t = "kill", ghost = true, n = 15 } },
+			reward = { gems = 15, pumpkins = 60, consum = { candybars = 2 } } },
+		{ title = "Stir the Cauldron", text = "My Pumpkin Cauldron hungers. Feed it pumpkins and see what crawls out. Some say even a Pumpkin King sleeps in there.",
+			goals = { { t = "hpull", n = 10 }, { t = "pumpkin", n = 150 } },
+			reward = { gems = 20, pumpkins = 100, items = { capsule = 1 } } },
+		{ title = "Haunted Harvest", text = "The harvest is the best on the nights the ghosts walk. Gather more pumpkins and thin out the spirits.",
+			goals = { { t = "kill", ghost = true, n = 60 }, { t = "pumpkin", n = 400 } },
+			reward = { gems = 30, pumpkins = 200, items = { goldcapsule = 1 } } },
+		{ title = "The Headless Giant", text = "The Colossus stole a pumpkin for a head and now calls itself a king. Knock that pumpkin off its shoulders.",
+			goals = { { t = "bossKill", n = 1 }, { t = "kill", ghost = true, n = 120 } },
+			reward = { gems = 50, pumpkins = 400, consum = { cocktail = 1 } } },
+		{ title = "The Witch's Coven", text = "You've proven yourself, little survivor. One last ritual and you'll wear the hat of the coven. It suits you, I can tell.",
+			goals = { { t = "pumpkin", n = 1500 }, { t = "hpull", n = 60 }, { t = "bossKill", n = 3 } },
+			reward = { gems = 100, pumpkins = 800, items = { starcapsule = 1 }, cosmetic = "witchhat" }, perkText = "Witch Hat: a cosmetic hat you can wear (toggle it at the Witch)" },
+	},
+}
+do
+	local ok, Cfg = pcall(require, script.Parent.Config)
+	if ok and Cfg.HalloweenOn and Cfg.HalloweenOn() then
+		table.insert(Q.NPCs, Q.Witch)
+	end
+end
+
 Q.ById = {}
 for _, n in ipairs(Q.NPCs) do
 	Q.ById[n.id] = n
@@ -278,7 +316,14 @@ end
 function Q.GoalText(g, itemName)
 	local t = g.t
 	if t == "kill" then
+		if g.ghost then
+			return ("Kill %s ghost zombies (they walk at night)"):format(big(g.n))
+		end
 		return ("Kill %s zombies%s%s"):format(big(g.n), g.field and (" " .. FIELD_NAMES[g.field]) or "", g.night and " at night" or "")
+	elseif t == "pumpkin" then
+		return ("Collect %s pumpkins 🎃"):format(big(g.n))
+	elseif t == "hpull" then
+		return ("Make %d Pumpkin Cauldron pulls"):format(g.n)
 	elseif t == "scrap" then
 		if g.res then
 			return ("Collect %s: %s"):format(resName(g.res), big(g.n))
