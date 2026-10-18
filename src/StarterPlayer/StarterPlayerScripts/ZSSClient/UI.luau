@@ -272,6 +272,43 @@ local function iconImg(parent, key, size, pos, z)
 	})
 end
 
+-- объёмная тыква (та же модель, что на полях) для кнопки котла; ViewportFrame статичный, качается сам кадр
+local function pumpkinIcon(parent)
+	local vp = new("ViewportFrame", {
+		BackgroundTransparency = 1,
+		Size = UDim2.fromOffset(52, 52),
+		Position = UDim2.new(0.5, 0, 0, 30),
+		Ambient = C(200, 170, 150),
+		LightColor = C(255, 230, 200),
+		LightDirection = Vector3.new(-0.4, -1, -0.7),
+		ZIndex = 4,
+		Parent = parent,
+	})
+	local lib = Shared:FindFirstChild("HalloweenMeshes")
+	local src = lib and lib:FindFirstChild("Pumpkin")
+	if not src then
+		new("TextLabel", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "🎃", TextScaled = true, Font = Enum.Font.GothamBlack, ZIndex = 4, Parent = vp })
+		return vp
+	end
+	local m = src:Clone()
+	local part = m:IsA("BasePart") and m or m:FindFirstChildWhichIsA("BasePart", true)
+	local size = m:IsA("Model") and select(2, m:GetBoundingBox()) or part.Size
+	if m:IsA("Model") then
+		m:PivotTo(CFrame.new())
+	else
+		m.CFrame = CFrame.new()
+	end
+	m.Parent = vp
+	local cam = Instance.new("Camera")
+	cam.FieldOfView = 30
+	-- лицо тыквы смотрит в локальную -Z: камера спереди и чуть сверху
+	local dist = size.Magnitude * 1.75
+	cam.CFrame = CFrame.lookAt(Vector3.new(dist * 0.22, dist * 0.32, -dist), Vector3.new(0, -size.Y * 0.04, 0))
+	cam.Parent = vp
+	vp.CurrentCamera = cam
+	return vp
+end
+
 local function makeBar(parent, pos, size, c1, c2, iconKey)
 	local holder = new("Frame", { Position = pos, Size = size, BackgroundTransparency = 1, Parent = parent })
 	local bg = new("Frame", {
@@ -461,6 +498,10 @@ local function buildHUD()
 		{ key = "quests", icon = "quest", label = "Quests", color = C(255, 200, 80), hot = "Q" },
 		{ key = "donate", icon = "donate", label = "Donate", color = C(255, 90, 170), hot = "H" },
 	}
+	-- Хэллоуин: кнопка-телепорт к «Тыквенному котлу» (пока событие идёт; выключили событие — кнопки нет)
+	if Config.HalloweenOn() then
+		table.insert(items, { key = "halloween", pumpkin = true, label = "Cauldron", color = C(255, 140, 30), hot = "J" })
+	end
 	hud.buttons = {}
 	hud.railFx = {}
 	local BW, BH, EDGE = 80, 74, 5
@@ -499,7 +540,7 @@ local function buildHUD()
 			ZIndex = 3,
 			Parent = b,
 		})
-		local ic = iconImg(b, it.icon, UDim2.fromOffset(46, 46), UDim2.new(0.5, 0, 0, 30), 4)
+		local ic = it.pumpkin and pumpkinIcon(b) or iconImg(b, it.icon, UDim2.fromOffset(46, 46), UDim2.new(0.5, 0, 0, 30), 4)
 		ic.AnchorPoint = Vector2.new(0.5, 0.5)
 		local icScale = U.scaleOf(ic)
 		local glowScale = U.scaleOf(glow)
@@ -3047,6 +3088,13 @@ function UI.OnMenu(key)
 		DonateUI.Toggle()
 	elseif key == "quests" then
 		QuestUI.ToggleBook()
+	elseif key == "halloween" and Config.HalloweenOn() then
+		if UI.InHalloweenZone() then
+			UI.Toast("🎃 Walk up to the cauldron and press E", "Legendary")
+		else
+			Remotes.Teleport:FireServer("halloween")
+			UI.Toast("🎃 Pumpkin Cauldron! Walk up to it and press E", "Legendary")
+		end
 	end
 end
 
@@ -3389,6 +3437,9 @@ function UI.Init()
 		end,
 		quests = function()
 			QuestUI.ToggleBook()
+		end,
+		halloween = function()
+			UI.OnMenu("halloween")
 		end,
 	}
 	game:GetService("UserInputService").InputBegan:Connect(function(input, processed)
