@@ -930,8 +930,10 @@ function UI.FitRail(animate)
 	local avail = (gui and gui.AbsoluteSize.Y or 700) - top - 12
 	-- ширина сетки равна ширине панели валюты (352), кнопки по центру
 	hud.rail.Size = UDim2.fromOffset(352, need)
-	local pos = UDim2.fromOffset(hud.panel.Position.X.Offset, top)
 	local sc = math.clamp(avail / need, 0.45, ps)
+	-- пока открыто окно с 3D-витриной, вкладки уезжают за левый край: иначе они видны сквозь витрину
+	local x = hud.railHidden and -(352 * sc + 40) or hud.panel.Position.X.Offset
+	local pos = UDim2.fromOffset(x, top)
 	if animate then
 		-- появилась/исчезла кнопка «Зарядить» — вкладки плавно съезжают
 		U.tween(hud.rail, 0.3, { Position = pos }, Enum.EasingStyle.Quart)
@@ -2447,6 +2449,27 @@ hgacha.stage = newStage("ZSS_HGachaStage", C(34, 16, 12), 0.45)
 RunService:BindToRenderStep("ZSS_GachaStage", Enum.RenderPriority.Camera.Value + 1, function()
 	stageStep(gacha.stage, gacha.showHole, gacha.win and gacha.win.Visible)
 	stageStep(hgacha.stage, hgacha.showHole, hgacha.win and hgacha.win.Visible)
+end)
+
+-- витрины окон — настоящие «дыры» в фоне, и всё, что под окном (вкладки слева), просвечивает сквозь них.
+-- Если открытая витрина заходит на место вкладок, вкладки плавно уезжают влево, после закрытия возвращаются.
+RunService.Heartbeat:Connect(function()
+	if not hud.rail or not hud.panel or layoutMode == "mobile" then
+		return
+	end
+	local railRight = hud.panel.AbsolutePosition.X + 352 * hud.railScale.Scale + 8
+	local hide = false
+	for _, pair in ipairs({ { inv.win, inv.dhole }, { gacha.win, gacha.showHole }, { hgacha.win, hgacha.showHole } }) do
+		local win, hole = pair[1], pair[2]
+		if win and hole and win.Visible and hole.AbsoluteSize.X > 4 and hole.AbsolutePosition.X < railRight then
+			hide = true
+			break
+		end
+	end
+	if hide ~= (hud.railHidden == true) then
+		hud.railHidden = hide
+		UI.FitRail(true)
+	end
 end)
 
 -- баннеры гачи: обычная «Лаборатория дронов» и хэллоуинский «Тыквенный котёл»
