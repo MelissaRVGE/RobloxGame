@@ -638,8 +638,8 @@ Remotes.Teleport.OnServerEvent:Connect(function(player, dest)
 	elseif dest == "shop" then
 		pos = Config.ShopZone.center + Vector3.new(-30, 4, 0)
 	elseif dest == "halloween" and Config.HalloweenOn() then
-		-- у входа в Призрачную рощу (проход в южной стене базы), лицом к роще
-		pos = Config.Halloween.zone.center + Vector3.new(0, 4, 22)
+		-- перед котлом-гачей, лицом к нему
+		pos = Config.Halloween.zone.tp or Config.Halloween.zone.center + Vector3.new(0, 4, 22)
 		fieldCenter = Config.Halloween.zone.center
 	elseif dest == "converter" then
 		-- прямо на площадку Переработчика, лицом к машине

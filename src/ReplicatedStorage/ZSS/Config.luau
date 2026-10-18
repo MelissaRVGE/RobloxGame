@@ -289,8 +289,9 @@ end
 -- ведьму с квестами и обменом, хэллоуинскую гачу и декор. Дроны и тыквы у игроков остаются.
 Config.Halloween = {
 	enabled = true,
-	-- «Призрачная роща» за южной стеной базы: ведьма, котёл-гача, тыквенная грядка
-	zone = { center = Vector3.new(0, 0, -68), radius = 30 },
+	-- котёл-гача стоит у каменных столбов за северо-восточным углом базы (ведьма осталась в роще за южной стеной);
+	-- tp — куда ставит телепорт с карты: перед котлом, лицом к нему
+	zone = { center = Vector3.new(50, 0, 84), radius = 22, tp = Vector3.new(36, 4, 72) },
 	-- тыквы на полях: столько светящихся тыкв на поле одновременно, сколько тыкв даёт сбор (по номеру поля)
 	pumpkins = { perField = 4, value = { 1, 2, 3, 4, 6 }, respawn = { 40, 80 } },
 	-- Призрачная ночь: ночь длиннее, часть зомби — призраки в костюмах
@@ -452,7 +453,7 @@ Config.Locations = {
 	{ id = "base", name = "Survivor Base", desc = "Recycler and charging stations" },
 	{ id = "gacha", name = "Drone Lab", desc = "Gacha: new drones" },
 	{ id = "shop", name = "Shop", desc = "Weapons, tools, gear" },
-	{ id = "halloween", name = "Haunted Grove", desc = "Witch, Pumpkin Cauldron gacha", event = "halloween" },
+	{ id = "halloween", name = "Pumpkin Cauldron", desc = "Halloween drone gacha", event = "halloween" },
 	{ id = "wasteland", field = true },
 	{ id = "deadcity", field = true },
 	{ id = "swamp", field = true },
