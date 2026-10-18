@@ -99,14 +99,13 @@ function Halloween.OnCollect(player, tile)
 	if not tile.pumpkin or not on() then
 		return
 	end
+	local field = tile.field
+	-- новая тыква сразу появляется на другой плитке поля (пока эта ещё помечена, её не выберут)
+	placePumpkin(field)
 	tile.pumpkin = false
 	tile.part:SetAttribute("Pumpkin", nil)
-	local field = tile.field
 	Halloween.AddPumpkins(player, fieldValue(field), Fields.TopPos(tile) + Vector3.new(0, 1.5, 0))
 	Remotes.FX:FireClient(player, "pumpkinpop", { pos = Fields.TopPos(tile) })
-	task.delay(rng:NextNumber(HC.pumpkins.respawn[1], HC.pumpkins.respawn[2]), function()
-		fillField(field)
-	end)
 end
 
 -- ===== ПРИЗРАЧНАЯ НОЧЬ =====
