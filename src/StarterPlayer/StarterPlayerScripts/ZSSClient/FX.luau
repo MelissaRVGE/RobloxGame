@@ -225,6 +225,12 @@ end
 
 -- ===== ОБРАБОТЧИКИ СЕРВЕРНЫХ ЭФФЕКТОВ =====
 local H = {}
+-- обработчики эффектов по типу события FX; модули событий (HalloweenFX) добавляют свои
+FX.Handlers = H
+FX.Part = part
+FX.Tween = tw
+FX.DronePos = dronePos
+FX.OwnerRoot = ownerRoot
 
 H.ability = function(d)
 	local pos = dronePos(d.owner, d.key)
@@ -952,6 +958,7 @@ local POPUP_COLORS = {
 	crit = C(255, 230, 60),
 	kill = C(200, 255, 120),
 	battery = C(190, 255, 90),
+	pumpkin = C(255, 160, 40),
 }
 
 -- ===== РАСХОДНИКИ: свой эффект и свой звук у каждого предмета (fx/sfx в ShopConfig) =====
@@ -1148,7 +1155,7 @@ function FX.Init(renderer)
 			FX.Popup(pos, text, r and r.color or C(255, 255, 255), false, Icons.res and Icons.res[resId])
 			return
 		end
-		FX.Popup(pos, text, POPUP_COLORS[kind] or C(255, 255, 255), kind == "gold" or kind == "kill" or kind == "crit")
+		FX.Popup(pos, text, POPUP_COLORS[kind] or C(255, 255, 255), kind == "gold" or kind == "kill" or kind == "crit" or kind == "pumpkin")
 	end)
 
 	RunService:BindToRenderStep("ZSS_Shake", Enum.RenderPriority.Camera.Value + 1, function(dt)

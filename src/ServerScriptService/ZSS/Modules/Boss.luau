@@ -189,6 +189,7 @@ local function build()
 	bb.MaxDistance = 220
 	bb.Adornee = head
 	local nameLbl = Instance.new("TextLabel")
+	nameLbl.Name = "Name"
 	nameLbl.BackgroundTransparency = 1
 	nameLbl.Size = UDim2.fromScale(1, 0.45)
 	nameLbl.Font = Enum.Font.Creepster
@@ -246,6 +247,7 @@ end
 
 function Boss.Spawn()
 	local m, hum, hrp, bar = build()
+	require(script.Parent.Halloween).DecorateBoss(m)
 	local c = field.cfg.center
 	m:PivotTo(CFrame.new(c + Vector3.new(0, 3 * S + 1, 0)) * CFrame.Angles(0, math.pi, 0))
 	m.Parent = workspace:FindFirstChild("Zombies") or workspace
@@ -402,7 +404,8 @@ local function onDeath(z)
 				for _, it in ipairs(got) do
 					table.insert(names, it.name)
 				end
-				Remotes.FX:FireClient(plr, "bossreward", { gems = gems, batteries = bats, items = names, share = share })
+				local pumpkins = require(script.Parent.Halloween).OnBossKill(plr, k * night, pos)
+				Remotes.FX:FireClient(plr, "bossreward", { gems = gems, batteries = bats, items = names, share = share, pumpkins = pumpkins })
 			end
 		end
 	end

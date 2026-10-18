@@ -34,6 +34,7 @@ make("RemoteEvent", "SaveSettings")
 make("RemoteFunction", "RedeemCode")
 make("RemoteFunction", "DonateBuy")
 make("RemoteEvent", "DonateDone")
+make("RemoteFunction", "Halloween")
 local Remotes = remotes
 
 local Modules = script.Parent.Modules
@@ -53,6 +54,7 @@ local Leaderboard = require(Modules.Leaderboard)
 local Drops = require(Modules.Drops)
 local Donate = require(Modules.Donate)
 local TierGuard = require(Modules.TierGuard)
+local Halloween = require(Modules.Halloween)
 local DonateCfg = require(Shared.DonateConfig)
 
 -- максимум игроков на сервере задаётся в настройках игры (Game Settings → Places → Server Size = 6)
@@ -71,6 +73,7 @@ Converter.Init(Data)
 Leaderboard.Init(Data)
 Donate.Init(Data, Equipment)
 TierGuard.Init(Data)
+Halloween.Init(Data, Fields, Drones)
 Drones.OnCharged = function(player)
 	Quests.Event(player, "charged")
 end
@@ -114,6 +117,7 @@ local function onPlayerAdded(player)
 		TierGuard.OnSpawn(player)
 		task.wait(0.3)
 		Equipment.Apply(player)
+		Halloween.ApplyHat(player)
 	end
 	player.CharacterAdded:Connect(onChar)
 	if player.Character then
@@ -370,6 +374,18 @@ Remotes.BagAction.OnServerInvoke = function(player, action, id)
 	return { ok = false, err = "bad action" }
 end
 
+-- Хэллоуин: гача «Тыквенный котёл», обмен у ведьмы, шляпа
+Remotes.Halloween.OnServerInvoke = function(player, action, arg)
+	if action == "pull" and typeof(arg) == "number" then
+		return Halloween.Pull(player, arg)
+	elseif action == "trade" and typeof(arg) == "string" then
+		return Halloween.Trade(player, arg)
+	elseif action == "hat" then
+		return Halloween.SetHat(player, arg == true)
+	end
+	return { ok = false, err = "bad request" }
+end
+
 Remotes.Pull.OnServerInvoke = function(player, count)
 	if typeof(count) ~= "number" then
 		return { ok = false, err = "bad request" }
@@ -621,6 +637,10 @@ Remotes.Teleport.OnServerEvent:Connect(function(player, dest)
 		pos = Config.GachaZone.center + Vector3.new(22, 4, 0)
 	elseif dest == "shop" then
 		pos = Config.ShopZone.center + Vector3.new(-30, 4, 0)
+	elseif dest == "halloween" and Config.HalloweenOn() then
+		-- у входа в Призрачную рощу (проход в южной стене базы), лицом к роще
+		pos = Config.Halloween.zone.center + Vector3.new(0, 4, 22)
+		fieldCenter = Config.Halloween.zone.center
 	elseif dest == "converter" then
 		-- прямо на площадку Переработчика, лицом к машине
 		pos = Config.Converter.pad + Vector3.new(0, 3.5, 0)
@@ -713,6 +733,8 @@ if game:GetService("RunService"):IsStudio() then
 					p.batteries = a
 				elseif cmd == "gems" then
 					p.gems = a
+				elseif cmd == "pumpkins" then
+					p.pumpkins = a
 				elseif cmd == "scrap" then
 					Data.TakeScrap(p, p.scrap)
 					Data.AddScrap(player, math.min(a, Data.Capacity(p)), b or "rust")

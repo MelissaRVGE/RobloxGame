@@ -16,6 +16,7 @@ local ShopUI = require(script.Parent.ShopUI)
 local DonateUI = require(script.Parent.DonateUI)
 local BagUI = require(script.Parent.BagUI)
 local QuestUI = require(script.Parent.QuestUI)
+local WitchUI = require(script.Parent.WitchUI)
 local SettingsUI = require(script.Parent.SettingsUI)
 local HS = require(script.Parent.HotbarSlots)
 local Keybinds = require(script.Parent.Keybinds)
@@ -34,7 +35,8 @@ local respScale = 1
 local rainbowGrads = {}
 local rainbowBgs = {} -- фоны мифических карточек: радуга плавно перетекает по оттенку
 local secretStrokes = {}
-local hud, inv, gacha = {}, {}, {}
+local hud, inv, gacha, hgacha = {}, {}, {}, {}
+local BANNERS -- баннеры гачи (ниже, у окна гачи)
 
 local SORTED = {}
 for _, d in ipairs(Config.Drones) do
@@ -351,6 +353,20 @@ local function buildHUD()
 	hud.bat, hud.batChip = makeChip(8, "battery", C(170, 255, 80), "BATTERIES")
 	hud.gems, hud.gemChip = makeChip(180, "gem", C(100, 215, 255), "GEMS")
 	hud.scrapBar = makeBar(panel, UDim2.fromOffset(16, 68), UDim2.new(1, -28, 0, 32), C(170, 255, 90), C(70, 160, 30), "bag")
+	-- Хэллоуин: тыквы — валюта события (справа от панели, под шестерёнкой настроек)
+	if Config.HalloweenOn() then
+		local pill = new("Frame", {
+			Name = "Pumpkins",
+			Position = UDim2.new(1, 8, 0, 58),
+			Size = UDim2.fromOffset(164, 30),
+			BackgroundColor3 = C(34, 16, 8),
+			BackgroundTransparency = 0.08,
+			Parent = panel,
+		}, { U.corner(12), U.stroke(C(255, 140, 30), 2), U.grad(C(255, 255, 255), C(170, 140, 120), 90) })
+		new("TextLabel", { Position = UDim2.fromOffset(6, 0), Size = UDim2.fromOffset(26, 30), BackgroundTransparency = 1, Font = Enum.Font.GothamBlack, Text = "🎃", TextSize = 20, Parent = pill })
+		hud.pumpkins = new("TextLabel", { Position = UDim2.fromOffset(34, 0), Size = UDim2.new(1, -40, 1, 0), BackgroundTransparency = 1, Font = Enum.Font.GothamBlack, Text = "0", TextSize = 18, TextColor3 = C(255, 175, 60), TextXAlignment = Enum.TextXAlignment.Left, Parent = pill }, { U.textStroke(C(0, 0, 0), 1.6) })
+		new("TextLabel", { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -8, 0, 0), Size = UDim2.fromOffset(70, 30), BackgroundTransparency = 1, Font = Enum.Font.GothamBlack, Text = "PUMPKINS", TextSize = 10, TextColor3 = C(255, 210, 150), TextTransparency = 0.25, TextXAlignment = Enum.TextXAlignment.Right, Parent = pill })
+	end
 	-- ресурсы по видам: 5 равных ячеек в ряд (не налезают друг на друга)
 	local resRow = new("Frame", { Position = UDim2.fromOffset(8, 106), Size = UDim2.new(1, -16, 0, 36), BackgroundTransparency = 1, Parent = panel }, {
 		new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder, VerticalAlignment = Enum.VerticalAlignment.Center }),
@@ -1013,6 +1029,9 @@ local function updateHUD(d)
 	if hud.gems then
 		U.countTo(hud.gems, d.gems or 0)
 	end
+	if hud.pumpkins then
+		U.countTo(hud.pumpkins, d.pumpkins or 0)
+	end
 	local ratio = math.clamp(d.scrap / math.max(d.capacity, 1), 0, 1)
 	U.tween(hud.fill, 0.25, { Size = UDim2.fromScale(math.max(ratio, 0.02), 1) })
 	local full = d.scrap >= d.capacity
@@ -1323,6 +1342,9 @@ local function buildMap()
 		{ id = "gacha", name = "Drone Lab", desc = "Gacha: new drones", icon = "gacha" },
 		{ id = "shop", name = "Shop", desc = "Weapons, tools, gear", icon = "shop" },
 	}
+	if Config.HalloweenOn() then
+		table.insert(entries, { id = "halloween", name = "🎃 Haunted Grove", desc = "Witch and the Pumpkin Cauldron gacha (Halloween)", icon = "gacha" })
+	end
 	for _, loc in ipairs(Config.Locations) do
 		if loc.field then
 			local f = fieldsById[loc.id]
@@ -2379,16 +2401,120 @@ end)
 
 -- ===== ГАЧА =====
 gacha.stage = newStage("ZSS_GachaStage", C(24, 16, 36))
+hgacha.stage = newStage("ZSS_HGachaStage", C(34, 16, 12), 0.45)
 -- после обновления камеры, чтобы дрон не отставал от неё ни на кадр
 RunService:BindToRenderStep("ZSS_GachaStage", Enum.RenderPriority.Camera.Value + 1, function()
 	stageStep(gacha.stage, gacha.showHole, gacha.win and gacha.win.Visible)
+	stageStep(hgacha.stage, hgacha.showHole, hgacha.win and hgacha.win.Visible)
 end)
 
-local function buildGacha()
+-- баннеры гачи: обычная «Лаборатория дронов» и хэллоуинский «Тыквенный котёл»
+local function poolOf(event)
+	local list = {}
+	for _, d in ipairs(SORTED) do
+		if d.event == event then
+			table.insert(list, d)
+		end
+	end
+	return list
+end
+BANNERS = {
+	main = {
+		id = "main",
+		state = gacha,
+		name = "Gacha",
+		title = "DRONE GACHA",
+		place = "DRONE LAB",
+		pool = poolOf(nil),
+		bg = C(14, 10, 22),
+		bgGrad = C(140, 130, 160),
+		panel = C(24, 16, 36),
+		dark = C(12, 8, 18),
+		accent = T.Gacha,
+		titleC1 = C(180, 255, 90),
+		titleC2 = C(190, 90, 255),
+		titleStroke = C(20, 0, 30),
+		chance = Config.ChanceText,
+		pity = Config.Pity,
+		hint = "💎 Gems: NPC quests at the base • defeating the Colossus • rare finds",
+		hintBg = C(20, 40, 60),
+		hintStroke = C(120, 220, 255),
+		cur = "💎",
+		cost1 = Config.PullCost,
+		cost10 = Config.Pull10Cost,
+		b1 = { C(140, 230, 70), C(50, 130, 30) },
+		b10 = { C(200, 110, 255), C(100, 30, 170) },
+		balance = function(d)
+			return d.gems or 0, "🔋 " .. U.fmt(d.batteries)
+		end,
+		pulls = function(d)
+			return d.totalPulls or 0
+		end,
+		pityOf = function(d)
+			return d.pity or {}
+		end,
+		invoke = function(count)
+			return Remotes.Pull:InvokeServer(count)
+		end,
+		inZone = function()
+			return UI.InGachaZone()
+		end,
+	},
+}
+if Config.HalloweenOn() then
+	local HG = Config.Halloween.gacha
+	BANNERS.halloween = {
+		id = "halloween",
+		state = hgacha,
+		name = "HGacha",
+		title = "PUMPKIN CAULDRON",
+		place = "HALLOWEEN GACHA",
+		pool = poolOf("halloween"),
+		bg = C(20, 10, 8),
+		bgGrad = C(170, 110, 70),
+		panel = C(38, 18, 12),
+		dark = C(16, 8, 6),
+		accent = C(255, 140, 30),
+		border = C(255, 140, 30),
+		titleC1 = C(255, 200, 60),
+		titleC2 = C(190, 70, 255),
+		titleStroke = C(30, 6, 0),
+		chance = Config.HalloweenChanceText,
+		pity = HG.pity,
+		hint = "🎃 Pumpkins: glowing pumpkins on the fields • ghost zombies at night • Pumpkin Colossus • Witch's quests",
+		hintBg = C(60, 30, 10),
+		hintStroke = C(255, 160, 60),
+		cur = "🎃",
+		cost1 = HG.pullCost,
+		cost10 = HG.pull10Cost,
+		b1 = { C(255, 170, 50), C(190, 70, 10) },
+		b10 = { C(190, 90, 255), C(80, 20, 140) },
+		theme = "halloween",
+		zone = "HalloweenZone",
+		balance = function(d)
+			return d.pumpkins or 0, "💎 " .. U.fmt(d.gems or 0)
+		end,
+		pulls = function(d)
+			return d.hpulls or 0
+		end,
+		pityOf = function(d)
+			return d.hpity or {}
+		end,
+		invoke = function(count)
+			return Remotes.Halloween:InvokeServer("pull", count)
+		end,
+		inZone = function()
+			return UI.InHalloweenZone()
+		end,
+	}
+end
+
+-- окно гачи для баннера B (обычная «Лаборатория дронов» или хэллоуинский «Тыквенный котёл»); g — его состояние
+local function buildGacha(g, B)
 	-- витрина — «окно» в фоне: сквозь него виден настоящий 3D-дрон (см. stageStep)
 	local HOLE = { x = 36, y = 100, w = 360, h = 190 }
 	local win = new("Frame", {
-		Name = "Gacha",
+		Name = B.name,
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromScale(0.5, 0.52),
 		Size = UDim2.fromOffset(900, 560),
@@ -2396,12 +2522,14 @@ local function buildGacha()
 		Visible = false,
 		Parent = gui,
 	}, { U.corner(20) })
-	holedBackground(win, 900, 560, HOLE, 20, C(14, 10, 22), C(255, 255, 255), C(140, 130, 160))
-	gacha.win = win
-	gacha.scale = addScale(win)
-	local st = U.stroke(C(255, 255, 255), 3.5)
+	holedBackground(win, 900, 560, HOLE, 20, B.bg, C(255, 255, 255), B.bgGrad)
+	g.win = win
+	g.scale = addScale(win)
+	local st = U.stroke(B.border or C(255, 255, 255), 3.5)
 	st.Parent = win
-	rainbowify(st)
+	if not B.border then
+		rainbowify(st)
+	end
 
 	-- левая панель: баннер
 	local left = new("Frame", {
@@ -2410,47 +2538,47 @@ local function buildGacha()
 		BackgroundTransparency = 1,
 		ClipsDescendants = true,
 		Parent = win,
-	}, { U.corner(16), U.stroke(T.Gacha, 2, 0.3) })
-	holedBackground(left, 400, 528, { x = HOLE.x - 16, y = HOLE.y - 16, w = HOLE.w, h = HOLE.h }, 16, C(24, 16, 36))
+	}, { U.corner(16), U.stroke(B.accent, 2, 0.3) })
+	holedBackground(left, 400, 528, { x = HOLE.x - 16, y = HOLE.y - 16, w = HOLE.w, h = HOLE.h }, 16, B.panel)
 	local title = new("TextLabel", {
 		Position = UDim2.fromOffset(0, 8),
 		Size = UDim2.new(1, 0, 0, 56),
 		BackgroundTransparency = 1,
 		Font = Enum.Font.Creepster,
-		Text = "DRONE GACHA",
+		Text = B.title,
 		TextSize = 52,
 		TextColor3 = C(255, 255, 255),
 		Parent = left,
-	}, { U.textStroke(C(20, 0, 30), 3) })
-	U.grad(C(180, 255, 90), C(190, 90, 255), 90).Parent = title
+	}, { U.textStroke(B.titleStroke, 3) })
+	U.grad(B.titleC1, B.titleC2, 90).Parent = title
 	new("TextLabel", {
 		Position = UDim2.fromOffset(0, 60),
 		Size = UDim2.new(1, 0, 0, 18),
 		BackgroundTransparency = 1,
 		Font = Enum.Font.GothamBold,
-		Text = "DRONE LAB • 20 DRONES IN THE POOL",
+		Text = ("%s • %d DRONES IN THE POOL"):format(B.place, #B.pool),
 		TextSize = 13,
 		TextColor3 = T.Muted,
 		Parent = left,
 	})
-	gacha.showHole = new("Frame", {
+	g.showHole = new("Frame", {
 		Position = UDim2.fromOffset(HOLE.x - 16, HOLE.y - 16),
 		Size = UDim2.fromOffset(HOLE.w, HOLE.h),
 		BackgroundTransparency = 1,
 		ZIndex = 2,
 		Parent = left,
 	})
-	gacha.showStroke = U.stroke(T.Gacha, 2, 0.4)
-	gacha.showStroke.Parent = gacha.showHole
+	g.showStroke = U.stroke(B.accent, 2, 0.4)
+	g.showStroke.Parent = g.showHole
 	-- шторка для плавной смены дронов на витрине
-	gacha.showCover = new("Frame", {
+	g.showCover = new("Frame", {
 		Size = UDim2.fromScale(1, 1),
-		BackgroundColor3 = C(24, 16, 36),
+		BackgroundColor3 = B.panel,
 		BackgroundTransparency = 0,
 		BorderSizePixel = 0,
-		Parent = gacha.showHole,
+		Parent = g.showHole,
 	})
-	gacha.showName = new("TextLabel", {
+	g.showName = new("TextLabel", {
 		Position = UDim2.fromOffset(0, 270),
 		Size = UDim2.new(1, 0, 0, 22),
 		BackgroundTransparency = 1,
@@ -2463,7 +2591,7 @@ local function buildGacha()
 	local rates = new("Frame", {
 		Position = UDim2.fromOffset(16, 300),
 		Size = UDim2.new(1, -32, 0, 196),
-		BackgroundColor3 = C(12, 8, 18),
+		BackgroundColor3 = B.dark,
 		Parent = left,
 	}, { U.corner(12), U.pad(10), new("UIListLayout", { Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder }) })
 	new("TextLabel", {
@@ -2511,7 +2639,7 @@ local function buildGacha()
 			Size = UDim2.new(0.35, 0, 1, 0),
 			BackgroundTransparency = 1,
 			Font = Enum.Font.GothamBlack,
-			Text = Config.ChanceText(key),
+			Text = B.chance(key),
 			TextSize = 15,
 			TextColor3 = C(255, 255, 255),
 			TextXAlignment = Enum.TextXAlignment.Right,
@@ -2544,7 +2672,7 @@ local function buildGacha()
 		closeWindow(win)
 	end)
 	U.corner(12).Parent = close
-	gacha.balance = new("TextLabel", {
+	g.balance = new("TextLabel", {
 		Size = UDim2.new(1, -56, 0, 44),
 		BackgroundTransparency = 1,
 		Font = Enum.Font.GothamBlack,
@@ -2559,9 +2687,9 @@ local function buildGacha()
 	local pity = new("Frame", {
 		Position = UDim2.fromOffset(0, 54),
 		Size = UDim2.new(1, 0, 0, 176),
-		BackgroundColor3 = C(24, 16, 36),
+		BackgroundColor3 = B.panel,
 		Parent = right,
-	}, { U.corner(14), U.stroke(T.Gacha, 2, 0.4), U.pad(12) })
+	}, { U.corner(14), U.stroke(B.accent, 2, 0.4), U.pad(12) })
 	new("TextLabel", {
 		Size = UDim2.new(1, 0, 0, 18),
 		BackgroundTransparency = 1,
@@ -2572,7 +2700,7 @@ local function buildGacha()
 		TextXAlignment = Enum.TextXAlignment.Left,
 		Parent = pity,
 	})
-	gacha.total = new("TextLabel", {
+	g.total = new("TextLabel", {
 		AnchorPoint = Vector2.new(1, 0),
 		Position = UDim2.new(1, 0, 0, 0),
 		Size = UDim2.new(0.6, 0, 0, 18),
@@ -2584,12 +2712,12 @@ local function buildGacha()
 		TextXAlignment = Enum.TextXAlignment.Right,
 		Parent = pity,
 	})
-	gacha.pityBars = {}
+	g.pityBars = {}
 	local rules = { "Legendary", "Mythic", "Secret" }
 	for i, key in ipairs(rules) do
 		local r = Config.Rarities[key]
 		local pulls
-		for _, rule in ipairs(Config.Pity) do
+		for _, rule in ipairs(B.pity) do
 			if rule.rarity == key then
 				pulls = rule.pulls
 			end
@@ -2635,7 +2763,7 @@ local function buildGacha()
 		if r.rainbow then
 			rainbowify(fill)
 		end
-		gacha.pityBars[key] = { val = val, fill = fill, pulls = pulls }
+		g.pityBars[key] = { val = val, fill = fill, pulls = pulls }
 	end
 	new("TextLabel", {
 		Position = UDim2.fromOffset(0, 154),
@@ -2653,21 +2781,21 @@ local function buildGacha()
 	local pool = new("Frame", {
 		Position = UDim2.fromOffset(0, 240),
 		Size = UDim2.new(1, 0, 0, 150),
-		BackgroundColor3 = C(24, 16, 36),
+		BackgroundColor3 = B.panel,
 		Parent = right,
 	}, {
 		U.corner(14),
 		U.pad(8),
 		new("UIGridLayout", { CellSize = UDim2.fromOffset(40, 40), CellPadding = UDim2.fromOffset(5, 5), SortOrder = Enum.SortOrder.LayoutOrder, HorizontalAlignment = Enum.HorizontalAlignment.Center }),
 	})
-	for i, def in ipairs(SORTED) do
+	for i, def in ipairs(B.pool) do
 		local cell = button({
 			BackgroundColor3 = U.darken(Config.Rarities[def.rarity].color, 0.25),
 			Text = "",
 			LayoutOrder = i,
 			Parent = pool,
 		}, function()
-			gacha.showDef(def)
+			g.showDef(def)
 		end)
 		U.corner(8).Parent = cell
 		rarityStroke(cell, def.rarity, 1.5)
@@ -2692,15 +2820,15 @@ local function buildGacha()
 	new("TextLabel", {
 		Position = UDim2.fromOffset(0, 394),
 		Size = UDim2.new(1, 0, 0, 30),
-		BackgroundColor3 = C(20, 40, 60),
+		BackgroundColor3 = B.hintBg,
 		BackgroundTransparency = 0.2,
 		Font = Enum.Font.GothamBold,
-		Text = "💎 Gems: NPC quests at the base • defeating the Colossus • rare finds",
+		Text = B.hint,
 		TextSize = 12,
 		TextWrapped = true,
 		TextColor3 = C(200, 235, 255),
 		Parent = right,
-	}, { U.corner(8), U.stroke(C(120, 220, 255), 1.2, 0.4) })
+	}, { U.corner(8), U.stroke(B.hintStroke, 1.2, 0.4) })
 
 	-- кнопки круток
 	local function pullButton(x, count, cost, c1, c2)
@@ -2712,7 +2840,7 @@ local function buildGacha()
 			ClipsDescendants = true,
 			Parent = right,
 		}, function()
-			UI.Pull(count)
+			UI.Pull(count, B.id)
 		end)
 		U.corner(14).Parent = b
 		U.grad(c1, c2, 90).Parent = b
@@ -2732,7 +2860,7 @@ local function buildGacha()
 			Size = UDim2.new(1, 0, 0, 22),
 			BackgroundTransparency = 1,
 			Font = Enum.Font.GothamBold,
-			Text = "💎 " .. U.fmt(cost),
+			Text = B.cur .. " " .. U.fmt(cost),
 			TextSize = 17,
 			TextColor3 = C(255, 255, 255),
 			Parent = b,
@@ -2756,10 +2884,10 @@ local function buildGacha()
 		end)
 		return b
 	end
-	gacha.b1 = pullButton(0, 1, Config.PullCost, C(140, 230, 70), C(50, 130, 30))
-	gacha.b10 = pullButton(0.5, 10, Config.Pull10Cost, C(200, 110, 255), C(100, 30, 170))
+	g.b1 = pullButton(0, 1, B.cost1, B.b1[1], B.b1[2])
+	g.b10 = pullButton(0.5, 10, B.cost10, B.b10[1], B.b10[2])
 
-	gacha.fast = false
+	g.fast = false
 	local fastBtn = button({
 		Position = UDim2.new(0, 0, 1, -24),
 		Size = UDim2.new(1, 0, 0, 22),
@@ -2772,64 +2900,67 @@ local function buildGacha()
 		Parent = right,
 	})
 	fastBtn.Activated:Connect(function()
-		gacha.fast = not gacha.fast
-		fastBtn.Text = (gacha.fast and "☑" or "☐") .. " Fast animation"
-		fastBtn.TextColor3 = gacha.fast and T.Accent or T.Muted
+		g.fast = not g.fast
+		fastBtn.Text = (g.fast and "☑" or "☐") .. " Fast animation"
+		fastBtn.TextColor3 = g.fast and T.Accent or T.Muted
 	end)
 
 	-- витрина
-	gacha.showDef = function(def)
+	g.showDef = function(def)
 		-- витрина сменяется плавно: шторка закрывает старого дрона, под ней ставится новый и шторка уходит
-		gacha.showUntil = os.clock() + 6
+		g.showUntil = os.clock() + 6
 		local token = {}
-		gacha.showToken = token
-		if gacha.stage.model and gacha.win.Visible then
-			U.tween(gacha.showCover, 0.2, { BackgroundTransparency = 0 })
-			U.tween(gacha.showName, 0.2, { TextTransparency = 1 })
+		g.showToken = token
+		if g.stage.model and g.win.Visible then
+			U.tween(g.showCover, 0.2, { BackgroundTransparency = 0 })
+			U.tween(g.showName, 0.2, { TextTransparency = 1 })
 			task.wait(0.2)
-			if gacha.showToken ~= token then
+			if g.showToken ~= token then
 				return
 			end
 		end
 		local r = Config.Rarities[def.rarity]
 		local hidden = def.rarity == "Secret" and not (State.data and (State.data.owned[def.id] or 0) > 0)
-		stageSetModel(gacha.stage, def, hidden and "hidden" or "full", r)
-		gacha.showName.Text = (hidden and "???" or def.name) .. "  •  " .. r.label
-		gacha.showName.TextColor3 = r.color
-		gacha.showRainbow = r.rainbow
-		U.tween(gacha.showStroke, 0.3, { Color = r.color })
-		gacha.showCover.BackgroundTransparency = 0
-		gacha.showName.TextTransparency = 1
-		U.tween(gacha.showCover, 0.35, { BackgroundTransparency = 1 })
-		U.tween(gacha.showName, 0.3, { TextTransparency = 0 })
+		stageSetModel(g.stage, def, hidden and "hidden" or "full", r)
+		g.showName.Text = (hidden and "???" or def.name) .. "  •  " .. r.label
+		g.showName.TextColor3 = r.color
+		g.showRainbow = r.rainbow
+		U.tween(g.showStroke, 0.3, { Color = r.color })
+		g.showCover.BackgroundTransparency = 0
+		g.showName.TextTransparency = 1
+		U.tween(g.showCover, 0.35, { BackgroundTransparency = 1 })
+		U.tween(g.showName, 0.3, { TextTransparency = 0 })
 	end
-	gacha.showIndex = 0
+	g.showIndex = 0
 end
 
-local function updateGacha(d)
-	local bats = d.batteries
-	U.countTo(gacha.balance, d.gems or 0, function(v)
-		return "💎 " .. U.fmt(v) .. "    🔋 " .. U.fmt(bats)
+local function updateGacha(g, B, d)
+	if not g.win then
+		return
+	end
+	local cur, other = B.balance(d)
+	U.countTo(g.balance, cur, function(v)
+		return B.cur .. " " .. U.fmt(v) .. "    " .. other
 	end)
-	gacha.total.Text = "Total pulls: " .. U.fmt(d.totalPulls)
-	for key, bar in pairs(gacha.pityBars) do
-		local v = d.pity[key] or 0
+	g.total.Text = "Total pulls: " .. U.fmt(B.pulls(d))
+	local pity = B.pityOf(d)
+	for key, bar in pairs(g.pityBars) do
+		local v = pity[key] or 0
 		bar.val.Text = ("%d / %d  •  %d left"):format(v, bar.pulls, bar.pulls - v)
 		U.tween(bar.fill, 0.3, { Size = UDim2.fromScale(math.clamp(v / bar.pulls, 0, 1), 1) })
 	end
-	U.tween(gacha.b1, 0.2, { BackgroundTransparency = (d.gems or 0) >= Config.PullCost and 0 or 0.5 })
-	U.tween(gacha.b10, 0.2, { BackgroundTransparency = (d.gems or 0) >= Config.Pull10Cost and 0 or 0.5 })
+	U.tween(g.b1, 0.2, { BackgroundTransparency = cur >= B.cost1 and 0 or 0.5 })
+	U.tween(g.b10, 0.2, { BackgroundTransparency = cur >= B.cost10 and 0 or 0.5 })
 end
 
 local pulling = false
-function UI.Pull(count)
+function UI.Pull(count, banner)
 	if pulling or GachaAnim.IsPlaying() then
 		return
 	end
+	local B = BANNERS[banner or "main"]
 	pulling = true
-	local ok, res = pcall(function()
-		return Remotes.Pull:InvokeServer(count)
-	end)
+	local ok, res = pcall(B.invoke, count)
 	pulling = false
 	if not ok or type(res) ~= "table" then
 		UI.Toast("Server connection error", "bad")
@@ -2839,13 +2970,14 @@ function UI.Pull(count)
 		UI.Toast(res.err or "Didn't work", "bad")
 		return
 	end
-	closeWindow(gacha.win, gacha.scale)
+	local g = B.state
+	closeWindow(g.win, g.scale)
 	closeWindow(inv.win, inv.scale)
 	-- HUD прячет сама анимация гачи (под мягким затемнением)
-	GachaAnim.Play(res.results, { fast = gacha.fast }, function()
+	GachaAnim.Play(res.results, { fast = g.fast, zone = B.zone, theme = B.theme }, function()
 		gui.Enabled = true
-		if UI.InGachaZone() then
-			openWindow(gacha.win, gacha.scale)
+		if B.inZone() then
+			openWindow(g.win, g.scale)
 		end
 	end)
 end
@@ -2856,13 +2988,29 @@ function UI.InGachaZone()
 	return hrp and (hrp.Position - Config.GachaZone.center).Magnitude <= Config.GachaZone.radius + 8
 end
 
-function UI.OpenGacha()
+function UI.OpenGacha(banner)
 	if GachaAnim.IsPlaying() then
 		return
 	end
 	closeWindow(inv.win, inv.scale)
 	QuestUI.CloseBook()
-	openWindow(gacha.win, gacha.scale)
+	for key, B in pairs(BANNERS) do
+		if key ~= (banner or "main") and B.state.win then
+			closeWindow(B.state.win, B.state.scale)
+		end
+	end
+	local g = BANNERS[banner or "main"].state
+	openWindow(g.win, g.scale)
+end
+
+function UI.InHalloweenZone()
+	if not Config.HalloweenOn() then
+		return false
+	end
+	local char = player.Character
+	local hrp = char and char:FindFirstChild("HumanoidRootPart")
+	local z = Config.Halloween.zone
+	return hrp ~= nil and (hrp.Position - z.center).Magnitude <= z.radius + 10
 end
 
 function UI.OnMenu(key)
@@ -2995,7 +3143,8 @@ local function zoneTick()
 		end
 	end
 	local inGacha = UI.InGachaZone()
-	local key = zone and zone.id or (inGacha and "gacha" or nil)
+	local inGrove = UI.InHalloweenZone()
+	local key = zone and zone.id or (inGacha and "gacha" or nil) or (inGrove and "halloween" or nil)
 	if key ~= currentZone then
 		currentZone = key
 		if zone then
@@ -3008,10 +3157,15 @@ local function zoneTick()
 			end
 		elseif inGacha then
 			showBanner("🎰 DRONE LAB", "Walk up to the capsule and press E", T.Gacha)
+		elseif inGrove then
+			showBanner("🎃 HAUNTED GROVE", "Pumpkin Cauldron gacha • the Witch trades pumpkins", C(255, 150, 40))
 		end
 	end
 	if U.isOpen(gacha.win, gacha.scale) and not inGacha and not GachaAnim.IsPlaying() then
 		closeWindow(gacha.win, gacha.scale)
+	end
+	if hgacha.win and U.isOpen(hgacha.win, hgacha.scale) and not inGrove and not GachaAnim.IsPlaying() then
+		closeWindow(hgacha.win, hgacha.scale)
 	end
 end
 
@@ -3048,7 +3202,9 @@ function UI.Init()
 	updateScale()
 	buildHUD()
 	buildInventory()
-	buildGacha()
+	for _, B in pairs(BANNERS) do
+		buildGacha(B.state, B)
+	end
 	buildMap()
 	BagUI.Init({
 		gui = gui,
@@ -3087,6 +3243,26 @@ function UI.Init()
 				UI.UserScale = v.uiScale
 				updateScale()
 			end
+		end,
+	})
+	WitchUI.Init({
+		gui = gui,
+		addScale = addScale,
+		openWindow = openWindow,
+		closeWindow = closeWindow,
+		button = button,
+		toast = UI.Toast,
+		closeOthers = function()
+			closeWindow(inv.win, inv.scale)
+			closeWindow(gacha.win, gacha.scale)
+			if hgacha.win then
+				closeWindow(hgacha.win, hgacha.scale)
+			end
+			closeWindow(mapWin.win, mapWin.scale)
+			ShopUI.Close()
+			DonateUI.Close()
+			BagUI.Close()
+			QuestUI.Close()
 		end,
 	})
 	QuestUI.Init({
@@ -3153,7 +3329,9 @@ function UI.Init()
 	local function onData(d)
 		updateHUD(d)
 		updateInventory(d)
-		updateGacha(d)
+		for _, B in pairs(BANNERS) do
+			updateGacha(B.state, B, d)
+		end
 	end
 	State.Changed:Connect(onData)
 	if State.data then
@@ -3273,6 +3451,10 @@ function UI.Init()
 			ShopUI.Close()
 			DonateUI.Close()
 			UI.OpenGacha()
+		elseif prompt.Name == "HalloweenGachaPrompt" and BANNERS.halloween then
+			ShopUI.Close()
+			DonateUI.Close()
+			UI.OpenGacha("halloween")
 		elseif prompt.Name == "ShopPrompt" then
 			closeWindow(inv.win, inv.scale)
 			closeWindow(gacha.win, gacha.scale)
@@ -3281,17 +3463,20 @@ function UI.Init()
 		end
 	end)
 
-	-- витрина в окне гачи (топ-дроны по очереди)
-	local featured = {}
-	for _, d in ipairs(SORTED) do
-		if Config.Rarities[d.rarity].order >= 4 then
-			table.insert(featured, d)
+	-- витрина в окне гачи (топ-дроны своего баннера по очереди)
+	for _, B in pairs(BANNERS) do
+		local list = {}
+		for _, d in ipairs(B.pool) do
+			if Config.Rarities[d.rarity].order >= 4 then
+				table.insert(list, d)
+			end
 		end
+		B.featured = list
+		B.state.showDef(list[1])
 	end
-	gacha.showDef(featured[1])
 
 	-- пока открыто окно, подсказки «E»/«коснись» у пультов не висят поверх него (на телефоне их значок закрывал витрину)
-	local WINDOWS = { "Inventory", "Gacha", "Map", "Backpack", "Settings", "QuestDialog", "QuestBook", "CellShop", "Donate" }
+	local WINDOWS = { "Inventory", "Gacha", "HGacha", "WitchShop", "Map", "Backpack", "Settings", "QuestDialog", "QuestBook", "CellShop", "Donate" }
 	local shopGui = player.PlayerGui:FindFirstChild("ZSS_Shop")
 	local promptsHidden = false
 	task.spawn(function()
@@ -3396,13 +3581,16 @@ function UI.Init()
 				inv.drarity.TextColor3 = Config.Rainbow(t)
 			end
 		end
-		if gacha.win.Visible and gacha.stage.model then
-			if gacha.showRainbow then
-				gacha.showName.TextColor3 = Config.Rainbow(t)
-			end
-			if t > gacha.showUntil then
-				gacha.showIndex = gacha.showIndex % #featured + 1
-				task.spawn(gacha.showDef, featured[gacha.showIndex])
+		for _, B in pairs(BANNERS) do
+			local g = B.state
+			if g.win.Visible and g.stage.model then
+				if g.showRainbow then
+					g.showName.TextColor3 = Config.Rainbow(t)
+				end
+				if t > g.showUntil then
+					g.showIndex = g.showIndex % #B.featured + 1
+					task.spawn(g.showDef, B.featured[g.showIndex])
+				end
 			end
 		end
 		if t - lastZone > 0.3 then

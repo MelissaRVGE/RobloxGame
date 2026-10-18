@@ -606,8 +606,9 @@ local function lp(parent, props)
 end
 
 -- капсула-«бутон»: светящееся ядро в корпусе из 6 металлических лепестков
-local function buildPod(parent)
+local function buildPod(parent, theme)
 	local pod = { petals = {}, seams = {} }
+	local pumpkin = theme == "halloween"
 	pod.core = lp(parent, { Name = "PodCore", Shape = Enum.PartType.Ball, Size = Vector3.new(1.9, 1.9, 1.9), Material = Enum.Material.Neon, Color = C(130, 230, 60) })
 	pod.light = Instance.new("PointLight")
 	pod.light.Range = 16
@@ -615,8 +616,16 @@ local function buildPod(parent)
 	pod.light.Parent = pod.core
 	pod.base = lp(parent, { Name = "PodBase", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.5, 2.6, 2.6), Material = Enum.Material.Metal, Color = C(60, 64, 76), Reflectance = 0.2 })
 	pod.ring = lp(parent, { Name = "PodRing", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.18, 2.8, 2.8), Material = Enum.Material.Neon, Color = C(130, 230, 60) })
+	-- хэллоуин: капсула — тыква, дольки которой раскрываются, сверху зелёный хвостик
+	if pumpkin then
+		pod.base.Color = C(50, 30, 20)
+		pod.base.Material = Enum.Material.WoodPlanks
+		pod.base.Reflectance = 0
+		pod.stem = lp(parent, { Name = "PodStem", Size = Vector3.new(0.35, 0.9, 0.35), Material = Enum.Material.Wood, Color = C(70, 110, 40) })
+	end
 	for i = 1, 6 do
-		local petal = lp(parent, { Name = "Petal", Size = Vector3.new(1.25, 3.2, 0.22), Material = Enum.Material.Metal, Color = C(70, 76, 90), Reflectance = 0.25 })
+		local petal = lp(parent, pumpkin and { Name = "Petal", Size = Vector3.new(1.35, 3.2, 0.32), Material = Enum.Material.SmoothPlastic, Color = C(235, 115, 25) }
+			or { Name = "Petal", Size = Vector3.new(1.25, 3.2, 0.22), Material = Enum.Material.Metal, Color = C(70, 76, 90), Reflectance = 0.25 })
 		local seam = lp(parent, { Name = "PetalSeam", Size = Vector3.new(0.14, 2.9, 0.24), Material = Enum.Material.Neon, Color = C(130, 230, 60) })
 		pod.petals[i] = { p = petal, s = seam, a = (i - 1) / 6 * math.pi * 2 }
 		table.insert(pod.seams, seam)
@@ -627,6 +636,10 @@ local function buildPod(parent)
 		pod.core.CFrame = cf * CFrame.new(0, 0.2, 0)
 		pod.base.CFrame = cf * CFrame.new(0, -1.55, 0) * CFrame.Angles(0, 0, math.rad(90))
 		pod.ring.CFrame = cf * CFrame.new(0, -1.25, 0) * CFrame.Angles(0, 0, math.rad(90))
+		if pod.stem then
+			pod.stem.CFrame = cf * CFrame.new(0, 2.05 + pod.open * 1.5, 0) * CFrame.Angles(0, 0, math.rad(12))
+			pod.stem.Transparency = pod.open
+		end
 		for _, pe in ipairs(pod.petals) do
 			-- шарнир внизу лепестка; закрыт — наклонён внутрь, открыт — откинут наружу
 			local tilt = math.rad(-17) + pod.open * math.rad(105)
@@ -673,7 +686,7 @@ end
 
 local function forgeSequence(maxOrder, topResult)
 	local map = workspace:FindFirstChild("Map")
-	local zone = map and map:FindFirstChild("GachaZone")
+	local zone = map and map:FindFirstChild(ctx.zone or "GachaZone")
 	local cap = zone and zone:FindFirstChild("Capsule")
 	local anchor = cap and cap:FindFirstChild("HoloAnchor")
 	local char = player.Character
@@ -723,10 +736,21 @@ local function forgeSequence(maxOrder, topResult)
 	-- камера: плавный вылет из текущего вида и медленный облёт
 	local off = saved.cf.Position - C0
 	local camS = { ang = math.atan2(off.Z, off.X), r = 34, h = 11, look = C0.Y + 1.5, fov = 52, blend = 0, orbit = 0.18, shake = 0 }
+	if ctx.theme == "halloween" then
+		-- котёл стоит у края рощи: камера смотрит со стороны площади и не уходит в скалы
+		local front = zone:GetAttribute("CamFrom") or (zone:FindFirstChild("Plaza") and zone.Plaza:GetPivot().Position) or saved.cf.Position
+		off = front - C0
+		camS.ang, camS.rk, camS.orbit = math.atan2(off.Z, off.X), 0.72, 0.07
+		camS.base = camS.ang
+	end
 	cam.CameraType = Enum.CameraType.Scriptable
 	local drive = RunService.RenderStepped:Connect(function(dt)
 		camS.ang += dt * camS.orbit
-		local pos = C0 + Vector3.new(math.cos(camS.ang) * camS.r, camS.h, math.sin(camS.ang) * camS.r)
+		local r = camS.r * (camS.rk or 1)
+		-- у котла облёт качается в пределах ±55° от площади вместо полного круга
+		local a = camS.base and camS.base + 0.95 * math.sin(camS.ang - camS.base) or camS.ang
+		camS.view = a
+		local pos = C0 + Vector3.new(math.cos(a) * r, camS.h, math.sin(a) * r)
 		local target = CFrame.lookAt(pos, Vector3.new(C0.X, camS.look, C0.Z))
 		if camS.shake > 0.02 then
 			target *= CFrame.new((math.random() - 0.5) * camS.shake, (math.random() - 0.5) * camS.shake, 0) * CFrame.Angles(0, 0, (math.random() - 0.5) * camS.shake * 0.02)
@@ -740,7 +764,8 @@ local function forgeSequence(maxOrder, topResult)
 		camS.shake = math.max(camS.shake, a)
 	end
 
-	local arcsOn, arcColor = false, C(120, 230, 255)
+	local arcsOn, arcColor = false, ctx.theme == "halloween" and C(190, 110, 255) or C(120, 230, 255)
+	local floorY = cap:GetAttribute("FloorY") or 0.7
 	local pod, drone, pillar
 	local cleaned = false
 	ctx.cleanup = function(instant)
@@ -805,7 +830,7 @@ local function forgeSequence(maxOrder, topResult)
 
 	-- ударная волна по полу
 	local function floorWave(c, maxR, dur)
-		local ring = lp(fx, { Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.15, 4, 4), CFrame = CFrame.new(C0.X, 0.7, C0.Z) * CFrame.Angles(0, 0, math.rad(90)), Material = Enum.Material.Neon, Color = c, Transparency = 0.2 })
+		local ring = lp(fx, { Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.15, 4, 4), CFrame = CFrame.new(C0.X, floorY, C0.Z) * CFrame.Angles(0, 0, math.rad(90)), Material = Enum.Material.Neon, Color = c, Transparency = 0.2 })
 		animateAsync(dur or 0.7, function(e)
 			local r = 4 + (maxR - 4) * e
 			ring.Size = Vector3.new(0.15, r * 2, r * 2)
@@ -854,20 +879,23 @@ local function forgeSequence(maxOrder, topResult)
 	end)
 	swirl.Rate = 25
 
-	-- 3) капсула опускается из короны
-	pod = buildPod(fx)
-	local podTop, podRest = C0.Y + 5.2, C0.Y - 2.6
+	-- 3) капсула опускается из короны (в котле — всплывает из зелья)
+	pod = buildPod(fx, ctx.theme)
+	local rises = ctx.theme == "halloween"
+	local podTop, podRest = rises and C0.Y - 6.5 or C0.Y + 5.2, C0.Y - 2.6
 	local spinA = 0
-	local beam = lp(fx, { Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.1, 2.2, 2.2), Material = Enum.Material.Neon, Color = C(160, 240, 255), Transparency = 0.45 })
-	animate(0.9, function(e)
+	local beam = lp(fx, { Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.1, 2.2, 2.2), Material = Enum.Material.Neon, Color = rises and C(140, 255, 90) or C(160, 240, 255), Transparency = rises and 1 or 0.45 })
+	animate(rises and 1.1 or 0.9, function(e)
 		spinA += 0.08
 		local y = podTop + (podRest - podTop) * e
 		pod.place(CFrame.new(C0.X, y, C0.Z) * CFrame.Angles(0, spinA, 0))
-		local h = podTop + 1.5 - y
-		beam.Size = Vector3.new(h, 2.2, 2.2)
-		beam.CFrame = CFrame.new(C0.X, y + h / 2, C0.Z) * CFrame.Angles(0, 0, math.rad(90))
+		if not rises then
+			local h = podTop + 1.5 - y
+			beam.Size = Vector3.new(h, 2.2, 2.2)
+			beam.CFrame = CFrame.new(C0.X, y + h / 2, C0.Z) * CFrame.Angles(0, 0, math.rad(90))
+		end
 		camS.r = 34 - e * 4
-	end, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut)
+	end, rises and Enum.EasingStyle.Back or Enum.EasingStyle.Quad, rises and Enum.EasingDirection.Out or Enum.EasingDirection.InOut)
 	beam:Destroy()
 	sfx(U.Sounds.thud, 0.9, 0.7)
 	kick(1.2)
@@ -1270,7 +1298,7 @@ local function forgeSequence(maxOrder, topResult)
 		end
 		animate(1.1, function(e)
 			local t = os.clock() - t0
-			drone:PivotTo(CFrame.new(C0.X, podRest + 0.4 + e * 3.4, C0.Z) * CFrame.Angles(0, t * 7 * (1.25 - e) + camS.ang, 0))
+			drone:PivotTo(CFrame.new(C0.X, podRest + 0.4 + e * 3.4, C0.Z) * CFrame.Angles(0, t * 7 * (1.25 - e) + (camS.view or camS.ang), 0))
 			camS.r = 25 - e * 8
 			camS.h = 8 - e * 2
 			camS.look = C0.Y + 1.5 + e * 0.6
@@ -2527,6 +2555,8 @@ local function run(results, opts)
 	local pg = player:WaitForChild("PlayerGui")
 	ctx = {
 		fast = opts.fast,
+		zone = opts.zone or "GachaZone", -- у какой машины играется сцена
+		theme = opts.theme, -- "halloween": тыквенная капсула, оранжево-фиолетовые молнии
 		skip = false,
 		clicked = false,
 		particles = {},

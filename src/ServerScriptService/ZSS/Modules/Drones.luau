@@ -547,6 +547,190 @@ A.blackhole = function(c)
 	return true
 end
 
+-- ===== ХЭЛЛОУИНСКИЕ ДРОНЫ =====
+
+-- Тыквёныш: бросает тыкву в ближайшего зомби, взрыв задевает всех рядом
+A.pumpkinbomb = function(c)
+	if not c.field then
+		return false
+	end
+	local z = Zombies.Nearest(c.field, c.hrp.Position, 30, c.player)
+	if not z then
+		return false
+	end
+	local pos = z.root.Position
+	fx("pumpkinbomb", { owner = c.player.UserId, key = c.d.key, to = pos, radius = 8 })
+	local field, player = c.field, c.player
+	task.delay(0.45, function()
+		if not player.Parent then
+			return
+		end
+		for _, zz in ipairs(Zombies.InRadius(field, pos, 8, player)) do
+			Zombies.Damage(zz, 22 * (player:GetAttribute("ZSS_DroneDmg") or 1), player)
+		end
+	end)
+	return true
+end
+
+-- Летучая мышь: сонар находит 3 плитки рядом
+A.echo = function(c)
+	if not c.field then
+		return false
+	end
+	local tiles = Fields.TilesNear(c.field, c.hrp.Position, 14)
+	if #tiles == 0 then
+		return false
+	end
+	local targets = {}
+	for _ = 1, 3 do
+		local t = tiles[math.random(#tiles)]
+		collect(c, c.d, t, 1.1)
+		table.insert(targets, Fields.TopPos(t))
+	end
+	fx("beams", { owner = c.player.UserId, key = c.d.key, targets = targets, color = Color3.fromRGB(190, 90, 255) })
+	return true
+end
+
+-- Конфетка: ускорение хозяину и сбор плиток вокруг
+A.sugar = function(c)
+	if not c.field then
+		return false
+	end
+	local Drops = require(script.Parent.Drops)
+	Drops.AddStacks(c.player, "speed", 2)
+	local targets = {}
+	for _, t in ipairs(Fields.TilesNear(c.field, c.hrp.Position, 6)) do
+		collect(c, c.d, t, 0.8)
+		table.insert(targets, Fields.TopPos(t))
+	end
+	fx("magnet", { owner = c.player.UserId, pos = c.hrp.Position, radius = 6, targets = targets })
+	fx("aura", { owner = c.player.UserId, color = Color3.fromRGB(255, 190, 70), duration = 1.5 })
+	return true
+end
+
+-- Вдова: паутина замедляет всех зомби вокруг
+A.web = function(c)
+	if not c.field then
+		return false
+	end
+	local zs = Zombies.InRadius(c.field, c.hrp.Position, 20, c.player)
+	if #zs == 0 then
+		return false
+	end
+	local points = {}
+	for _, z in ipairs(zs) do
+		Zombies.Slow(z, 6)
+		droneDamage(c, z, 15)
+		table.insert(points, z.root.Position)
+	end
+	fx("web", { owner = c.player.UserId, key = c.d.key, pos = c.hrp.Position, radius = 20, points = points })
+	return true
+end
+
+-- Призрак: пролетает сквозь зомби и собирает плитки
+A.haunt = function(c)
+	if not c.field then
+		return false
+	end
+	local zs = Zombies.InRadius(c.field, c.hrp.Position, 26, c.player)
+	local tiles = Fields.TilesNear(c.field, c.hrp.Position, 16)
+	if #zs == 0 and #tiles == 0 then
+		return false
+	end
+	local points = {}
+	for i = 1, math.min(5, #zs) do
+		droneDamage(c, zs[i], 50)
+		table.insert(points, zs[i].root.Position)
+	end
+	for _ = 1, math.min(5, #tiles) do
+		local t = tiles[math.random(#tiles)]
+		collect(c, c.d, t, 1.3)
+		table.insert(points, Fields.TopPos(t))
+	end
+	fx("haunt", { owner = c.player.UserId, key = c.d.key, points = points })
+	return true
+end
+
+-- Джек-о-Дрон: взрыв огня фонаря
+A.lantern = function(c)
+	if not c.field then
+		return false
+	end
+	local pos = c.hrp.Position
+	local field, player, s, d = c.field, c.player, c.s, c.d
+	fx("lantern", { pos = pos, radius = 18 })
+	task.delay(0.6, function()
+		if not player.Parent then
+			return
+		end
+		for _, z in ipairs(Zombies.InRadius(field, pos, 18, player)) do
+			Zombies.Damage(z, 260 * (player:GetAttribute("ZSS_DroneDmg") or 1), player)
+		end
+		for _, t in ipairs(Fields.TilesNear(field, pos, 10)) do
+			Fields.Collect(player, t, d.stats.gather, 2 * buffMult(s, "scrap", os.clock()) * gatherMult(player))
+		end
+	end)
+	return true
+end
+
+-- Жнец: взмах косы по всем зомби на поле
+A.harvest = function(c)
+	if not c.field then
+		return false
+	end
+	local zs = Zombies.InField(c.field, c.player)
+	local tiles = Fields.TilesNear(c.field, c.hrp.Position, 12)
+	if #zs == 0 and #tiles == 0 then
+		return false
+	end
+	local points = {}
+	for _, z in ipairs(zs) do
+		table.insert(points, z.root.Position)
+		if z.boss then
+			Zombies.Damage(z, 2500, c.player)
+		else
+			z.rewardMult = 2
+			Zombies.Damage(z, z.hum.MaxHealth * 0.4, c.player)
+		end
+	end
+	for _, t in ipairs(tiles) do
+		collect(c, c.d, t, 1.5)
+	end
+	fx("harvest", { owner = c.player.UserId, key = c.d.key, pos = c.hrp.Position, radius = 12, points = points })
+	return true
+end
+
+-- Тыквенный Король: хэллоуинская ночь на поле
+A.terror = function(c)
+	if not c.field then
+		return false
+	end
+	local pos = c.hrp.Position
+	local field, player, s, d = c.field, c.player, c.s, c.d
+	fx("terror", { pos = pos, radius = 40 })
+	task.delay(1.4, function()
+		if not player.Parent then
+			return
+		end
+		for _, z in ipairs(Zombies.InField(field, player)) do
+			if z.boss then
+				Zombies.Damage(z, 8000, player)
+			else
+				z.rewardMult = 2
+				Zombies.Damage(z, z.hum.MaxHealth * 0.7, player)
+			end
+		end
+		for _, t in ipairs(Fields.TilesNear(field, pos, 18)) do
+			Fields.Collect(player, t, d.stats.gather, 3 * gatherMult(player))
+		end
+		addBuff(s, "scrap", 2.5, 15)
+		if Config.HalloweenOn() then
+			require(script.Parent.Halloween).AddPumpkins(player, 3, pos + Vector3.new(0, 6, 0))
+		end
+	end)
+	return true
+end
+
 -- ===== УПРАВЛЕНИЕ РОЕМ =====
 -- как в BSS: рой появляется только после того, как игрок занял станцию (улей)
 local function hasHive(player)

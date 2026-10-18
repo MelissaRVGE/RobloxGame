@@ -69,6 +69,17 @@ local function lerpC(a, b, t)
 end
 
 function DN.Init()
+	-- Призрачная ночь (Хэллоуин): фиолетовое небо с оранжевым отсветом и лёгкая дымка
+	local Config = require(game:GetService("ReplicatedStorage"):WaitForChild("ZSS"):WaitForChild("Config"))
+	if Config.HalloweenOn() then
+		NIGHT.Ambient = C(95, 70, 130)
+		NIGHT.OutdoorAmbient = C(130, 95, 170)
+		NIGHT.atmColor = C(140, 95, 190)
+		NIGHT.atmDecay = C(110, 55, 40)
+		NIGHT.atmDensity = 0.36
+		NIGHT.tint = C(230, 205, 255)
+		NIGHT.sat = 0.12
+	end
 	local atm = Lighting:FindFirstChildOfClass("Atmosphere")
 	local cc = Lighting:FindFirstChildOfClass("ColorCorrectionEffect")
 	base = {
