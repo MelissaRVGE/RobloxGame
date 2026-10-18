@@ -53,6 +53,7 @@ local function defaultProfile()
 		receipts = {}, -- PurchaseId последних покупок за Robux (чтобы не выдать дважды)
 		-- Хэллоуин: тыквы, гарант и крутки «Тыквенного котла», трофеи Тыквенного Колосса, косметика
 		pumpkins = 0,
+		totalPumpkins = 0,
 		hpity = { Legendary = 0, Mythic = 0, Secret = 0 },
 		hpulls = 0,
 		trophies = 0,

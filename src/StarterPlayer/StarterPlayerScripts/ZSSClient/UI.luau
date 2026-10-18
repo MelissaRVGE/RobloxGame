@@ -1343,7 +1343,7 @@ local function buildMap()
 		{ id = "shop", name = "Shop", desc = "Weapons, tools, gear", icon = "shop" },
 	}
 	if Config.HalloweenOn() then
-		table.insert(entries, { id = "halloween", name = "🎃 Haunted Grove", desc = "Witch and the Pumpkin Cauldron gacha (Halloween)", icon = "gacha" })
+		table.insert(entries, { id = "halloween", name = "🎃 Pumpkin Cauldron", desc = "Halloween drone gacha", icon = "gacha" })
 	end
 	for _, loc in ipairs(Config.Locations) do
 		if loc.field then
@@ -3158,7 +3158,7 @@ local function zoneTick()
 		elseif inGacha then
 			showBanner("🎰 DRONE LAB", "Walk up to the capsule and press E", T.Gacha)
 		elseif inGrove then
-			showBanner("🎃 HAUNTED GROVE", "Pumpkin Cauldron gacha • the Witch trades pumpkins", C(255, 150, 40))
+			showBanner("🎃 PUMPKIN CAULDRON", "Walk up to the cauldron and press E", C(255, 150, 40))
 		end
 	end
 	if U.isOpen(gacha.win, gacha.scale) and not inGacha and not GachaAnim.IsPlaying() then

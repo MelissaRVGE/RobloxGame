@@ -1,4 +1,5 @@
--- Лидерборды на спавне: гемы сейчас, батареи сейчас, батарей заработано за всё время.
+-- Лидерборды на спавне: гемы сейчас, батареи сейчас, батарей заработано за всё время, убито зомби;
+-- у котла-гачи — тыкв собрано за всё время (только пока идёт Хэллоуин).
 -- Использует OrderedDataStore (глобальный топ); если он недоступен (Studio без API) — топ игроков на сервере.
 local Players = game:GetService("Players")
 local DataStoreService = game:GetService("DataStoreService")
@@ -9,6 +10,8 @@ local BOARDS = {
 	{ id = "gems", store = "ZSS_LB_Gems_v1", field = "gems" },
 	{ id = "batteries", store = "ZSS_LB_Bats_v1", field = "batteries" },
 	{ id = "total", store = "ZSS_LB_Total_v1", field = "totalBatteries" },
+	{ id = "kills", store = "ZSS_LB_Kills_v1", field = "kills" },
+	{ id = "pumpkins", store = "ZSS_LB_Pumpkins_v1", field = "totalPumpkins" },
 }
 local stores = {}
 local nameCache = {}

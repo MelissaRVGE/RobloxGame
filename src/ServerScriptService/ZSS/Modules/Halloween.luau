@@ -54,6 +54,7 @@ function Halloween.AddPumpkins(player, n, pos)
 	end
 	n = math.floor(n)
 	p.pumpkins += n
+	p.totalPumpkins = (p.totalPumpkins or 0) + n -- для лидерборда «собрано за всё время»
 	Data.MarkDirty(player)
 	if pos then
 		Remotes.Popup:FireClient(player, pos, "🎃 +" .. n, "pumpkin")
@@ -458,7 +459,7 @@ function Halloween.Init(dataModule, fieldsModule, dronesModule)
 		-- событие закончилось: декор, роща, ведьма и котёл убираются из мира
 		local map = workspace:FindFirstChild("Map")
 		if map then
-			for _, path in ipairs({ { "HalloweenZone" }, { "Base", "HalloweenDecor" }, { "NPCs", "witch" } }) do
+			for _, path in ipairs({ { "HalloweenZone" }, { "Base", "HalloweenDecor" }, { "NPCs", "witch" }, { "Leaderboards", "Board_pumpkins" } }) do
 				local inst = map
 				for _, n in ipairs(path) do
 					inst = inst and inst:FindFirstChild(n)
