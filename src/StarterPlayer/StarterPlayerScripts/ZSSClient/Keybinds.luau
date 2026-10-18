@@ -15,6 +15,7 @@ K.Actions = {
 	{ id = "quests", label = "Quest book", default = "Q", scope = "world" },
 	{ id = "donate", label = "Donation shop", default = "H", scope = "world" },
 	{ id = "settings", label = "Settings", default = "P", scope = "world" },
+	{ id = "halloween", label = "Teleport to the Pumpkin Cauldron", default = "J", scope = "world", event = "halloween" },
 	{ id = "slot1", label = "Slot 1: weapon", default = "One", scope = "world", slot = 1 },
 	{ id = "slot2", label = "Slot 2: gathering tool", default = "Two", scope = "world", slot = 2 },
 	{ id = "slot3", label = "Slot 3: item", default = "Three", scope = "world", slot = 3 },
@@ -23,6 +24,14 @@ K.Actions = {
 	{ id = "slot6", label = "Slot 6: item", default = "Six", scope = "world", slot = 6 },
 	{ id = "gachaSkip", label = "Gacha: skip / claim (and Enter)", default = "Space", scope = "gacha" },
 }
+-- действия события есть только пока оно идёт (выключили Хэллоуин — пропадают и из настроек)
+local Config = require(game:GetService("ReplicatedStorage"):WaitForChild("ZSS"):WaitForChild("Config"))
+for i = #K.Actions, 1, -1 do
+	local ev = K.Actions[i].event
+	if ev == "halloween" and not Config.HalloweenOn() then
+		table.remove(K.Actions, i)
+	end
+end
 K.ById = {}
 for _, a in ipairs(K.Actions) do
 	K.ById[a.id] = a
