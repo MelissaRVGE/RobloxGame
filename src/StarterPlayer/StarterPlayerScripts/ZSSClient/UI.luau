@@ -278,9 +278,9 @@ local function pumpkinIcon(parent)
 		BackgroundTransparency = 1,
 		Size = UDim2.fromOffset(52, 52),
 		Position = UDim2.new(0.5, 0, 0, 30),
-		Ambient = C(200, 170, 150),
-		LightColor = C(255, 230, 200),
-		LightDirection = Vector3.new(-0.4, -1, -0.7),
+		Ambient = C(255, 225, 200),
+		LightColor = C(255, 255, 255),
+		LightDirection = Vector3.new(-0.3, -0.6, 1),
 		ZIndex = 4,
 		Parent = parent,
 	})
