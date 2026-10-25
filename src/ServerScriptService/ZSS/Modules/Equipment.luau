@@ -134,11 +134,41 @@ end
 -- кисти, предплечья, стопы и голени R15 под перчатками и ботинками
 local COVERED = { "UpperTorso", "LowerTorso", "Torso", "LeftHand", "RightHand", "LeftLowerArm", "RightLowerArm", "LeftFoot", "RightFoot", "LeftLowerLeg", "RightLowerLeg" }
 
+-- аксессуары на кистях, предплечьях, стопах и голенях (гетры, напульсники, браслеты) скрываются вместе
+-- с конечностью: иначе они висят поверх перчатки или ботинка
+local LIMB = { LeftHand = true, RightHand = true, LeftLowerArm = true, RightLowerArm = true, LeftFoot = true, RightFoot = true, LeftLowerLeg = true, RightLowerLeg = true }
+
+local function accessoryPart(acc)
+	local h = acc:FindFirstChild("Handle")
+	if not h or not h:IsA("BasePart") then
+		return nil
+	end
+	for _, w in ipairs(h:GetChildren()) do
+		if w:IsA("JointInstance") or w:IsA("WeldConstraint") or w:IsA("RigidConstraint") then
+			local a = w:IsA("RigidConstraint") and w.Attachment1 and w.Attachment1.Parent or w.Part1
+			local b = w:IsA("RigidConstraint") and w.Attachment0 and w.Attachment0.Parent or w.Part0
+			local other = a == h and b or a
+			if other and other:IsA("BasePart") then
+				return h, other
+			end
+		end
+	end
+	return h, nil
+end
+
 local function setCoveredHidden(char, hide)
 	for _, n in ipairs(COVERED) do
 		local part = char:FindFirstChild(n)
 		if part and part:IsA("BasePart") then
 			setHidden(part, hide[part] == true)
+		end
+	end
+	for _, acc in ipairs(char:GetChildren()) do
+		if acc:IsA("Accessory") then
+			local h, on = accessoryPart(acc)
+			if h and on and LIMB[on.Name] and on.Parent == char then
+				setHidden(h, hide[on] == true)
+			end
 		end
 	end
 end
