@@ -1915,54 +1915,20 @@ local function wider(a, b)
 	return Vector3.new(math.max(a.X, b.X), a.Y, math.max(a.Z, b.Z))
 end
 
--- габарит детали вдоль чужой оси (rot — поворот детали в осях axis). Деталь тела — скруглённый меш,
--- поэтому меряем как эллипсоид, а не по углам коробки: наклонная ось не раздувает перчатку
-local function extent(size, rot, axis)
-	local v = rot:VectorToObjectSpace(axis)
-	return math.sqrt((v.X * size.X) ^ 2 + (v.Y * size.Y) ^ 2 + (v.Z * size.Z) ^ 2)
-end
+-- перчатка или ботинок по кисти (стопе) и предплечью (голени). Ширина берётся с кисти (стопы):
+-- предплечье под мешем скрыто, а у стилизованных тел (широкие «мультяшные» аватары) оно бывает пышным
+-- рукавом в 1.5-2 раза шире кисти, и перчатка раздувалась в огромный раструб. Поэтому предплечье
+-- расширяет снаряжение не больше чем в 1.25 раза. Ось не берём из точек суставов: они стоят не по центру
+-- конечности, и даже у обычных аватаров перчатка от них заваливалась вбок
+local LIMB_WIDE = 1.25
 
--- перчатка или ботинок вдоль настоящей оси конечности: от кисти (стопы) к локтю (колену) по точкам
--- суставов. У стилизованных тел (широкие, «мультяшные» аватары) деталь кисти бывает повёрнута
--- относительно руки, и меш, выровненный по осям кисти, торчал вбок от предплечья.
--- Ширина берётся с кисти (стопы); предплечье (голень) под мешем скрыто, поэтому пышный рукав
--- стилизованного тела расширяет снаряжение не больше чем в 1.25 раза
-local function limbFit(end_, seg, jointAtt, topAtt, reachK)
-	local axis = Vector3.yAxis
-	local segInEnd
-	if seg then
-		segInEnd = restRel(end_, seg, jointAtt)
-		local j = seg:FindFirstChild(jointAtt)
-		local t = seg:FindFirstChild(topAtt)
-		if j and t and j:IsA("Attachment") and t:IsA("Attachment") then
-			local a, b = segInEnd * j.Position, segInEnd * t.Position
-			if (b - a).Magnitude > 0.05 then
-				axis = (b - a).Unit
-			end
-		end
+local function limbFit(end_, seg, reachK)
+	local box = end_.Size
+	if not seg then
+		return box, box.Y * reachK
 	end
-	-- почти прямая конечность (обычные аватары) — посадка как раньше, по осям кисти (стопы)
-	if axis.Y >= 0.97 then
-		local box = end_.Size
-		if seg then
-			box = wider(box, Vector3.new(math.min(seg.Size.X, box.X * 1.25), 0, math.min(seg.Size.Z, box.Z * 1.25)))
-		end
-		return CFrame.new(), box, seg and seg.Size.Y or end_.Size.Y * reachK
-	end
-	local back = Vector3.zAxis - axis * axis.Z
-	if back.Magnitude < 0.2 then
-		back = Vector3.xAxis:Cross(axis)
-	end
-	back = back.Unit
-	local rot = CFrame.fromMatrix(Vector3.zero, axis:Cross(back), axis, back)
-	local w = extent(end_.Size, CFrame.new(), rot.XVector)
-	local h = extent(end_.Size, CFrame.new(), axis)
-	local d = extent(end_.Size, CFrame.new(), back)
-	local segRot = segInEnd.Rotation
-	w = math.max(w, math.min(extent(seg.Size, segRot, rot.XVector), w * 1.25))
-	d = math.max(d, math.min(extent(seg.Size, segRot, back), d * 1.25))
-	-- выше кисти (стопы) — длина предплечья (голени) вдоль этой оси, как у обычных аватаров
-	return rot, Vector3.new(w, h, d), extent(seg.Size, segRot, axis)
+	local s = seg.Size
+	return wider(box, Vector3.new(math.min(s.X, box.X * LIMB_WIDE), 0, math.min(s.Z, box.Z * LIMB_WIDE))), s.Y
 end
 
 function IB.Fit(char)
@@ -1987,15 +1953,15 @@ function IB.Fit(char)
 				-- перчатка — кисть и предплечье до локтя; сами они под ней скрыты (hide), иначе блочная рука
 				-- торчит сквозь меш: форма перчатки не охватывает прямоугольник руки ни при каком масштабе
 				local arm = char:FindFirstChild(side .. "LowerArm")
-				local rot, box, reach = limbFit(hand, arm, side .. "WristRigAttachment", side .. "ElbowRigAttachment", 1.6)
-				table.insert(fit.gloves, { part = hand, offset = rot, box = box, reach = reach, hide = { hand, arm } })
+				local box, reach = limbFit(hand, arm, 1.6)
+				table.insert(fit.gloves, { part = hand, offset = CFrame.new(), box = box, reach = reach, hide = { hand, arm } })
 			end
 			local foot = char:FindFirstChild(side .. "Foot")
 			if foot then
 				-- ботинок — стопа и голень до колена, они под ним скрыты (как у перчаток)
 				local leg = char:FindFirstChild(side .. "LowerLeg")
-				local rot, box, reach = limbFit(foot, leg, side .. "AnkleRigAttachment", side .. "KneeRigAttachment", 1.5)
-				table.insert(fit.boots, { part = foot, offset = rot, box = box, reach = reach, hide = { foot, leg } })
+				local box, reach = limbFit(foot, leg, 1.5)
+				table.insert(fit.boots, { part = foot, offset = CFrame.new(), box = box, reach = reach, hide = { foot, leg } })
 			end
 		end
 	else
