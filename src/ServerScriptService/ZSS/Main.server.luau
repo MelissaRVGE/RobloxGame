@@ -86,6 +86,20 @@ local function notify(player, text, kind)
 end
 
 -- ===== ИГРОКИ =====
+-- игроки проходят друг сквозь друга, но сталкиваются с миром и зомби
+local PhysicsService = game:GetService("PhysicsService")
+local PLAYER_GROUP = "ZSS_Players"
+pcall(function()
+	PhysicsService:RegisterCollisionGroup(PLAYER_GROUP)
+end)
+PhysicsService:CollisionGroupSetCollidable(PLAYER_GROUP, PLAYER_GROUP, false)
+
+local function setPlayerGroup(inst)
+	if inst:IsA("BasePart") then
+		inst.CollisionGroup = PLAYER_GROUP
+	end
+end
+
 local function onPlayerAdded(player)
 	local p = Data.Load(player)
 	Equipment.Reconcile(p)
@@ -99,6 +113,11 @@ local function onPlayerAdded(player)
 		end
 	end)
 	local function onChar(char)
+		-- вся экипировка, надетая позже, тоже попадает в группу
+		for _, d in ipairs(char:GetDescendants()) do
+			setPlayerGroup(d)
+		end
+		char.DescendantAdded:Connect(setPlayerGroup)
 		-- смерть: ресурсы с полей в рюкзаке пропадают (вместимость остаётся)
 		local hum = char and char:WaitForChild("Humanoid", 10)
 		if hum then
