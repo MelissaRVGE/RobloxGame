@@ -20,7 +20,6 @@ local ART = {
 }
 local ICON_DRONE = "rbxassetid://86616950601909" -- Icons.drones
 local ICON_RAYS = "rbxassetid://132056028348411" -- Icons.dn.rays
-local ICON_GLOW = "rbxassetid://133694039985414" -- Icons.glow
 local TITLE_FONT = Font.new("rbxasset://fonts/families/LuckiestGuy.json")
 local BODY_FONT = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Heavy)
 
@@ -99,7 +98,7 @@ local root = new("Frame", {
 	Parent = gui,
 })
 
--- процедурный фон: медленно вращающиеся лучи и мягкое свечение (виден, пока грузится картинка)
+-- процедурный фон: медленно вращающиеся лучи (виден, пока грузится картинка)
 local rays = new("ImageLabel", {
 	AnchorPoint = Vector2.new(0.5, 0.5),
 	Position = UDim2.fromScale(0.5, 0.42),
@@ -109,17 +108,6 @@ local rays = new("ImageLabel", {
 	Image = ICON_RAYS,
 	ImageColor3 = theme.rays,
 	ImageTransparency = 0.82,
-	Parent = root,
-})
-local glow = new("ImageLabel", {
-	AnchorPoint = Vector2.new(0.5, 0.5),
-	Position = UDim2.fromScale(0.5, 0.42),
-	Size = UDim2.fromScale(1.1, 1.1),
-	SizeConstraint = Enum.SizeConstraint.RelativeXX,
-	BackgroundTransparency = 1,
-	Image = ICON_GLOW,
-	ImageColor3 = theme.rays,
-	ImageTransparency = 0.7,
 	Parent = root,
 })
 
@@ -405,12 +393,11 @@ task.delay(0.35, function()
 	tween(sheen, 0.5, { BackgroundTransparency = 0 })
 end)
 
--- лучи вращаются, свечение дышит, дрон покачивается — всё на одном RenderStepped, без рывков
+-- лучи вращаются, дрон покачивается — всё на одном RenderStepped, без рывков
 local t0 = os.clock()
 local stepConn = RunService.RenderStepped:Connect(function()
 	local t = os.clock() - t0
 	rays.Rotation = t * 6
-	glow.ImageTransparency = 0.7 + 0.08 * math.sin(t * 1.6)
 	drone.Rotation = 8 * math.sin(t * 2.2)
 	drone.Position = UDim2.fromOffset(0, 14 + 2.5 * math.sin(t * 3.1))
 	sheenGrad.Offset = Vector2.new(((t * 0.55) % 1.6) * 2 - 1.3, 0)
@@ -523,7 +510,6 @@ task.spawn(function()
 		-- плавно перекрашиваем то, что уже на экране
 		tween(root, 0.8, { BackgroundColor3 = theme.bg })
 		tween(rays, 0.8, { ImageColor3 = theme.rays })
-		tween(glow, 0.8, { ImageColor3 = theme.rays })
 		tween(pct, 0.8, { TextColor3 = theme.accent })
 		local tg = title:FindFirstChildOfClass("UIGradient")
 		tg.Color = ColorSequence.new({
