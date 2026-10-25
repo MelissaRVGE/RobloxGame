@@ -15,8 +15,8 @@ local pg = player:WaitForChild("PlayerGui")
 
 -- картинки фона (обложка игры 1024x576); пустая строка = только процедурный фон
 local ART = {
-	normal = "rbxassetid://0",
-	halloween = "rbxassetid://0",
+	normal = "rbxassetid://122545549564828",
+	halloween = "rbxassetid://107246362184089",
 }
 local ICON_DRONE = "rbxassetid://86616950601909" -- Icons.drones
 local ICON_RAYS = "rbxassetid://132056028348411" -- Icons.dn.rays
