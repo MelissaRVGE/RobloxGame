@@ -83,8 +83,10 @@ function Fields.RandomTileNear(field, pos, radius)
 	return best
 end
 
-function Fields.SetGold(tile, duration)
+-- mult: во сколько раз золотая плитка даёт больше (Мидас — меньше, чем расходник)
+function Fields.SetGold(tile, duration, mult)
 	tile.gold = true
+	tile.goldMult = mult or 5
 	tile.goldUntil = os.clock() + duration
 	tile.part.Color = GOLD
 	tile.part.Material = Enum.Material.Neon
@@ -98,7 +100,7 @@ end
 
 function Fields.Collect(player, tile, base, mult)
 	local f = tile.field
-	local gold = tile.gold and 5 or 1
+	local gold = tile.gold and (tile.goldMult or 5) or 1
 	local amount = base * (mult or 1) * f.cfg.mult * tile.kmult * gold * (0.4 + 0.6 * tile.fill)
 	amount = amount * (player:GetAttribute("ZSS_ScrapMult") or 1)
 	amount = amount * require(RS.ZSS.BuffsConfig).Mult(player, "scrap")
