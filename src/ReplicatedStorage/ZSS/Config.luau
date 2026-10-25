@@ -28,26 +28,27 @@ Config.StartDrones = { "scout", "collector" }
 
 Config.RarityOrder = { "Uncommon", "Rare", "Epic", "Legendary", "Mythic", "Secret" }
 
--- weight в долях от 10000 (1% = 100)
+-- weight в долях от 1 000 000 (1% = 10000): Uncommon 77.4612%, Rare 17.1018%, Epic 4.527%,
+-- Legendary 0.8%, Mythic 0.1%, Secret 0.01% (низшие три — пропорционально прежним 77/17/4.5)
 Config.Rarities = {
-	Uncommon = { order = 1, label = "UNCOMMON", ru = "White", color = C(235, 238, 245), weight = 7700 },
-	Rare = { order = 2, label = "RARE", ru = "Blue", color = C(50, 140, 255), weight = 1700 },
-	Epic = { order = 3, label = "EPIC", ru = "Purple", color = C(175, 70, 255), weight = 450 },
-	Legendary = { order = 4, label = "LEGENDARY", ru = "Yellow", color = C(255, 205, 35), weight = 120 },
-	Mythic = { order = 5, label = "MYTHIC", ru = "Rainbow", color = C(255, 120, 220), weight = 28, rainbow = true },
-	Secret = { order = 6, label = "SECRET", ru = "Red", color = C(255, 30, 40), weight = 2 },
+	Uncommon = { order = 1, label = "UNCOMMON", ru = "White", color = C(235, 238, 245), weight = 774612 },
+	Rare = { order = 2, label = "RARE", ru = "Blue", color = C(50, 140, 255), weight = 171018 },
+	Epic = { order = 3, label = "EPIC", ru = "Purple", color = C(175, 70, 255), weight = 45270 },
+	Legendary = { order = 4, label = "LEGENDARY", ru = "Yellow", color = C(255, 205, 35), weight = 8000 },
+	Mythic = { order = 5, label = "MYTHIC", ru = "Rainbow", color = C(255, 120, 220), weight = 1000, rainbow = true },
+	Secret = { order = 6, label = "SECRET", ru = "Red", color = C(255, 30, 40), weight = 100 },
 }
-Config.WeightTotal = 10000
+Config.WeightTotal = 1000000
 
 -- Гарант: если за N круток не выпала эта редкость (или выше) — N-я крутка гарантированно её даёт
 Config.Pity = {
-	{ rarity = "Secret", pulls = 3000 },
+	{ rarity = "Secret", pulls = 2000 },
 	{ rarity = "Mythic", pulls = 1000 },
 	{ rarity = "Legendary", pulls = 250 },
 }
 
 function Config.ChanceText(rarity)
-	local pct = Config.Rarities[rarity].weight / 100
+	local pct = Config.Rarities[rarity].weight / 10000
 	local s = string.format("%.2f", pct)
 	s = s:gsub("0+$", ""):gsub("%.$", "")
 	return s .. "%"
@@ -329,7 +330,7 @@ function Config.HalloweenOn()
 end
 
 function Config.HalloweenChanceText(rarity)
-	local pct = Config.Halloween.gacha.weights[rarity] / 100
+	local pct = Config.Halloween.gacha.weights[rarity] / 10000
 	local s = string.format("%.2f", pct)
 	s = s:gsub("0+$", ""):gsub("%.$", "")
 	return s .. "%"
