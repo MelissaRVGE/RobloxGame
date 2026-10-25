@@ -309,8 +309,8 @@ Config.Halloween = {
 	boss = { pumpkins = { 40, 90 }, name = "Pumpkin Colossus" },
 	-- гача «Тыквенный котёл»: крутки за тыквы; шансы и гарант те же, что у обычной гачи (ниже)
 	gacha = {
-		pullCost = 30,
-		pull10Cost = 300,
+		pullCost = 400,
+		pull10Cost = 4000,
 	},
 }
 do
@@ -447,7 +447,7 @@ end
 -- Числа подобраны моделью прогрессии (balance/tune.py в файлах проекта).
 -- @tune CellCost
 function Config.CellCost(n)
-	return math.floor(4000 * 1.53 ^ (math.min(n, 25) - 4) * 1.1 ^ math.max(0, n - 25) / 10 + 0.5) * 10
+	return math.floor(10000 * 1.55 ^ (math.min(n, 25) - 4) * 1.1 ^ math.max(0, n - 25) / 10 + 0.5) * 10
 end
 -- Мастерская ячеек (покупка новых сот)
 Config.CellShop = { center = Vector3.new(-28, 1, -18), radius = 13 }
@@ -476,7 +476,7 @@ Config.Locations = {
 Config.MaxBagLevel = 20
 -- @tune BagCapacity
 function Config.BagCapacity(level)
-	return math.floor(300 * 1.6 ^ (level - 1))
+	return math.floor(300 * 1.45 ^ (level - 1))
 end
 -- @tune BagCost
 function Config.BagCost(level)

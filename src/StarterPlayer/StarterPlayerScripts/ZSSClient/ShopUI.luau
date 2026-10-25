@@ -156,8 +156,15 @@ local function consumCount(id)
 	return d and d.consum and d.consum[id] or 0
 end
 
+-- вместимость рюкзака — множитель (x1.35, x72), а не проценты
+local function capX(v)
+	return (("%.2f"):format(v):gsub("0+$", ""):gsub("%.$", ""))
+end
+
 local function fmtStat(k, v)
-	if PCT[k] then
+	if k == "cap" then
+		return "x" .. capX(1 + v)
+	elseif PCT[k] then
 		return ("+%d%%"):format(math.floor(v * 100 + 0.5))
 	elseif k == "cd" then
 		return ("%.2fs"):format(v)
@@ -180,7 +187,7 @@ local function statsText(item)
 				local diff = v - cv
 				local better = (k == "cd") and diff < 0 or (k ~= "cd" and diff > 0)
 				if math.abs(diff) > 1e-6 then
-					local ds = PCT[k] and ("%+d%%"):format(math.floor(diff * 100 + 0.5)) or (k == "cd" and ("%+.2f"):format(diff) or ("%+g"):format(diff))
+					local ds = k == "cap" and ("x%s"):format(capX((1 + v) / (1 + cv))) or PCT[k] and ("%+d%%"):format(math.floor(diff * 100 + 0.5)) or (k == "cd" and ("%+.2f"):format(diff) or ("%+g"):format(diff))
 					line ..= (' <font color="%s">(%s)</font>'):format(better and "#8CFF5A" or "#FF6A5A", ds)
 				end
 			end
@@ -345,7 +352,7 @@ local function refreshCards()
 	local d = State.data
 	if d then
 		local t = Shop.Totals(d.gear)
-		detail.totals.Text = ("❤ %d HP   🛡 %d%%\n» +%d speed   ⚙ +%d%% scrap\n🎒 +%d%%   ♻ +%d%% batteries"):format(100 + t.hp, math.floor(t.def * 100 + 0.5), t.speed, math.floor(t.scrap * 100 + 0.5), math.floor(t.cap * 100 + 0.5), math.floor(t.conv * 100 + 0.5))
+		detail.totals.Text = ("❤ %d HP   🛡 %d%%\n» +%d speed   ⚙ +%d%% scrap\n🎒 x%s   ♻ +%d%% batteries"):format(100 + t.hp, math.floor(t.def * 100 + 0.5), t.speed, math.floor(t.scrap * 100 + 0.5), capX(1 + t.cap), math.floor(t.conv * 100 + 0.5))
 		detail.balance.Text = "🔋 " .. U.fmt(d.batteries)
 	end
 end

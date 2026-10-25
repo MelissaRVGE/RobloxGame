@@ -97,8 +97,15 @@ local function fmtNum(v)
 	return (("%.2f"):format(v):gsub("0+$", ""):gsub("%.$", ""))
 end
 
+-- вместимость рюкзака — множитель (x1.35, x72), а не проценты
+local function capX(v)
+	return (("%.2f"):format(v):gsub("0+$", ""):gsub("%.$", ""))
+end
+
 local function fmtStat(k, v)
-	if PCT[k] then
+	if k == "cap" then
+		return "x" .. capX(1 + v)
+	elseif PCT[k] then
 		return ("+%d%%"):format(math.floor(v * 100 + 0.5))
 	elseif k == "cd" then
 		return ("%.2f s"):format(v)
@@ -111,7 +118,9 @@ local function fmtStat(k, v)
 end
 
 local function fmtDelta(k, d)
-	if PCT[k] then
+	if k == "cap" then
+		return (d >= 0 and "+" or "-") .. capX(math.abs(d)) .. "x"
+	elseif PCT[k] then
 		return ("%+d%%"):format(math.floor(d * 100 + (d >= 0 and 0.5 or -0.5)))
 	elseif k == "cd" then
 		return ("%+.2f s"):format(d)

@@ -265,26 +265,27 @@ for _, slot in ipairs({ "armor", "helmet", "gloves", "boots" }) do
 end
 
 -- ===== РЮКЗАКИ (видны на спине) =====
--- cap — бонус к вместимости (умножает вместимость уровня рюкзака), conv — больше батарей
+-- cap — бонус к вместимости (умножает вместимость уровня рюкзака: x(1 + cap)); каждый следующий
+-- рюкзак вмещает примерно в 1.3 раза больше предыдущего, чтобы покупка новой модели ощущалась, conv — больше батарей
 -- за переработку, cspeed — быстрее работает Переработчик. Бонус переработки есть не у всех.
 local BACKPACKS = {
 	{ "bp_old", "School Backpack", 0, 1, { cap = 0 }, "A worn backpack with a keychain. Better than nothing." },
-	{ "bp_sack", "Canvas Duffel", 2500, 1, { cap = 0.1 }, "A sack on a rope. Holds a little more scrap." },
-	{ "bp_denim", "Denim Backpack", 7200, 2, { cap = 0.15, conv = 0.05 }, "Sewn from old jeans and covered in patches. Lucky: recycling pays more." },
-	{ "bp_hiker", "Hiking Backpack", 21000, 2, { cap = 0.3 }, "A frame pack with a sleeping bag and a canteen." },
-	{ "bp_scrapper", "Recycler's Bag", 61000, 3, { cap = 0.2, conv = 0.12, cspeed = 0.25 }, "A built-in sorter: scrap recycles faster and for more." },
-	{ "bp_raid", "Army Raid Pack", 180000, 3, { cap = 0.5 }, "Camo and a pile of pouches for maximum space." },
-	{ "bp_tactical", "Tactical MOLLE Pack", 510000, 4, { cap = 0.75, cspeed = 0.15 }, "MOLLE webbing, a radio, and quick unloading." },
-	{ "bp_hazmat", "Isotope Chem Container", 1500000, 4, { cap = 0.6, conv = 0.2 }, "A tank of neutralizer that dissolves scrap into pure energy." },
-	{ "bp_reactor", "Mini Reactor Pack", 4300000, 5, { cap = 1.0, conv = 0.15, cspeed = 0.4 }, "The reactor charges batteries right on your back." },
-	{ "bp_bone", "Bone Crate", 13000000, 5, { cap = 1.4 }, "Mutant hide stretched over a monster's ribs. Huge and creepy." },
-	{ "bp_dragon", "Dragon Pack", 36000000, 6, { cap = 1.8, conv = 0.3 }, "Scales, gold, and folded wings. Smolders from within." },
-	{ "bp_crystal", "Crystal Pack", 110000000, 6, { cap = 2.2, cspeed = 0.6 }, "Radioactive crystals hum and speed up recycling." },
-	{ "bp_magma", "Magma Smelter", 310000000, 6, { cap = 2.6, conv = 0.45, cspeed = 0.5 }, "Melts scrap on the go. Fire pours out of the pipe." },
-	{ "bp_obsidian", "Obsidian Chest", 880000000, 7, { cap = 3.3 }, "Black glass with purple runes. Bigger on the inside." },
-	{ "bp_nano", "Ghost Nano Pack", 2600000000, 7, { cap = 3.8, conv = 0.6, cspeed = 0.8 }, "Nanobots sort the scrap while a hologram counts batteries." },
-	{ "bp_royal", "Royal Chest", 7400000000, 7, { cap = 4.6 }, "Engraved gold, rubies, and velvet. Fit for the king of the wastes." },
-	{ "bp_omega", "Omega Dimensional Pack", 22000000000, 7, { cap = 6, conv = 0.8, cspeed = 1.2 }, "A portal to a pocket dimension and energy wings." },
+	{ "bp_sack", "Canvas Duffel", 2500, 1, { cap = 0.35 }, "A sack on a rope. Holds a little more scrap." },
+	{ "bp_denim", "Denim Backpack", 7200, 2, { cap = 0.8, conv = 0.05 }, "Sewn from old jeans and covered in patches. Lucky: recycling pays more." },
+	{ "bp_hiker", "Hiking Backpack", 21000, 2, { cap = 1.4 }, "A frame pack with a sleeping bag and a canteen." },
+	{ "bp_scrapper", "Recycler's Bag", 61000, 3, { cap = 2.1, conv = 0.12, cspeed = 0.25 }, "A built-in sorter: scrap recycles faster and for more." },
+	{ "bp_raid", "Army Raid Pack", 180000, 3, { cap = 3 }, "Camo and a pile of pouches for maximum space." },
+	{ "bp_tactical", "Tactical MOLLE Pack", 510000, 4, { cap = 4.2, cspeed = 0.15 }, "MOLLE webbing, a radio, and quick unloading." },
+	{ "bp_hazmat", "Isotope Chem Container", 1500000, 4, { cap = 5.8, conv = 0.2 }, "A tank of neutralizer that dissolves scrap into pure energy." },
+	{ "bp_reactor", "Mini Reactor Pack", 4300000, 5, { cap = 7.8, conv = 0.15, cspeed = 0.4 }, "The reactor charges batteries right on your back." },
+	{ "bp_bone", "Bone Crate", 13000000, 5, { cap = 10.5 }, "Mutant hide stretched over a monster's ribs. Huge and creepy." },
+	{ "bp_dragon", "Dragon Pack", 36000000, 6, { cap = 14, conv = 0.3 }, "Scales, gold, and folded wings. Smolders from within." },
+	{ "bp_crystal", "Crystal Pack", 110000000, 6, { cap = 18.5, cspeed = 0.6 }, "Radioactive crystals hum and speed up recycling." },
+	{ "bp_magma", "Magma Smelter", 310000000, 6, { cap = 24, conv = 0.45, cspeed = 0.5 }, "Melts scrap on the go. Fire pours out of the pipe." },
+	{ "bp_obsidian", "Obsidian Chest", 880000000, 7, { cap = 32 }, "Black glass with purple runes. Bigger on the inside." },
+	{ "bp_nano", "Ghost Nano Pack", 2600000000, 7, { cap = 42, conv = 0.6, cspeed = 0.8 }, "Nanobots sort the scrap while a hologram counts batteries." },
+	{ "bp_royal", "Royal Chest", 7400000000, 7, { cap = 55 }, "Engraved gold, rubies, and velvet. Fit for the king of the wastes." },
+	{ "bp_omega", "Omega Dimensional Pack", 22000000000, 7, { cap = 71, conv = 0.8, cspeed = 1.2 }, "A portal to a pocket dimension and energy wings." },
 }
 for k, b in ipairs(BACKPACKS) do
 	table.insert(S.Items, { id = b[1], slot = "backpack", name = b[2], price = b[3], grade = b[4], stats = b[5], desc = b[6], tier = k })
