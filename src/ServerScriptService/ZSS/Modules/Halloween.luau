@@ -63,8 +63,8 @@ function Halloween.AddPumpkins(player, n, pos)
 end
 
 -- ===== ТЫКВЫ НА ПОЛЯХ =====
-local function fieldValue(field)
-	return HC.pumpkins.value[math.clamp(field.index, 1, #HC.pumpkins.value)] or 1
+local function fieldValue(_field)
+	return HC.pumpkins.value or 1
 end
 
 local function placePumpkin(field)
