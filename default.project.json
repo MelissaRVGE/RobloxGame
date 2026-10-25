@@ -32,6 +32,12 @@
       }
     },
 
+    "ReplicatedFirst": {
+      "$className": "ReplicatedFirst",
+      "$ignoreUnknownInstances": true,
+      "ZSS_Loading": { "$path": "src/ReplicatedFirst/ZSS_Loading.client.luau" }
+    },
+
     "StarterPlayer": {
       "$className": "StarterPlayer",
       "$ignoreUnknownInstances": true,

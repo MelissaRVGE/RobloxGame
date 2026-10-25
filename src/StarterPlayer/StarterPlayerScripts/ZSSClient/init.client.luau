@@ -34,13 +34,18 @@ FieldTilesFX.Init()
 HalloweenFX.Init()
 task.spawn(WorldLOD.Init) -- ждёт карту, не задерживая загрузку данных
 
-Remotes.DataSync.OnClientEvent:Connect(State.Set)
+-- ZSS_DataReady ждёт экран загрузки (ReplicatedFirst/ZSS_Loading)
+local function setData(d)
+	State.Set(d)
+	player:SetAttribute("ZSS_DataReady", true)
+end
+Remotes.DataSync.OnClientEvent:Connect(setData)
 task.spawn(function()
 	local ok, data = pcall(function()
 		return Remotes.GetData:InvokeServer()
 	end)
 	if ok and data and not State.data then
-		State.Set(data)
+		setData(data)
 	end
 end)
 
