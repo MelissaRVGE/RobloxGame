@@ -418,10 +418,7 @@ end
 
 local function findSpec(it, n)
 	local tier = Items.Tiers[it.tier]
-	local lines = { { "🔋 Sell Price", U.fmt(it.value), T.Battery }, { "Total in Backpack", "x" .. n } }
-	if n > 1 then
-		table.insert(lines, { "🔋 Sell All", U.fmt(it.value * n), T.Battery })
-	end
+	local lines = { { "Total in Backpack", "x" .. n } }
 	local u = it.use
 	if u then
 		if u.heal then
@@ -446,7 +443,7 @@ local function findSpec(it, n)
 		sub = "FIND  •  " .. tier.name:upper(),
 		lines = lines,
 		desc = it.desc,
-		footer = u and "Click to select  •  drag to the hotbar or hover and press 3–6" or "Click to select, then “Sell”. Also used for crafting in the Shop",
+		footer = u and "Click to select  •  drag to the hotbar or hover and press 3–6" or "Used for crafting in the Shop",
 	}
 end
 
@@ -1155,6 +1152,7 @@ local buffChips = {}
 local cap = {}
 local tabs = { current = "gear" }
 local gearCells, findCells = {}, {}
+local MIN_FIND_CELLS = 20
 local gearFilter = "all"
 local selectedFind
 local act = {}
@@ -1713,6 +1711,30 @@ function Inv.RefreshGear(animate)
 	tabs.gearGrid.CanvasSize = UDim2.fromOffset(0, rows * (CELL.Y + 8) + 4)
 end
 
+local function newFindCell(i)
+	local c = newCell(tabs.findsGrid, i)
+	c.stroke.Color = C(55, 62, 70)
+	c.grad.Color = ColorSequence.new(C(30, 34, 40), C(18, 20, 24))
+	c.shine.ImageTransparency = 1
+	c.img.Size = UDim2.fromOffset(50, 50)
+	c.onClick = function()
+		if c.entry then
+			selectedFind = c.entry.item.id
+			Inv.RefreshFinds()
+		end
+	end
+	bindTip(c.btn, function()
+		return c.entry and findSpec(c.entry.item, c.entry.n)
+	end)
+	hotbarSource(c.btn, function()
+		return c.entry and HS.FindKey(c.entry.item)
+	end, function()
+		return c.entry and ("“%s” can't be used, it's a crafting material"):format(c.entry.item.name)
+	end)
+	findCells[i] = c
+	return c
+end
+
 local function bagList(d)
 	local list = {}
 	for id, n in pairs(d.bag or {}) do
@@ -1752,10 +1774,9 @@ local function updateAction(entry)
 	act.icon.Image = Icons.items[it.id] or ""
 	act.name.Text = it.name
 	act.name.TextColor3 = tier.color:Lerp(C(255, 255, 255), 0.25)
-	act.sub.Text = tier.name:upper() .. "  •  x" .. entry.n .. "  •  🔋 " .. U.fmt(it.value)
+	act.sub.Text = tier.name:upper() .. "  •  x" .. entry.n
 	act.sub.TextColor3 = tier.color
 	U.tween(act.use, 0.2, { BackgroundTransparency = it.use and 0 or 0.7, TextTransparency = it.use and 0 or 0.6 })
-	act.sellAll.Text = ("ALL 🔋%s"):format(U.fmt(it.value * entry.n))
 	U.tween(act.stroke, 0.2, { Color = tier.color })
 end
 
@@ -1766,8 +1787,11 @@ function Inv.RefreshFinds()
 	end
 	local list = bagList(d)
 	local selEntry
-	for i = 1, Items.BagSlots do
-		local c = findCells[i]
+	-- слотов сколько угодно: пустые ячейки добивают сетку до MIN_FIND_CELLS и до целого ряда
+	local shown = math.max(MIN_FIND_CELLS, math.ceil(#list / 4) * 4)
+	for i = 1, shown do
+		local c = findCells[i] or newFindCell(i)
+		c.btn.Visible = true
 		local e = list[i]
 		c.entry = e
 		if e then
@@ -1801,6 +1825,11 @@ function Inv.RefreshFinds()
 			end
 		end
 	end
+	for i = shown + 1, #findCells do
+		findCells[i].btn.Visible = false
+		findCells[i].entry = nil
+	end
+	tabs.findsGrid.CanvasSize = UDim2.fromOffset(0, math.ceil(shown / 4) * (CELL.Y + 8) + 4)
 	if not selEntry then
 		selEntry = list[1]
 		selectedFind = selEntry and selEntry.item.id
@@ -1931,43 +1960,21 @@ local function buildRight(right)
 	})
 	tabs.gearEmpty = label(tabs.gearPage, { Position = UDim2.fromOffset(10, 60), Size = UDim2.new(1, -20, 0, 80), Text = "Nothing here yet.\nBuy and craft gear in the Shop. Everything you buy stays in your backpack forever.", Font = Enum.Font.GothamBold, TextSize = 14, TextWrapped = true, TextColor3 = T.Muted, Visible = false })
 
-	-- страница «Находки»: предметы из куч лома, продажа и использование
+	-- страница «Находки»: предметы из куч лома, использование
 	tabs.findsPage = new("Frame", { Position = UDim2.fromOffset(pw + 20, 0), Size = UDim2.fromOffset(pw, ph), BackgroundTransparency = 1, Parent = pages })
-	local fgrid = new("ScrollingFrame", {
+	tabs.findsGrid = new("ScrollingFrame", {
 		Size = UDim2.new(1, 0, 1, -66),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ScrollBarThickness = 4,
 		ScrollBarImageColor3 = C(120, 140, 160),
-		CanvasSize = UDim2.fromOffset(0, math.ceil(Items.BagSlots / 4) * (CELL.Y + 8) + 4),
+		CanvasSize = UDim2.new(),
 		ScrollingDirection = Enum.ScrollingDirection.Y,
 		Parent = tabs.findsPage,
 	}, {
 		new("UIGridLayout", { CellSize = UDim2.fromOffset(CELL.X, CELL.Y), CellPadding = UDim2.fromOffset(8, 8), SortOrder = Enum.SortOrder.LayoutOrder }),
 		new("UIPadding", { PaddingTop = UDim.new(0, 4), PaddingLeft = UDim.new(0, 2) }),
 	})
-	for i = 1, Items.BagSlots do
-		local c = newCell(fgrid, i)
-		c.stroke.Color = C(55, 62, 70)
-		c.grad.Color = ColorSequence.new(C(30, 34, 40), C(18, 20, 24))
-		c.shine.ImageTransparency = 1
-		c.img.Size = UDim2.fromOffset(50, 50)
-		c.onClick = function()
-			if c.entry then
-				selectedFind = c.entry.item.id
-				Inv.RefreshFinds()
-			end
-		end
-		bindTip(c.btn, function()
-			return c.entry and findSpec(c.entry.item, c.entry.n)
-		end)
-		hotbarSource(c.btn, function()
-			return c.entry and HS.FindKey(c.entry.item)
-		end, function()
-			return c.entry and ("“%s” can't be used, it can only be sold"):format(c.entry.item.name)
-		end)
-		findCells[i] = c
-	end
 	tabs.findsEmpty = label(tabs.findsPage, { Position = UDim2.fromOffset(10, 40), Size = UDim2.new(1, -20, 0, 80), Text = "Your backpack is empty.\nCollect scrap and kill zombies. Piles sometimes hide rare finds, and there are twice as many at night!", Font = Enum.Font.GothamBold, TextSize = 14, TextWrapped = true, TextColor3 = T.Muted, Visible = false, ZIndex = 5 })
 	local bar = new("Frame", { AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 0, 1, 0), Size = UDim2.new(1, 0, 0, 60), BackgroundColor3 = C(20, 24, 28), Parent = tabs.findsPage }, { U.corner(10) })
 	act.stroke = U.stroke(C(70, 80, 90), 1.5)
@@ -1977,7 +1984,7 @@ local function buildRight(right)
 	act.icon = new("ImageLabel", { Position = UDim2.fromOffset(6, 4), Size = UDim2.fromOffset(24, 24), BackgroundTransparency = 1, ScaleType = Enum.ScaleType.Fit, Parent = act.box })
 	act.name = label(act.box, { Position = UDim2.fromOffset(34, 2), Size = UDim2.new(1, -40, 0, 16), Text = "", TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left }, 1.2)
 	act.sub = label(act.box, { Position = UDim2.fromOffset(34, 17), Size = UDim2.new(1, -40, 0, 12), Text = "", TextSize = 10, TextXAlignment = Enum.TextXAlignment.Left })
-	local bw = math.floor((pw - 12 - 8) / 3)
+	local bw = pw - 12
 	local function actBtn(i, text, color, tcolor, action)
 		local b = api.button({ Position = UDim2.fromOffset(6 + (i - 1) * (bw + 4), 32), Size = UDim2.fromOffset(bw, 24), BackgroundColor3 = color, Font = Enum.Font.GothamBlack, TextSize = 11, TextColor3 = tcolor, Text = text, Parent = act.box }, function()
 			bagAct(action)
@@ -1986,8 +1993,6 @@ local function buildRight(right)
 		return b
 	end
 	act.use = actBtn(1, "✔ USE", C(80, 200, 255), C(10, 25, 40), "use")
-	act.sell = actBtn(2, "SELL 1", T.Hazard, C(40, 25, 0), "sell")
-	act.sellAll = actBtn(3, "ALL", C(235, 120, 40), C(40, 15, 0), "sellall")
 end
 
 local function buildCharacterPanel(left)
@@ -2214,7 +2219,7 @@ function Inv.Refresh(d)
 	end
 	local list = bagList(d)
 	tabs.gearBtn.Text = ("⚔ GEAR  %d"):format(countGear())
-	tabs.findsBtn.Text = ("💎 FINDS  %d/%d"):format(#list, Items.BagSlots)
+	tabs.findsBtn.Text = ("💎 FINDS  %d"):format(#list)
 	updateCap(d)
 	updateSlots()
 	refreshHotbarStrip()

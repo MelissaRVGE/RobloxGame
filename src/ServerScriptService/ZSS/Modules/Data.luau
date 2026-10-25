@@ -188,7 +188,7 @@ function Data.AddScrap(player, amount, resId)
 	return add, p.scrap >= cap
 end
 
--- найденный предмет в рюкзак; возвращает false, если нет места
+-- найденный предмет в рюкзак (места не ограничены); false только для неизвестного предмета
 function Data.AddItem(player, id, n)
 	local p = Data.Profiles[player]
 	local Items = require(RS.ZSS.ItemsConfig)
@@ -196,22 +196,7 @@ function Data.AddItem(player, id, n)
 		return false
 	end
 	p.bag = p.bag or {}
-	if not p.bag[id] then
-		local kinds = 0
-		for _, c in pairs(p.bag) do
-			if c > 0 then
-				kinds += 1
-			end
-		end
-		if kinds >= Items.BagSlots then
-			return false
-		end
-	end
-	local cur = p.bag[id] or 0
-	if cur >= Items.StackMax then
-		return false
-	end
-	p.bag[id] = math.min(Items.StackMax, cur + (n or 1))
+	p.bag[id] = (p.bag[id] or 0) + (n or 1)
 	dirty[player] = true
 	return true
 end

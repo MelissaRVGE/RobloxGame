@@ -323,16 +323,11 @@ Remotes.BagAction.OnServerInvoke = function(player, action, id)
 		end
 		Data.MarkDirty(player)
 	end
-	if action == "sell" or action == "sellall" then
-		local n = action == "sellall" and have or 1
-		local gain = item.value * n
-		take(n)
-		Data.AddBatteries(player, gain)
-		return { ok = true, msg = ("🔋 +%d for “%s” x%d"):format(gain, item.name, n) }
-	elseif action == "use" then
+	-- продажи нет: находки только используются или идут на крафт
+	if action == "use" then
 		local u = item.use
 		if not u then
-			return { ok = false, err = "This item can only be sold" }
+			return { ok = false, err = "This item is a crafting material" }
 		end
 		local char = player.Character
 		local hum = char and char:FindFirstChildOfClass("Humanoid")

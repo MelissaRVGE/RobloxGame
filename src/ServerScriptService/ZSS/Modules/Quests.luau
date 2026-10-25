@@ -124,20 +124,9 @@ local function giveReward(player, p, r)
 	if r.gems then
 		Data.AddGems(player, r.gems)
 	end
-	-- находки для крафта; если в рюкзаке нет места, не влезшее продаётся за батареи
-	local sold = 0
+	-- находки для крафта: рюкзак безлимитный, всё ложится в него
 	for id, n in pairs(r.items or {}) do
-		local had = p.bag and p.bag[id] or 0
-		local lost = n
-		if Data.AddItem(player, id, n) then
-			lost = math.max(0, had + n - Items.StackMax)
-		end
-		if lost > 0 and Items.ById[id] then
-			sold += Items.ById[id].value * lost
-		end
-	end
-	if sold > 0 then
-		Data.AddBatteries(player, sold)
+		Data.AddItem(player, id, n)
 	end
 	for id, n in pairs(r.consum or {}) do
 		p.consum = p.consum or {}
@@ -162,7 +151,6 @@ local function giveReward(player, p, r)
 			Quests.OnPerk(player)
 		end
 	end
-	return sold
 end
 
 local function nearNpc(player, npcId)
@@ -219,16 +207,13 @@ function Quests.Action(player, npcId, action)
 			return { ok = false, err = "Not enough items to hand in" }
 		end
 		Data.TakeMats(p, take)
-		local sold = giveReward(player, p, q.reward)
+		giveReward(player, p, q.reward)
 		s.stage += 1
 		s.active = false
 		s.prog = {}
 		Data.MarkDirty(player)
 		Remotes.FX:FireAllClients("questdone", { owner = player.UserId, npc = npcId })
 		local msg = "✔ Quest “" .. q.title .. "” complete!"
-		if sold > 0 then
-			msg ..= " Backpack full, some finds were sold for 🔋 " .. sold
-		end
 		return { ok = true, msg = msg, reward = q.reward, perkText = q.perkText }
 	end
 	return { ok = false, err = "bad action" }
