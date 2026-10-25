@@ -98,7 +98,8 @@ local function clearGold(tile)
 	tile.part.Material = tile.baseMat
 end
 
-function Fields.Collect(player, tile, base, mult)
+-- bud: лимит сбора одной способности { left = сколько ещё можно добыть }; nil — без лимита
+function Fields.Collect(player, tile, base, mult, bud)
 	local f = tile.field
 	local gold = tile.gold and (tile.goldMult or 5) or 1
 	local amount = base * (mult or 1) * f.cfg.mult * tile.kmult * gold * (0.4 + 0.6 * tile.fill)
@@ -108,6 +109,13 @@ function Fields.Collect(player, tile, base, mult)
 		amount *= Config.DayNight.rewardMult
 	end
 	amount = math.max(1, math.floor(amount + 0.5))
+	if bud then
+		amount = math.min(amount, math.floor(bud.left))
+		if amount < 1 then
+			return 0
+		end
+		bud.left -= amount
+	end
 	tile.fill = math.max(0, tile.fill - Config.TileTake)
 	Fields.UpdateTile(tile)
 	-- «Мгновенная переработка»: часть лома сразу становится батареями, мимо рюкзака

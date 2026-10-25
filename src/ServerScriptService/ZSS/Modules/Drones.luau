@@ -92,9 +92,15 @@ local function collect(c, d, tile, mult)
 end
 
 -- сбор способностью: тот же сбор, но с множителем Config.AbilityGather
+-- и с общим лимитом на одно срабатывание (доля рюкзака), чтобы один взрыв не забивал рюкзак
 local AG = Config.AbilityGather
-local function acollect(c, d, tile, mult)
-	return collect(c, d, tile, mult * AG)
+local function acollect(c, d, tile, mult, bud)
+	return Fields.Collect(c.player, tile, d.stats.gather, mult * AG * buffMult(c.s, "scrap", c.now) * gatherMult(c.player), bud)
+end
+
+local function budget(player)
+	local p = Data.Get(player)
+	return { left = p and Data.Capacity(p) * Config.AbilityBagShare or 0 }
 end
 
 -- урон дрона с бонусом «Урон дронов»
@@ -112,6 +118,7 @@ end
 local A = {}
 
 A.scan = function(c)
+	local bud = budget(c.player)
 	if not c.field then
 		return false
 	end
@@ -122,7 +129,7 @@ A.scan = function(c)
 	local targets = {}
 	for _ = 1, 3 do
 		local t = tiles[math.random(#tiles)]
-		acollect(c, c.d, t, 1)
+		acollect(c, c.d, t, 1, bud)
 		table.insert(targets, Fields.TopPos(t))
 	end
 	fx("beams", { owner = c.player.UserId, key = c.d.key, targets = targets, color = Color3.fromRGB(80, 230, 255) })
@@ -183,6 +190,7 @@ A.frost = function(c)
 end
 
 A.magnet = function(c)
+	local bud = budget(c.player)
 	if not c.field then
 		return false
 	end
@@ -192,7 +200,7 @@ A.magnet = function(c)
 	end
 	local targets = {}
 	for _, t in ipairs(tiles) do
-		acollect(c, c.d, t, 0.6)
+		acollect(c, c.d, t, 0.6, bud)
 		table.insert(targets, Fields.TopPos(t))
 	end
 	fx("magnet", { owner = c.player.UserId, pos = c.hrp.Position, radius = 7, targets = targets })
@@ -254,6 +262,7 @@ A.burst = function(c)
 end
 
 A.cloud = function(c)
+	local bud = budget(c.player)
 	if not c.field then
 		return false
 	end
@@ -268,7 +277,7 @@ A.cloud = function(c)
 				Zombies.Damage(z, 10, player)
 			end
 			for _, t in ipairs(Fields.TilesNear(field, pos, 5)) do
-				Fields.Collect(player, t, d.stats.gather, 0.3 * AG * buffMult(s, "scrap", os.clock()) * gatherMult(player))
+				Fields.Collect(player, t, d.stats.gather, 0.3 * AG * buffMult(s, "scrap", os.clock()) * gatherMult(player), bud)
 			end
 			task.wait(1)
 		end
@@ -277,13 +286,14 @@ A.cloud = function(c)
 end
 
 A.phase = function(c)
+	local bud = budget(c.player)
 	if not c.field or #c.field.tiles == 0 then
 		return false
 	end
 	local targets = {}
 	for _ = 1, 6 do
 		local t = c.field.tiles[math.random(#c.field.tiles)]
-		acollect(c, c.d, t, 1.5)
+		acollect(c, c.d, t, 1.5, bud)
 		table.insert(targets, Fields.TopPos(t))
 	end
 	fx("phase", { owner = c.player.UserId, key = c.d.key, targets = targets })
@@ -318,6 +328,7 @@ A.overclock = function(c)
 end
 
 A.orbital = function(c)
+	local bud = budget(c.player)
 	if not c.field then
 		return false
 	end
@@ -334,7 +345,7 @@ A.orbital = function(c)
 			Zombies.Damage(zz, 400, player)
 		end
 		for _, t in ipairs(Fields.TilesNear(field, pos, 8)) do
-			Fields.Collect(player, t, d.stats.gather, 2 * AG * buffMult(s, "scrap", os.clock()) * gatherMult(player))
+			Fields.Collect(player, t, d.stats.gather, 2 * AG * buffMult(s, "scrap", os.clock()) * gatherMult(player), bud)
 		end
 	end)
 	return true
@@ -412,6 +423,7 @@ A.reap = function(c)
 end
 
 A.doomsday = function(c)
+	local bud = budget(c.player)
 	if not c.field then
 		return false
 	end
@@ -431,7 +443,7 @@ A.doomsday = function(c)
 			end
 		end
 		for _, t in ipairs(Fields.TilesNear(field, pos, 16)) do
-			Fields.Collect(player, t, d.stats.gather, 3 * AG * gatherMult(player))
+			Fields.Collect(player, t, d.stats.gather, 3 * AG * gatherMult(player), bud)
 		end
 		addBuff(s, "scrap", Config.AbilityBuff(3), 15)
 		addBuff(s, "speed", 1.3, 15)
@@ -441,6 +453,7 @@ end
 
 -- Буровик: бурит землю под тобой и оглушает зомби вокруг
 A.quake = function(c)
+	local bud = budget(c.player)
 	if not c.field then
 		return false
 	end
@@ -451,7 +464,7 @@ A.quake = function(c)
 	end
 	local targets = {}
 	for _, t in ipairs(tiles) do
-		acollect(c, c.d, t, 1.6)
+		acollect(c, c.d, t, 1.6, bud)
 		table.insert(targets, Fields.TopPos(t))
 	end
 	for _, z in ipairs(Zombies.InRadius(c.field, pos, 10, c.player)) do
@@ -464,6 +477,7 @@ end
 
 -- Буревестник: гроза над полем, молнии бьют зомби и выбивают лом
 A.storm = function(c)
+	local bud = budget(c.player)
 	if not c.field then
 		return false
 	end
@@ -488,7 +502,7 @@ A.storm = function(c)
 			local tiles = Fields.TilesNear(field, center, 14)
 			for _ = 1, math.min(2, #tiles) do
 				local t = tiles[math.random(#tiles)]
-				Fields.Collect(player, t, d.stats.gather, 1.5 * AG * buffMult(s, "scrap", os.clock()) * gatherMult(player))
+				Fields.Collect(player, t, d.stats.gather, 1.5 * AG * buffMult(s, "scrap", os.clock()) * gatherMult(player), bud)
 				table.insert(points, Fields.TopPos(t))
 			end
 			if #points > 0 then
@@ -522,6 +536,7 @@ end
 
 -- Сингулярность: чёрная дыра всасывает зомби и лом
 A.blackhole = function(c)
+	local bud = budget(c.player)
 	if not c.field then
 		return false
 	end
@@ -546,7 +561,7 @@ A.blackhole = function(c)
 				end
 			end
 			for _, t in ipairs(Fields.TilesNear(field, pos, 14)) do
-				Fields.Collect(player, t, d.stats.gather, 1.5 * AG * buffMult(s, "scrap", os.clock()) * gatherMult(player))
+				Fields.Collect(player, t, d.stats.gather, 1.5 * AG * buffMult(s, "scrap", os.clock()) * gatherMult(player), bud)
 			end
 		end
 	end)
@@ -580,6 +595,7 @@ end
 
 -- Летучая мышь: сонар находит 3 плитки рядом
 A.echo = function(c)
+	local bud = budget(c.player)
 	if not c.field then
 		return false
 	end
@@ -590,7 +606,7 @@ A.echo = function(c)
 	local targets = {}
 	for _ = 1, 3 do
 		local t = tiles[math.random(#tiles)]
-		acollect(c, c.d, t, 1)
+		acollect(c, c.d, t, 1, bud)
 		table.insert(targets, Fields.TopPos(t))
 	end
 	fx("beams", { owner = c.player.UserId, key = c.d.key, targets = targets, color = Color3.fromRGB(190, 90, 255) })
@@ -599,6 +615,7 @@ end
 
 -- Конфетка: ускорение хозяину и сбор плиток вокруг
 A.sugar = function(c)
+	local bud = budget(c.player)
 	if not c.field then
 		return false
 	end
@@ -606,7 +623,7 @@ A.sugar = function(c)
 	Drops.AddStacks(c.player, "speed", 2)
 	local targets = {}
 	for _, t in ipairs(Fields.TilesNear(c.field, c.hrp.Position, 6)) do
-		acollect(c, c.d, t, 0.6)
+		acollect(c, c.d, t, 0.6, bud)
 		table.insert(targets, Fields.TopPos(t))
 	end
 	fx("magnet", { owner = c.player.UserId, pos = c.hrp.Position, radius = 6, targets = targets })
@@ -635,6 +652,7 @@ end
 
 -- Призрак: пролетает сквозь зомби и собирает плитки
 A.haunt = function(c)
+	local bud = budget(c.player)
 	if not c.field then
 		return false
 	end
@@ -650,7 +668,7 @@ A.haunt = function(c)
 	end
 	for _ = 1, math.min(5, #tiles) do
 		local t = tiles[math.random(#tiles)]
-		acollect(c, c.d, t, 1.3)
+		acollect(c, c.d, t, 1.3, bud)
 		table.insert(points, Fields.TopPos(t))
 	end
 	fx("haunt", { owner = c.player.UserId, key = c.d.key, points = points })
@@ -659,6 +677,7 @@ end
 
 -- Джек-о-Дрон: взрыв огня фонаря
 A.lantern = function(c)
+	local bud = budget(c.player)
 	if not c.field then
 		return false
 	end
@@ -673,7 +692,7 @@ A.lantern = function(c)
 			Zombies.Damage(z, 260 * (player:GetAttribute("ZSS_DroneDmg") or 1), player)
 		end
 		for _, t in ipairs(Fields.TilesNear(field, pos, 8)) do
-			Fields.Collect(player, t, d.stats.gather, 2 * AG * buffMult(s, "scrap", os.clock()) * gatherMult(player))
+			Fields.Collect(player, t, d.stats.gather, 2 * AG * buffMult(s, "scrap", os.clock()) * gatherMult(player), bud)
 		end
 	end)
 	return true
@@ -681,6 +700,7 @@ end
 
 -- Жнец: взмах косы по всем зомби на поле
 A.harvest = function(c)
+	local bud = budget(c.player)
 	if not c.field then
 		return false
 	end
@@ -700,7 +720,7 @@ A.harvest = function(c)
 		end
 	end
 	for _, t in ipairs(tiles) do
-		acollect(c, c.d, t, 1.5)
+		acollect(c, c.d, t, 1.5, bud)
 	end
 	fx("harvest", { owner = c.player.UserId, key = c.d.key, pos = c.hrp.Position, radius = 12, points = points })
 	return true
@@ -708,6 +728,7 @@ end
 
 -- Тыквенный Король: хэллоуинская ночь на поле
 A.terror = function(c)
+	local bud = budget(c.player)
 	if not c.field then
 		return false
 	end
@@ -727,7 +748,7 @@ A.terror = function(c)
 			end
 		end
 		for _, t in ipairs(Fields.TilesNear(field, pos, 18)) do
-			Fields.Collect(player, t, d.stats.gather, 3 * AG * gatherMult(player))
+			Fields.Collect(player, t, d.stats.gather, 3 * AG * gatherMult(player), bud)
 		end
 		addBuff(s, "scrap", Config.AbilityBuff(2.5), 15)
 		if Config.HalloweenOn() then
