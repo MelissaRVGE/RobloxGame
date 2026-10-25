@@ -95,6 +95,14 @@ Config.RarityStats = {
 	Secret = { gather = 300, damage = 42, speed = 40, gatherTime = 1.0 },
 }
 
+-- Сбор ресурсов способностями (взрывы, волны, удары с орбиты и т.п.) идёт с этим множителем,
+-- чтобы способности не затмевали обычный сбор роя. Бонусная часть баффов «сбор xN» тоже умножается
+-- на него: x2 -> 1 + (2 - 1) * 0.4 = x1.4. Числа в описаниях способностей уже учитывают множитель.
+Config.AbilityGather = 0.4
+function Config.AbilityBuff(mult)
+	return 1 + (mult - 1) * Config.AbilityGather
+end
+
 -- ===== 24 ДРОНА =====
 -- look: body (ball/box/cyl/disc/diamond/skull), size, c1 (корпус), c2 (акцент), mat, eye, rotors, extras
 Config.Drones = {
@@ -129,7 +137,7 @@ Config.Drones = {
 		look = { body = "diamond", size = 1, c1 = C(120, 190, 255), c2 = C(225, 245, 255), mat = "Ice", eye = C(180, 240, 255), rotors = 4, extras = { "icicles", "snow" } } },
 	{ id = "magnet", name = "Magnet", rarity = "Rare",
 		desc = "A powerful electromagnet. Scrap flies right to it.",
-		ability = { id = "magnet", name = "Magnetic Field", cd = 16, desc = "Pulls scrap from every tile within 7 studs of you." },
+		ability = { id = "magnet", name = "Magnetic Field", cd = 16, desc = "Pulls a little scrap (x0.25) from every tile within 7 studs of you." },
 		look = { body = "ball", size = 1, c1 = C(40, 110, 230), c2 = C(150, 190, 255), mat = "Metal", eye = C(255, 255, 255), rotors = 4, extras = { "magnet" } } },
 	{ id = "volt", name = "Volt", rarity = "Rare",
 		desc = "A high-voltage drone with a Tesla coil.",
@@ -149,11 +157,11 @@ Config.Drones = {
 	-- EPIC (фиолетовые)
 	{ id = "plague", name = "Plague", rarity = "Epic",
 		desc = "Sprays a toxin that eats through even dead flesh.",
-		ability = { id = "cloud", name = "Toxic Cloud", cd = 22, desc = "A cloud for 8 s: poisons zombies (10 damage/s) and slowly collects scrap within 5 studs." },
+		ability = { id = "cloud", name = "Toxic Cloud", cd = 22, desc = "A cloud for 8 s: poisons zombies (10 damage/s) and slowly collects scrap within 5 studs (x0.12/s)." },
 		look = { body = "ball", size = 1, c1 = C(110, 40, 170), c2 = C(120, 255, 80), mat = "Slate", eye = C(140, 255, 90), rotors = 4, extras = { "canister", "toxic" } } },
 	{ id = "phantom", name = "Phantom", rarity = "Epic",
 		desc = "An experimental phase drone. Flies without rotors.",
-		ability = { id = "phase", name = "Phase Shift", cd = 18, desc = "Teleports around the field and collects 6 random tiles with an x1.5 bonus." },
+		ability = { id = "phase", name = "Phase Shift", cd = 18, desc = "Teleports around the field and collects 6 random tiles (x0.6)." },
 		look = { body = "diamond", size = 1, c1 = C(170, 90, 255), c2 = C(230, 200, 255), mat = "Glass", eye = C(240, 220, 255), rotors = 0, extras = { "ghost" } } },
 	{ id = "inferno", name = "Inferno", rarity = "Epic",
 		desc = "A flamethrower drone. Always burning inside.",
@@ -162,39 +170,39 @@ Config.Drones = {
 		mods = { damage = 1.3 } },
 	{ id = "overclock", name = "Overclock", rarity = "Epic",
 		desc = "A command drone with an overclocked CPU.",
-		ability = { id = "overclock", name = "Overclock", cd = 30, desc = "Overclocks the whole swarm: gather and attack speed x1.35 for 8 s. Multiple Overclocks don't stack." },
+		ability = { id = "overclock", name = "Overclock", cd = 30, desc = "Overclocks the whole swarm: gather and attack speed x1.2 for 8 s. Multiple Overclocks don't stack." },
 		look = { body = "cyl", size = 1, c1 = C(140, 50, 220), c2 = C(255, 90, 255), mat = "Metal", eye = C(255, 120, 255), rotors = 4, extras = { "speedtrail" } } },
 	{ id = "drill", name = "Driller", rarity = "Epic",
 		desc = "A mining drone with a diamond drill. Digs scrap up from underground.",
-		ability = { id = "quake", name = "Seismic Drill", cd = 16, desc = "Bores into the ground: collects tiles within 5 studs x1.6 and stuns zombies within 10 studs (−60% speed for 3 s, 20 damage)." },
+		ability = { id = "quake", name = "Seismic Drill", cd = 16, desc = "Bores into the ground: collects tiles within 5 studs (x0.65) and stuns zombies within 10 studs (−60% speed for 3 s, 20 damage)." },
 		look = { body = "cyl", size = 1, c1 = C(120, 50, 190), c2 = C(255, 140, 30), mat = "Metal", eye = C(255, 160, 50), rotors = 4, extras = { "drilldust" } },
 		mods = { gather = 1.1, speed = 0.9 } },
 
 	-- LEGENDARY (жёлтые)
 	{ id = "goliath", name = "Goliath", rarity = "Legendary",
 		desc = "A heavy combat drone with an orbital strike targeter.",
-		ability = { id = "orbital", name = "Orbital Strike", cd = 22, desc = "A strike from orbit: 400 damage within 20 studs and x2 scrap collection within 8 studs." },
+		ability = { id = "orbital", name = "Orbital Strike", cd = 22, desc = "A strike from orbit: 400 damage within 20 studs and collects scrap within 8 studs (x0.8)." },
 		look = { body = "box", size = 1.3, c1 = C(255, 195, 30), c2 = C(40, 35, 30), mat = "DiamondPlate", eye = C(255, 80, 30), rotors = 6, extras = { "cannon", "antenna" } },
 		mods = { damage = 1.3 } },
 	{ id = "midas", name = "Midas", rarity = "Legendary",
 		desc = "Everything it touches turns to gold.",
-		ability = { id = "gold", name = "Golden Touch", cd = 24, desc = "12 nearby tiles turn golden for 18 s and give x5 scrap." },
+		ability = { id = "gold", name = "Golden Touch", cd = 24, desc = "12 nearby tiles turn golden for 18 s and give x2.6 scrap." },
 		look = { body = "ball", size = 1.1, c1 = C(255, 205, 50), c2 = C(255, 245, 200), mat = "Foil", eye = C(255, 255, 255), rotors = 4, extras = { "sparkles" } },
 		mods = { gather = 1.2 } },
 	{ id = "queen", name = "Swarm Queen", rarity = "Legendary",
 		desc = "A mother drone. Builds mini drones in mid-flight.",
-		ability = { id = "swarm", name = "Swarm", cd = 30, desc = "Releases 6 mini drones for 18 s that collect scrap alongside the swarm." },
+		ability = { id = "swarm", name = "Swarm", cd = 30, desc = "Releases 6 mini drones for 18 s that collect a little scrap alongside the swarm." },
 		look = { body = "diamond", size = 1.15, c1 = C(255, 180, 40), c2 = C(130, 70, 15), mat = "Metal", eye = C(255, 120, 0), rotors = 4, extras = { "crown", "wings", "orbit" } } },
 	{ id = "tempest", name = "Stormbringer", rarity = "Legendary",
 		desc = "A weather drone that learned to summon storms.",
-		ability = { id = "storm", name = "Storm Front", cd = 30, desc = "A storm over the field for 10 s: every second, lightning hits 2 zombies (45 damage) and knocks scrap out of 2 nearby tiles x1.5." },
+		ability = { id = "storm", name = "Storm Front", cd = 30, desc = "A storm over the field for 10 s: every second, lightning hits 2 zombies (45 damage) and knocks scrap out of 2 nearby tiles (x0.6)." },
 		look = { body = "disc", size = 1.1, c1 = C(255, 200, 40), c2 = C(30, 40, 80), mat = "Metal", eye = C(110, 210, 255), rotors = 4, extras = { "lightning", "storm" } },
 		mods = { damage = 1.2, speed = 1.1 } },
 
 	-- MYTHIC (радужные)
 	{ id = "prism", name = "Prism", rarity = "Mythic",
 		desc = "A crystal drone that refracts light into pure energy.",
-		ability = { id = "prism", name = "Rainbow Resonance", cd = 40, desc = "All scrap collected x2 for 15 s. Multiple Prisms don't stack." },
+		ability = { id = "prism", name = "Rainbow Resonance", cd = 40, desc = "All scrap collected x1.4 for 15 s. Multiple Prisms don't stack." },
 		look = { body = "diamond", size = 1.15, c1 = C(255, 255, 255), c2 = C(255, 255, 255), mat = "Glass", eye = C(255, 255, 255), rotors = 4, extras = { "prism", "orbit", "sparkles" } } },
 	{ id = "necro", name = "Necrodrone", rarity = "Mythic",
 		desc = "Built from the skull of the first zombie. They say it can hear the dead.",
@@ -203,18 +211,18 @@ Config.Drones = {
 		mods = { damage = 1.3 } },
 	{ id = "chrono", name = "Chronos", rarity = "Mythic",
 		desc = "Clockwork from the future. To it, time is just another resource.",
-		ability = { id = "timewarp", name = "Time Loop", cd = 40, desc = "Rewinds time: tiles within 16 studs refill, zombies on the field are slowed for 6 s, and the swarm works x1.6 faster for 12 s." },
+		ability = { id = "timewarp", name = "Time Loop", cd = 40, desc = "Rewinds time: tiles within 16 studs refill, zombies on the field are slowed for 6 s, and the swarm works x1.4 faster for 12 s." },
 		look = { body = "disc", size = 1.15, c1 = C(230, 190, 110), c2 = C(90, 230, 255), mat = "Metal", eye = C(120, 240, 255), rotors = 4, extras = { "clock", "sparkles" } },
 		mods = { speed = 1.25 } },
 
 	-- SECRET (красный)
 	{ id = "apocalypse", name = "Apocalypse", rarity = "Secret",
 		desc = "The “Omega” prototype. It was never supposed to exist.",
-		ability = { id = "doomsday", name = "Doomsday", cd = 45, desc = "Nuclear strike: takes 70% health from every zombie (8000 to the boss), collects scrap within 20 studs x3 and gives x3 gathering for 15 s." },
+		ability = { id = "doomsday", name = "Doomsday", cd = 45, desc = "Nuclear strike: takes 70% health from every zombie (8000 to the boss), collects scrap within 16 studs (x1.2) and gives x1.8 gathering and x1.3 swarm speed for 15 s." },
 		look = { body = "box", size = 1.4, c1 = C(28, 14, 16), c2 = C(255, 25, 30), mat = "CorrodedMetal", eye = C(255, 0, 0), rotors = 6, extras = { "spikes", "flame", "cannon" } } },
 	{ id = "singularity", name = "Singularity", rarity = "Secret",
 		desc = "A tiny black hole is locked in its core. Better not look inside.",
-		ability = { id = "blackhole", name = "Event Horizon", cd = 55, desc = "A black hole for 6 s: every second it takes 12% health from zombies within 25 studs (1500 to the boss) and sucks in scrap from tiles within 14 studs x1.5. x2 reward for kills." },
+		ability = { id = "blackhole", name = "Event Horizon", cd = 55, desc = "A black hole for 6 s: every second it takes 12% health from zombies within 25 studs (1500 to the boss) and sucks in scrap from tiles within 14 studs (x0.6). x2 reward for kills." },
 		look = { body = "ball", size = 1.35, c1 = C(14, 10, 18), c2 = C(255, 30, 50), mat = "Basalt", eye = C(255, 40, 60), rotors = 6, extras = { "void" } },
 		mods = { gather = 1.1 } },
 }
@@ -224,38 +232,38 @@ Config.Drones = {
 local HALLOWEEN_DRONES = {
 	{ id = "gourd", name = "Gourdling", rarity = "Uncommon", event = "halloween",
 		desc = "A carved pumpkin that learned to fly. Still smells of pie.",
-		ability = { id = "pumpkinbomb", name = "Pumpkin Bomb", cd = 8, desc = "Lobs a pumpkin at the nearest zombie: 22 damage to every zombie within 8 studs of the impact." },
+		ability = { id = "pumpkinbomb", name = "Pumpkin Bomb", cd = 8, desc = "Lobs a pumpkin at the nearest zombie: 18 damage to every zombie within 8 studs of the impact." },
 		look = { body = "ball", size = 1, c1 = C(255, 140, 30), c2 = C(60, 120, 40), mat = "SmoothPlastic", eye = C(255, 220, 60), rotors = 4, extras = { "candle" } } },
 	{ id = "batbot", name = "Bat Bot", rarity = "Uncommon", event = "halloween",
 		desc = "Sleeps upside down on the charging station. Sees in the dark with sonar.",
-		ability = { id = "echo", name = "Echo Swoop", cd = 10, desc = "Sonar finds 3 tiles within 14 studs and collects them x1.1." },
+		ability = { id = "echo", name = "Echo Swoop", cd = 12, desc = "Sonar finds 3 tiles within 14 studs and collects them." },
 		look = { body = "ball", size = 0.95, c1 = C(70, 66, 80), c2 = C(150, 40, 60), mat = "Metal", eye = C(255, 50, 60), rotors = 2, extras = { "bats" } } },
 	{ id = "candycorn", name = "Candy Corn", rarity = "Rare", event = "halloween",
 		desc = "Pure sugar on propellers. Nobody knows who built it, or why.",
-		ability = { id = "sugar", name = "Sugar Rush", cd = 18, desc = "Gives you 2 stacks of Speed Boost and collects tiles within 6 studs x0.8." },
+		ability = { id = "sugar", name = "Sugar Rush", cd = 18, desc = "Gives you 2 stacks of Speed Boost and collects tiles within 6 studs (x0.25)." },
 		look = { body = "diamond", size = 1, c1 = C(255, 170, 40), c2 = C(255, 250, 235), mat = "SmoothPlastic", eye = C(255, 255, 255), rotors = 4, extras = { "sparkles" } } },
 	{ id = "spider", name = "Widow", rarity = "Rare", event = "halloween",
 		desc = "Eight legs, eight eyes, one goal: keep zombies stuck in place.",
-		ability = { id = "web", name = "Web Trap", cd = 10, desc = "Webs every zombie within 20 studs: −60% speed for 6 s and 15 damage." },
+		ability = { id = "web", name = "Web Trap", cd = 10, desc = "Webs every zombie within 20 studs: −60% speed for 5 s and 10 damage." },
 		look = { body = "ball", size = 1, c1 = C(40, 70, 160), c2 = C(220, 225, 235), mat = "Metal", eye = C(90, 230, 255), rotors = 4, extras = { "web" } },
 		mods = { damage = 1.2 } },
 	{ id = "wraith", name = "Wraith", rarity = "Epic", event = "halloween",
 		desc = "A restless spirit bound to a drone core. It never stops wandering the fields.",
-		ability = { id = "haunt", name = "Haunting", cd = 16, desc = "Haunts the field: hits up to 5 zombies within 26 studs for 50 damage and collects 5 random tiles nearby x1.3." },
+		ability = { id = "haunt", name = "Haunting", cd = 16, desc = "Haunts the field: hits up to 5 zombies within 26 studs for 50 damage and collects 5 random tiles nearby (x0.5)." },
 		look = { body = "diamond", size = 1.05, c1 = C(120, 60, 190), c2 = C(200, 160, 255), mat = "Glass", eye = C(220, 180, 255), rotors = 4, extras = { "ghost", "wisps" } } },
 	{ id = "jackodrone", name = "Jack-o'-Drone", rarity = "Legendary", event = "halloween",
 		desc = "The king of the pumpkin patch. Its candle has been burning for a hundred years.",
-		ability = { id = "lantern", name = "Lantern Blaze", cd = 24, desc = "A blast of lantern fire: 260 damage within 18 studs and tiles within 10 studs collected x2." },
+		ability = { id = "lantern", name = "Lantern Blaze", cd = 24, desc = "A blast of lantern fire: 260 damage within 18 studs and collects tiles within 8 studs (x0.8)." },
 		look = { body = "ball", size = 1.2, c1 = C(255, 150, 30), c2 = C(40, 30, 20), mat = "SmoothPlastic", eye = C(255, 200, 40), rotors = 4, extras = { "candle", "flame", "sparkles" } },
 		mods = { damage = 1.2 } },
 	{ id = "reaper", name = "Reaper", rarity = "Mythic", event = "halloween",
 		desc = "It comes for every zombie in the end. With a drone-sized scythe.",
-		ability = { id = "harvest", name = "Harvest Moon", cd = 38, desc = "One swing of the scythe takes 40% health from every zombie on the field (2500 to the boss, x2 reward) and collects tiles within 12 studs x1.5." },
+		ability = { id = "harvest", name = "Harvest Moon", cd = 38, desc = "One swing of the scythe takes 40% health from every zombie on the field (2500 to the boss, x2 reward) and collects tiles within 12 studs (x0.6)." },
 		look = { body = "skull", size = 1.2, c1 = C(25, 22, 30), c2 = C(170, 255, 120), mat = "Slate", eye = C(150, 255, 110), rotors = 4, extras = { "souls", "wisps" } },
 		mods = { damage = 1.3 } },
 	{ id = "pumpkinking", name = "Pumpkin King", rarity = "Secret", event = "halloween",
 		desc = "Ruler of Halloween night. When it rises, the whole field burns orange.",
-		ability = { id = "terror", name = "Night of Terror", cd = 50, desc = "Halloween night falls on the field: takes 70% health from every zombie (8000 to the boss, x2 reward), collects tiles within 18 studs x3, gives x2.5 gathering for 15 s and +3 🎃." },
+		ability = { id = "terror", name = "Night of Terror", cd = 45, desc = "Halloween night falls on the field: takes 70% health from every zombie (8000 to the boss, x2 reward), collects tiles within 18 studs (x1.2), gives x1.6 gathering for 15 s and +3 🎃." },
 		look = { body = "ball", size = 1.4, c1 = C(255, 110, 20), c2 = C(30, 10, 40), mat = "SmoothPlastic", eye = C(255, 60, 20), rotors = 6, extras = { "flame", "candle", "wisps" } } },
 }
 for _, d in ipairs(HALLOWEEN_DRONES) do
@@ -265,7 +273,7 @@ end
 -- Мини-дрон (призывается Королевой роя, в гаче не выпадает)
 Config.MiniDrone = { id = "mini", name = "Mini Drone", rarity = "Legendary",
 	look = { body = "ball", size = 0.6, c1 = C(255, 200, 60), c2 = C(90, 55, 10), mat = "Metal", eye = C(255, 120, 0), rotors = 2, extras = {} },
-	mods = { gather = 0.5, damage = 0 } }
+	mods = { gather = 0.25, damage = 0 } }
 
 Config.DroneById = {}
 Config.DronesByRarity = {} -- пул обычной гачи и капсул (без дронов событий)
