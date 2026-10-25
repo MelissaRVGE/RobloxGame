@@ -1112,7 +1112,7 @@ local function updateHUD(d)
 		end
 	end
 	U.fadeVisible(bag.sub, kinds > 0)
-	bag.sub.Text = ("%d/%d"):format(kinds, ItemsCfg.BagSlots)
+	bag.sub.Text = tostring(kinds)
 	-- задания: сколько можно сдать прямо сейчас
 	local qb = hud.buttons.quests
 	local ready = QuestUI.ReadyCount()

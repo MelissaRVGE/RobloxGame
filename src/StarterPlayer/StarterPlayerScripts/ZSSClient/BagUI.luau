@@ -337,7 +337,7 @@ function BagUI.ShowBossReward(d)
 	end
 	reward(Icons.gem, "+" .. U.fmt(d.gems), C(120, 230, 255))
 	reward(Icons.battery, "+" .. U.fmt(d.batteries), T.Battery)
-	new("TextLabel", { Position = UDim2.fromOffset(16, 150), Size = UDim2.new(1, -32, 0, 56), BackgroundTransparency = 1, Font = Enum.Font.GothamBold, TextWrapped = true, TextSize = 14, Text = (#(d.items or {}) > 0) and ("Finds: " .. table.concat(d.items, ", ")) or "Backpack overflowing, the items didn't fit", TextColor3 = C(255, 230, 200), ZIndex = 41, Parent = f })
+	new("TextLabel", { Position = UDim2.fromOffset(16, 150), Size = UDim2.new(1, -32, 0, 56), BackgroundTransparency = 1, Font = Enum.Font.GothamBold, TextWrapped = true, TextSize = 14, Text = (#(d.items or {}) > 0) and ("Finds: " .. table.concat(d.items, ", ")) or "No finds this time", TextColor3 = C(255, 230, 200), ZIndex = 41, Parent = f })
 	local ok = api.button({ AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -12), Size = UDim2.fromOffset(160, 34), BackgroundColor3 = C(255, 190, 60), Font = Enum.Font.GothamBlack, TextSize = 16, Text = "CLAIM", TextColor3 = C(40, 20, 0), ZIndex = 42, Parent = f }, function()
 		dismiss()
 	end)

@@ -31,7 +31,7 @@ I.List = {
 	{ id = "blueprint", name = "Drone Blueprint", tier = "Epic", value = 2500, use = { gems = 2 }, desc = "Use it to get 2 gems." },
 	{ id = "plutonium", name = "Plutonium Rod", tier = "Epic", value = 4000, use = { energy = 1 }, desc = "Fully charges the whole swarm." },
 	{ id = "mutantheart", name = "Mutant Heart", tier = "Epic", value = 5000, use = { heal = 9999 }, desc = "Still beating. Fully restores health." },
-	{ id = "goldbar", name = "Gold Bar", tier = "Legendary", value = 15000, desc = "From the vault of a fallen bank. Sells for a lot." },
+	{ id = "goldbar", name = "Gold Bar", tier = "Legendary", value = 15000, desc = "From the vault of a fallen bank. Prized by quest givers and crafters." },
 	-- капсулы дронов (аналог Королевского желе и яиц): бесплатная крутка гачи где угодно
 	{ id = "capsule", name = "Firmware Capsule", tier = "Epic", value = 3000, w = 0.2, use = { pull = true }, desc = "Flashes a random drone from the gacha. Counts as a normal pull (with pity)." },
 	{ id = "goldcapsule", name = "Gold Capsule", tier = "Legendary", value = 12000, w = 0.15, use = { pull = "Epic" }, desc = "A gacha drone of Epic rarity or higher." },
@@ -54,8 +54,7 @@ I.DropChance = {
 	zombieKill = 0.12, -- за убийство зомби
 	consumKill = 0.05, -- расходник из магазина за убийство зомби (как в BSS)
 }
-I.BagSlots = 20 -- сколько разных предметов помещается (стаки до 99)
-I.StackMax = 99
+-- рюкзак находок безлимитный: любое число видов предметов, стаки без потолка
 
 -- выбрать случайный предмет; fieldIndex сдвигает шансы к редким (дальние локации богаче)
 function I.Roll(rng, fieldIndex, luck)

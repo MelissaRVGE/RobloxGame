@@ -24,7 +24,7 @@ function Loot.Give(player, item, pos)
 	local now = os.clock()
 	if not lastFullWarn[player] or now - lastFullWarn[player] > 20 then
 		lastFullWarn[player] = now
-		Remotes.Notify:FireClient(player, "🎒 No room in your backpack for the find “" .. item.name .. "”. Sell or use some items!", "bad")
+		Remotes.Notify:FireClient(player, "🎒 No room in your backpack for the find “" .. item.name .. "”.", "bad")
 	end
 	return false
 end
