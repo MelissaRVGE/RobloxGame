@@ -1,10 +1,10 @@
 local Placer = {}
 local lib = game.ServerStorage.ZSS_ThemeLib
 local Map = workspace.Map
-local Z = {140, 220, 300, 380, 480}
+local Z = {192, 304, 416, 528, 668}
 local rp = RaycastParams.new(); rp.FilterType = Enum.RaycastFilterType.Include; rp.FilterDescendantsInstances = {workspace.Terrain}
 function Placer.ground(x, z) local r = workspace:Raycast(Vector3.new(x, 200, z), Vector3.new(0, -400, 0), rp); if r then return r.Position.Y, r.Material end end
-function Placer.nearRamp(x, z, r) for k = 1, 5 do if math.abs(z - Z[k]) < 22 + r and math.abs(x) < 20 + r then return true end end return false end
+function Placer.nearRamp(x, z, r) for k = 1, 5 do if math.abs(z - Z[k]) < 22 + r and math.abs(x) < 28 + r then return true end end return false end
 function Placer.folder(name)
   local root = Map:FindFirstChild("ThemeDecor") or Instance.new("Folder"); root.Name = "ThemeDecor"; root.Parent = Map
   local f = root:FindFirstChild(name) or Instance.new("Folder"); f.Name = name; f.Parent = root
@@ -28,7 +28,7 @@ function Placer.try(name, x, z, parent, opts, rng)
   local fx0 = opts.foot or 1
   for _, d in ipairs({{-1,-1},{1,-1},{-1,1},{1,1},{0,-1},{0,1},{-1,0},{1,0}}) do
     local c = cf * Vector3.new(d[1] * sz.X * 0.45 * fx0, 0, d[2] * sz.Z * 0.45 * fx0)
-    if math.abs(c.X) > 150 then m:Destroy(); return nil end
+    if math.abs(c.X) > 210 then m:Destroy(); return nil end
     local gg, mm = Placer.ground(c.X, c.Z)
     if not gg or math.abs(gg - g) > tol or (mm == Enum.Material.Water and not opts.water) then m:Destroy(); return nil end
   end

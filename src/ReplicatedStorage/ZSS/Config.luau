@@ -302,7 +302,7 @@ Config.Halloween = {
 	enabled = true,
 	-- котёл-гача стоит у каменных столбов за северо-восточным углом базы (ведьма осталась в роще за южной стеной);
 	-- tp — куда ставит телепорт (карта и кнопка в HUD): сразу за аркой-входом, лицом к котлу
-	zone = { center = Vector3.new(50, 0, 84), radius = 22, tp = Vector3.new(34, 4, 84) },
+	zone = { center = Vector3.new(70, 0, 112), radius = 22, tp = Vector3.new(54, 4, 112) },
 	-- тыквы на полях: столько светящихся тыкв на поле одновременно; сбор даёт value тыкв на любом поле
 	pumpkins = { perField = 4, value = 1, respawn = { 40, 80 } },
 	-- Призрачная ночь: ночь длиннее, часть зомби — призраки в костюмах
@@ -365,25 +365,25 @@ end
 -- tier = номер яруса (0 — у базы)
 -- res = ресурсы поля {id, доля %} (первый — главный); tileMult — средний множитель сбора плиток
 Config.Fields = {
-	{ id = "wasteland", name = "Wasteland", req = 0, mult = 1, center = Vector3.new(-58, 0, 100), size = 48, gate = "east", tier = 0,
+	{ id = "wasteland", name = "Wasteland", req = 0, mult = 1, center = Vector3.new(-82, 0, 136), size = 48, gate = "east", tier = 0,
 		res = { { "rust", 75 }, { "chips", 25 } }, tileMult = 1.09, ground = { mat = "SmoothPlastic", color = C(222, 178, 106) },
 		zombies = { max = 5, hp = 150, damage = 4, reward = 30, speed = 7, name = "Walker" } },
-	{ id = "deadcity", name = "Dead City", req = 5, mult = 2.5, center = Vector3.new(58, 12, 180), size = 48, gate = "west", tier = 1,
+	{ id = "deadcity", name = "Dead City", req = 5, mult = 2.5, center = Vector3.new(82, 12, 248), size = 48, gate = "west", tier = 1,
 		res = { { "chips", 65 }, { "rust", 25 }, { "brass", 10 } }, tileMult = 1.17, ground = { mat = "SmoothPlastic", color = C(150, 160, 178) },
 		zombies = { max = 6, hp = 400, damage = 9, reward = 90, speed = 8, name = "Townie" } },
 	-- низина на 2-м ярусе: поле ниже уровня яруса, вокруг топь и вода
-	{ id = "swamp", name = "Rotten Swamp", req = 10, mult = 5, center = Vector3.new(-58, 20, 260), size = 48, gate = "east", tier = 2,
+	{ id = "swamp", name = "Rotten Swamp", req = 10, mult = 5, center = Vector3.new(-82, 20, 360), size = 48, gate = "east", tier = 2,
 		res = { { "bio", 100 } }, tileMult = 1.37, ground = { mat = "SmoothPlastic", color = C(92, 178, 74) },
 		zombies = { max = 7, hp = 900, damage = 14, reward = 200, speed = 7, name = "Drowner" } },
-	{ id = "radzone", name = "Radioactive Zone", req = 15, mult = 9, center = Vector3.new(58, 36, 340), size = 48, gate = "west", tier = 3,
+	{ id = "radzone", name = "Radioactive Zone", req = 15, mult = 9, center = Vector3.new(82, 36, 472), size = 48, gate = "west", tier = 3,
 		res = { { "uranium", 65 }, { "bio", 25 }, { "chips", 10 } }, tileMult = 1.34, ground = { mat = "SmoothPlastic", color = C(132, 204, 62) },
 		zombies = { max = 8, hp = 2000, damage = 20, reward = 400, speed = 9, name = "Mutant" } },
 	-- вершина: последний ярус, главная дорога упирается прямо в ворота
-	{ id = "military", name = "Military Base", req = 25, mult = 16, center = Vector3.new(0, 60, 530), size = 48, gate = "south", tier = 5,
+	{ id = "military", name = "Military Base", req = 25, mult = 16, center = Vector3.new(0, 60, 738), size = 48, gate = "south", tier = 5,
 		res = { { "brass", 70 }, { "rust", 30 } }, tileMult = 1.18, ground = { mat = "SmoothPlastic", color = C(190, 178, 112) },
 		zombies = { max = 9, hp = 12000, damage = 30, reward = 1500, speed = 10, name = "Soldier" } },
 	-- логово босса: без лома, один гигантский зомби на 500 000 HP (рассчитан на группу)
-	{ id = "boss", name = "Colossus Lair", req = 20, mult = 0, center = Vector3.new(-70, 48, 430), size = 84, gate = "east", tier = 4, boss = true,
+	{ id = "boss", name = "Colossus Lair", req = 20, mult = 0, center = Vector3.new(-98, 48, 598), size = 84, gate = "east", tier = 4, boss = true,
 		zombies = { max = 0, hp = 500000, damage = 40, reward = 0, speed = 9, name = "Colossus" } },
 }
 
@@ -409,16 +409,16 @@ if Config.Halloween.enabled then
 end
 
 -- Границы карты: невидимые стены по подножию гор (X/Z) и потолок (Y)
-Config.MapBounds = { minX = -158, maxX = 148, minZ = -92, maxZ = 596, yMin = -40, yMax = 260 }
+Config.MapBounds = { minX = -221, maxX = 207, minZ = -133, maxZ = 830, yMin = -40, yMax = 260 }
 
 -- Ускорение, которое появляется на полях
 Config.SpeedPickup = { perField = 2, minDelay = 15, maxDelay = 45, bonus = 10, duration = 20, lifetime = 60 }
 
 -- Магазин стоит справа от базы (вход смотрит на запад, к восточному выходу базы)
-Config.ShopZone = { center = Vector3.new(98, 0, 0), radius = 48 }
+Config.ShopZone = { center = Vector3.new(138, 0, -4), radius = 48 }
 
 -- гача стоит слева от базы (арка смотрит на восток, к западным воротам базы)
-Config.GachaZone = { center = Vector3.new(-100, 0, 0), radius = 40 }
+Config.GachaZone = { center = Vector3.new(-140, 0, -4), radius = 40 }
 Config.BasePos = Vector3.new(0, 4, -6)
 
 -- ===== ЭНЕРГИЯ ДРОНОВ =====
