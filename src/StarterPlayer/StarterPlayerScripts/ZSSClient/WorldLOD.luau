@@ -9,12 +9,13 @@ local L = {}
 
 -- радиусы в студах по уровню качества: свет, частицы, надписи на стенах, мелкий декор (0 = без ограничения)
 local RADIUS = {
-	[1] = { light = 70, emit = 60, gui = 70, decor = 130 },
-	[2] = { light = 150, emit = 120, gui = 150, decor = 240 },
+	[1] = { light = 70, emit = 60, gui = 100, decor = 130 },
+	[2] = { light = 150, emit = 120, gui = 170, decor = 240 },
 	[3] = { light = 240, emit = 200, gui = 0, decor = 0 },
 }
 local SMALL_PART = 3 -- деталь меньше этого по всем осям не отбрасывает тень на низком/среднем качестве
 local DECOR_PART = 8 -- деталь меньше этого по всем осям прячется вдали на низком/среднем качестве
+local SIGN_PART = 14 -- надписи прячем вдали только на табличках; большие SurfaceGui — это картинки земли/стен, их не трогаем
 local CELL = 48 -- мелкий декор собран в клетки сетки, чтобы не обходить тысячи деталей каждый раз
 -- группы карты, где лежит только декор (поля, NPC, ворота и доски лидеров не трогаем)
 local DECOR_GROUPS = { "Props", "Nature", "ThemeDecor", "Decor_Composed", "HalloweenZone", "Roads", "GachaZone", "ShopZone", "Base", "BossArena" }
@@ -73,6 +74,15 @@ local function addDecor(d)
 	end
 end
 
+local function isSign(g)
+	local p = g.Adornee or g.Parent
+	if not (p and p:IsA("BasePart")) then
+		return false
+	end
+	local s = p.Size
+	return math.max(s.X, s.Y, s.Z) < SIGN_PART
+end
+
 local function register(d)
 	if d:IsA("Light") then
 		if d:GetAttribute("ZSS_LODOn") == nil then
@@ -88,7 +98,7 @@ local function register(d)
 			d:SetAttribute("ZSS_LODOn", d.Enabled)
 		end
 		emitters[d] = true
-	elseif d:IsA("SurfaceGui") or d:IsA("BillboardGui") then
+	elseif d:IsA("BillboardGui") or (d:IsA("SurfaceGui") and isSign(d)) then
 		if d:GetAttribute("ZSS_LODMax") == nil then
 			d:SetAttribute("ZSS_LODMax", d.MaxDistance)
 		end
