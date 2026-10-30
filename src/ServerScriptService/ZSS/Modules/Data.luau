@@ -15,7 +15,7 @@ Data.Profiles = {}
 local store = nil
 do
 	local ok, res = pcall(function()
-		return DataStoreService:GetDataStore("ZSS_Profiles_v1")
+		return DataStoreService:GetDataStore("ZSS_Profiles_v2")
 	end)
 	if ok then
 		store = res

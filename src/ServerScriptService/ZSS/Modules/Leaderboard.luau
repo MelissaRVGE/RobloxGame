@@ -7,11 +7,11 @@ local DataStoreService = game:GetService("DataStoreService")
 local LB = {}
 local Data
 local BOARDS = {
-	{ id = "gems", store = "ZSS_LB_Gems_v1", field = "gems" },
-	{ id = "batteries", store = "ZSS_LB_Bats_v1", field = "batteries" },
-	{ id = "total", store = "ZSS_LB_Total_v1", field = "totalBatteries" },
-	{ id = "kills", store = "ZSS_LB_Kills_v1", field = "kills" },
-	{ id = "pumpkins", store = "ZSS_LB_Pumpkins_v1", field = "totalPumpkins" },
+	{ id = "gems", store = "ZSS_LB_Gems_v2", field = "gems" },
+	{ id = "batteries", store = "ZSS_LB_Bats_v2", field = "batteries" },
+	{ id = "total", store = "ZSS_LB_Total_v2", field = "totalBatteries" },
+	{ id = "kills", store = "ZSS_LB_Kills_v2", field = "kills" },
+	{ id = "pumpkins", store = "ZSS_LB_Pumpkins_v2", field = "totalPumpkins" },
 }
 local stores = {}
 local nameCache = {}
