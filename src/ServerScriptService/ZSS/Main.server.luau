@@ -104,6 +104,7 @@ local function onPlayerAdded(player)
 	local p = Data.Load(player)
 	Equipment.Reconcile(p)
 	Donate.CheckPasses(player)
+	task.spawn(Donate.CheckPolicy, player)
 	Drones.Add(player)
 	Data.Sync(player)
 	-- как в BSS: дроны ждут в улье, пока игрок не займёт станцию

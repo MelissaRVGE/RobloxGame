@@ -48,6 +48,11 @@ local function owned(o)
 	return o.once and d.donateOnce and d.donateOnce[o.key] == true
 end
 
+-- гемы за Robux не продаются там, где Roblox запрещает платные случайные предметы (атрибут ставит сервер)
+local function regionLocked(o)
+	return o.grant ~= nil and (o.grant.gems or 0) > 0 and player:GetAttribute("ZSS_NoPaidRandom") == true
+end
+
 -- ===== карточки =====
 local function priceText(o)
 	return ROBUX .. " " .. U.fmt(o.price)
@@ -61,6 +66,12 @@ local function styleBuy(card)
 		U.gradTo(card.buyGrad, C(120, 125, 135), C(70, 74, 82))
 		card.buyStroke.Color = C(170, 175, 185)
 		card.check.Visible = true
+	elseif regionLocked(o) then
+		b.Text = "🌍 NOT AVAILABLE"
+		b.TextSize = 14
+		U.gradTo(card.buyGrad, C(120, 125, 135), C(70, 74, 82))
+		card.buyStroke.Color = C(170, 175, 185)
+		card.check.Visible = false
 	else
 		b.Text = card.note or (card.busy and "• • •") or priceText(o)
 		b.TextSize = card.note and 14 or 20
@@ -94,6 +105,11 @@ local function buy(card)
 		if owned(o) then
 			U.pulseScale(card.buy, 1.08)
 		end
+		return
+	end
+	if regionLocked(o) then
+		api.toast("🌍 Gem purchases aren't available in your region. You can still earn gems in the game!", "info")
+		U.pulseScale(card.buy, 1.08)
 		return
 	end
 	card.busy = true
@@ -921,6 +937,7 @@ function DUI.Init(a)
 			refresh()
 		end
 	end)
+	player:GetAttributeChangedSignal("ZSS_NoPaidRandom"):Connect(refresh)
 	Remotes:WaitForChild("DonateDone").OnClientEvent:Connect(enqueue)
 	RunService.RenderStepped:Connect(function(dt)
 		if not win.Visible then

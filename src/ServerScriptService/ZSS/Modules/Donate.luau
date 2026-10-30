@@ -4,6 +4,7 @@
 -- Пропуска (Game Passes) проверяются при входе и сразу после покупки, бонусы — в Equipment.Apply.
 local Players = game:GetService("Players")
 local MarketplaceService = game:GetService("MarketplaceService")
+local PolicyService = game:GetService("PolicyService")
 local RunService = game:GetService("RunService")
 local RS = game:GetService("ReplicatedStorage")
 
@@ -17,6 +18,7 @@ local Donate = {}
 local Data, Equipment
 local MAX_RECEIPTS = 200 -- сколько последних покупок помнить в профиле
 local pending = {} -- player -> { key, t } — какое окно оплаты открыто
+local policy = {} -- player -> true/false: платные случайные предметы запрещены (ответ PolicyService)
 
 local function notify(player, text, kind)
 	Remotes.Notify:FireClient(player, text, kind or "info")
@@ -81,6 +83,35 @@ local function setPass(player, p, o)
 	Equipment.Apply(player)
 	Data.MarkDirty(player)
 	return true
+end
+
+-- Гемы тратятся на гачу дронов, поэтому по правилам Roblox гемы за Robux — платные случайные предметы.
+-- Там, где они запрещены (PolicyService.ArePaidRandomItemsRestricted), гемы за Robux не продаются:
+-- гача остаётся, но крутится только на заработанных в игре гемах.
+local function grantsGems(o)
+	return o.grant ~= nil and (o.grant.gems or 0) > 0
+end
+
+local function checkPolicy(player)
+	if policy[player] ~= nil then
+		return policy[player]
+	end
+	local ok, info = pcall(PolicyService.GetPolicyInfoForPlayerAsync, PolicyService, player)
+	if not ok or type(info) ~= "table" then
+		-- сервис не ответил: не продаём гемы, пока не узнаем точно (спросим снова при следующей покупке)
+		player:SetAttribute("ZSS_NoPaidRandom", true)
+		return true
+	end
+	local restricted = info.ArePaidRandomItemsRestricted == true
+	if player.Parent then
+		policy[player] = restricted
+		player:SetAttribute("ZSS_NoPaidRandom", restricted)
+	end
+	return restricted
+end
+
+function Donate.CheckPolicy(player)
+	checkPolicy(player)
 end
 
 -- проверить купленные пропуска (при входе): результат сохраняем, чтобы бонус работал,
@@ -165,6 +196,9 @@ function Donate.Buy(player, key)
 	if not o.id or o.id <= 0 then
 		return { ok = false, err = "⏳ Coming soon!", soon = true }
 	end
+	if grantsGems(o) and checkPolicy(player) then
+		return { ok = false, err = "🌍 Gem purchases aren't available in your region. You can still earn gems in the game!", region = true }
+	end
 	local last = pending[player]
 	if last and os.clock() - last.t < 1 then
 		return { ok = false, err = "Wait a second" }
@@ -215,6 +249,7 @@ function Donate.Init(dataModule, equipmentModule)
 	Remotes.DonateBuy.OnServerInvoke = Donate.Buy
 	Players.PlayerRemoving:Connect(function(player)
 		pending[player] = nil
+		policy[player] = nil
 	end)
 	Donate.CheckPasses = function(player)
 		task.spawn(checkPasses, player)
