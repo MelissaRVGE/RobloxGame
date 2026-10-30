@@ -29,7 +29,7 @@ local widgets = {}
 local ACCENT = C(90, 200, 255)
 
 S.Defaults = {
-	preset = "high",
+	preset = "auto",
 	shadows = true,
 	effects = true,
 	particles = true,
@@ -48,10 +48,37 @@ S.Defaults = {
 S.Values = table.clone(S.Defaults)
 local loaded = false
 local saveToken = 0
+local autoLevel -- уровень, который выбрал режим AUTO (1..3)
+local autoDesc
+
+local LEVEL_NAME = { "low", "med", "high" }
+local LEVEL_LABEL = { "LOW", "MEDIUM", "HIGH" }
+local PRESETS
+
+-- AUTO: телефон — LOW, планшет — MEDIUM, компьютер — HIGH; дальше подстраивается под реальный FPS
+local function deviceLevel()
+	if UIS.TouchEnabled and not UIS.KeyboardEnabled then
+		local cam = workspace.CurrentCamera
+		local vp = cam and cam.ViewportSize or Vector2.new(800, 400)
+		return math.min(vp.X, vp.Y) >= 700 and 2 or 1
+	end
+	return 3
+end
 
 -- ===== ПРИМЕНЕНИЕ =====
 local function applyAll()
 	local v = S.Values
+	if v.preset == "auto" then
+		autoLevel = autoLevel or deviceLevel()
+		for k, x in pairs(PRESETS[LEVEL_NAME[autoLevel]]) do
+			v[k] = x
+		end
+		if autoDesc then
+			autoDesc.Text = "AUTO adjusts to your device and FPS (now: " .. LEVEL_LABEL[autoLevel] .. ")"
+		end
+	elseif autoDesc then
+		autoDesc.Text = "LOW for weak phones, HIGH for strong devices"
+	end
 	Lighting.GlobalShadows = v.shadows
 	for _, e in ipairs(Lighting:GetChildren()) do
 		if e:IsA("BloomEffect") or e:IsA("SunRaysEffect") or e:IsA("DepthOfFieldEffect") then
@@ -59,7 +86,7 @@ local function applyAll()
 		end
 	end
 	-- дальность фонарей/частиц и тени мелкого декора: по пресету, а в «своих» настройках — по тумблерам
-	local lv = v.preset == "low" and 1 or v.preset == "med" and 2 or v.preset == "high" and 3 or ((v.shadows and v.particles) and 3 or (v.particles and 2 or 1))
+	local lv = v.preset == "auto" and autoLevel or v.preset == "low" and 1 or v.preset == "med" and 2 or v.preset == "high" and 3 or ((v.shadows and v.particles) and 3 or (v.particles and 2 or 1))
 	WorldLOD.SetLevel(lv)
 	FX.Particles = v.particles and 1 or 0.35
 	FX.ShakeEnabled = v.shake
@@ -95,7 +122,7 @@ local function set(key, value)
 	end
 end
 
-local PRESETS = {
+PRESETS = {
 	low = { shadows = false, effects = false, particles = false },
 	med = { shadows = true, effects = false, particles = true },
 	high = { shadows = true, effects = true, particles = true },
@@ -125,9 +152,13 @@ local function toggle(page, order, key, iconText, title, desc)
 		U.play(U.Sounds.tap, 0.5, S.Values[key] and 0.9 or 1.2)
 		-- кнопка «пружинит» в сторону переключения
 		U.pulseSize(knob, UDim2.fromOffset(32, 22), UDim2.fromOffset(24, 24), 0.06, 0.35)
-		set(key, not S.Values[key])
-		if key == "shadows" or key == "effects" or key == "particles" then
+		-- ручной тумблер графики выключает пресет (и AUTO) до применения, иначе пресет его перезапишет
+		local gfx = key == "shadows" or key == "effects" or key == "particles"
+		if gfx then
 			S.Values.preset = "custom"
+		end
+		set(key, not S.Values[key])
+		if gfx then
 			for _, x in ipairs(widgets) do
 				if x.key == "preset" then
 					x.sync()
@@ -184,7 +215,13 @@ end
 
 local function segmented(page, order, key, iconText, title, desc, options)
 	local r = row(page, order, iconText, title, desc)
-	local holder = new("Frame", { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -14, 0.5, 0), Size = UDim2.fromOffset(234, 34), BackgroundColor3 = C(16, 20, 26), Parent = r }, { U.corner(10), U.pad(3), new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 3), SortOrder = Enum.SortOrder.LayoutOrder }) })
+	local holder = new("Frame", { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -14, 0.5, 0), Size = UDim2.fromOffset(math.max(234, 66 * #options), 34), BackgroundColor3 = C(16, 20, 26), Parent = r }, { U.corner(10), U.pad(3), new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 3), SortOrder = Enum.SortOrder.LayoutOrder }) })
+	-- подпись не залезает под кнопки, даже если их много
+	for _, l in ipairs(r:GetChildren()) do
+		if l:IsA("TextLabel") and l.Position.X.Offset == 48 then
+			l.Size = UDim2.new(1, -(holder.Size.X.Offset + 70), 0, l.Size.Y.Offset)
+		end
+	end
 	local btns = {}
 	for i, o in ipairs(options) do
 		local b = new("TextButton", { Size = UDim2.new(1 / #options, -2, 1, 0), BackgroundColor3 = C(16, 20, 26), Font = Enum.Font.GothamBlack, Text = o.label, TextSize = 13, TextColor3 = C(170, 180, 190), AutoButtonColor = false, LayoutOrder = i, Parent = holder }, { U.corner(8) })
@@ -192,6 +229,9 @@ local function segmented(page, order, key, iconText, title, desc, options)
 		U.pressFx(b, { hover = 1.04, hoverSound = false })
 		b.Activated:Connect(function()
 			U.play(U.Sounds.tap, 0.5, 1.1)
+			if o.value == "auto" then
+				autoLevel = nil -- заново выбрать по устройству
+			end
 			if o.apply then
 				for k, v in pairs(o.apply) do
 					S.Values[k] = v
@@ -443,11 +483,17 @@ local function build()
 	end
 	-- ГРАФИКА
 	local g = pages.graphics
-	segmented(g, 1, "preset", "⭐", "Graphics Quality", "Quick presets for weak and powerful devices", {
+	segmented(g, 1, "preset", "⭐", "Graphics Quality", "LOW for weak phones, HIGH for strong devices", {
+		{ value = "auto", label = "AUTO" },
 		{ value = "low", label = "LOW", apply = PRESETS.low },
 		{ value = "med", label = "MEDIUM", apply = PRESETS.med },
 		{ value = "high", label = "HIGH", apply = PRESETS.high },
 	})
+	for _, d in ipairs(g:GetDescendants()) do
+		if d:IsA("TextLabel") and d.Text == "LOW for weak phones, HIGH for strong devices" then
+			autoDesc = d
+		end
+	end
 	toggle(g, 2, "shadows", "🌗", "Shadows", "Soft shadows from the sun and lamps")
 	toggle(g, 3, "effects", "✨", "Post Effects", "Bloom and sun rays")
 	toggle(g, 4, "particles", "💥", "All Particles", "Turn off if the game lags")
@@ -608,13 +654,7 @@ function S.Init(a)
 			return
 		end
 		loaded = true
-		-- на телефоне без сохранённых настроек начинаем со «Среднего»: без пост-эффектов, ближе дальность света
-		if UIS.TouchEnabled and not UIS.KeyboardEnabled and not (d.settings and d.settings.preset) then
-			S.Values.preset = "med"
-			for k, v in pairs(PRESETS.med) do
-				S.Values[k] = v
-			end
-		end
+		-- без сохранённых настроек качество выбирает AUTO (телефон — LOW, компьютер — HIGH)
 		for k, v in pairs(d.settings or {}) do
 			if S.Defaults[k] ~= nil and typeof(v) == typeof(S.Defaults[k]) then
 				S.Values[k] = v
@@ -638,9 +678,38 @@ function S.Init(a)
 	end
 	-- стандартная камера может сбросить FOV — держим выбранное
 	local acc = 0
+	-- AUTO следит за FPS: долго тормозит — качество ниже, долго летает — обратно выше (не выше уровня устройства)
+	local fpsT, fpsN, slowFor, fastFor, cooldown = 0, 0, 0, 0, 8
 	RunService.RenderStepped:Connect(function(dt)
 		if win.Visible and S.gearIcon then
 			S.gearIcon.Rotation = (S.gearIcon.Rotation + dt * 30) % 360
+		end
+		fpsT += dt
+		fpsN += 1
+		if fpsT >= 2 then
+			local fps = fpsN / fpsT
+			fpsT, fpsN = 0, 0
+			cooldown -= 2
+			if S.Values.preset == "auto" and autoLevel and cooldown <= 0 then
+				slowFor = fps < 28 and slowFor + 2 or 0
+				fastFor = fps > 55 and fastFor + 2 or 0
+				local lv = autoLevel
+				if slowFor >= 6 and lv > 1 then
+					lv -= 1
+				elseif fastFor >= 40 and lv < deviceLevel() then
+					lv += 1
+				end
+				if lv ~= autoLevel then
+					autoLevel = lv
+					slowFor, fastFor, cooldown = 0, 0, 10
+					applyAll()
+					for _, w in ipairs(widgets) do
+						if w.sync then
+							w.sync()
+						end
+					end
+				end
+			end
 		end
 		acc += dt
 		if acc > 1 then
