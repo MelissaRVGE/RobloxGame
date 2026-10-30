@@ -691,10 +691,11 @@ function S.Init(a)
 			fpsT, fpsN = 0, 0
 			cooldown -= 2
 			if S.Values.preset == "auto" and autoLevel and cooldown <= 0 then
-				slowFor = fps < 28 and slowFor + 2 or 0
+				slowFor = fps < 24 and slowFor + 2 or 0
 				fastFor = fps > 55 and fastFor + 2 or 0
 				local lv = autoLevel
-				if slowFor >= 6 and lv > 1 then
+				-- на компьютере AUTO не опускается ниже MEDIUM (LOW только для телефонов)
+				if slowFor >= 6 and lv > (deviceLevel() == 3 and 2 or 1) then
 					lv -= 1
 				elseif fastFor >= 40 and lv < deviceLevel() then
 					lv += 1
