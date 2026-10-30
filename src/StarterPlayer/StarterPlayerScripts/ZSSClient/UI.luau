@@ -2544,6 +2544,7 @@ if Config.HalloweenOn() then
 		titleC2 = C(190, 70, 255),
 		titleStroke = C(30, 6, 0),
 		chance = Config.HalloweenChanceText,
+		weights = HG.weights,
 		pity = HG.pity,
 		hint = "🎃 Pumpkins: glowing pumpkins on the fields • ghost zombies at night • Pumpkin Colossus • Witch's quests",
 		hintBg = C(60, 30, 10),
@@ -2571,6 +2572,190 @@ if Config.HalloweenOn() then
 			return UI.InHalloweenZone()
 		end,
 	}
+end
+
+-- окно «все дроны и шансы»: каждый дрон баннера с точным шансом за одну крутку.
+-- Внутри редкости дрон выбирается равновероятно, поэтому шанс дрона = шанс редкости / число дронов этой редкости.
+local function oddsText(pct)
+	local s = string.format("%.4f", pct)
+	s = s:gsub("0+$", ""):gsub("%.$", "")
+	return s .. "%"
+end
+
+local function buildOdds(win, B, onClose)
+	local o = new("CanvasGroup", {
+		Name = "Odds",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.new(1, -24, 1, -24),
+		BackgroundColor3 = B.dark,
+		GroupTransparency = 1,
+		Visible = false,
+		ZIndex = 50,
+		Parent = win,
+	}, { U.corner(16), U.stroke(B.accent, 2, 0.2) })
+	new("UIScale", { Name = "Scale", Scale = 0.96, Parent = o })
+	-- клики не проходят сквозь окно к кнопкам гачи
+	new("TextButton", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "", AutoButtonColor = false, Parent = o })
+	new("TextLabel", {
+		Position = UDim2.fromOffset(20, 12),
+		Size = UDim2.new(1, -80, 0, 34),
+		BackgroundTransparency = 1,
+		Font = Enum.Font.GothamBlack,
+		Text = "ALL DRONES & ODDS",
+		TextSize = 26,
+		TextColor3 = C(255, 255, 255),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Parent = o,
+	}, { U.textStroke(C(0, 0, 0), 2) })
+	new("TextLabel", {
+		Position = UDim2.fromOffset(20, 44),
+		Size = UDim2.new(1, -80, 0, 16),
+		BackgroundTransparency = 1,
+		Font = Enum.Font.GothamBold,
+		Text = "Chance for each drone per single pull. Inside a rarity every drone is equally likely.",
+		TextSize = 13,
+		TextColor3 = T.Muted,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Parent = o,
+	})
+	local close = button({
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, -12, 0, 12),
+		Size = UDim2.fromOffset(40, 40),
+		BackgroundColor3 = T.Danger,
+		Font = Enum.Font.GothamBlack,
+		Text = "X",
+		TextSize = 20,
+		TextColor3 = C(255, 255, 255),
+		Parent = o,
+	}, onClose)
+	U.corner(10).Parent = close
+	local list = new("ScrollingFrame", {
+		Position = UDim2.fromOffset(16, 70),
+		Size = UDim2.new(1, -32, 1, -124),
+		BackgroundTransparency = 1,
+		ScrollBarThickness = 6,
+		ScrollBarImageColor3 = B.accent,
+		AutomaticCanvasSize = Enum.AutomaticSize.Y,
+		CanvasSize = UDim2.new(),
+		BorderSizePixel = 0,
+		Parent = o,
+	}, { new("UIListLayout", { Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder }), U.pad(4) })
+	local W, total = {}, 0
+	for _, key in ipairs(Config.RarityOrder) do
+		W[key] = B.weights and B.weights[key] or Config.Rarities[key].weight
+		total += W[key]
+	end
+	local n = 0
+	for i = #Config.RarityOrder, 1, -1 do
+		local key = Config.RarityOrder[i]
+		local r = Config.Rarities[key]
+		local drones = {}
+		for _, def in ipairs(B.pool) do
+			if def.rarity == key then
+				table.insert(drones, def)
+			end
+		end
+		if #drones > 0 then
+			local rarityPct = W[key] / total * 100
+			n += 1
+			local head = new("Frame", {
+				Size = UDim2.new(1, 0, 0, 26),
+				BackgroundColor3 = r.color,
+				BackgroundTransparency = 0.7,
+				LayoutOrder = n,
+				Parent = list,
+			}, { U.corner(6) })
+			local hl = new("TextLabel", {
+				Position = UDim2.fromOffset(10, 0),
+				Size = UDim2.new(0.6, 0, 1, 0),
+				BackgroundTransparency = 1,
+				Font = Enum.Font.FredokaOne,
+				Text = ("%s  •  %d drone%s"):format(r.label, #drones, #drones == 1 and "" or "s"),
+				TextSize = 16,
+				TextColor3 = C(255, 255, 255),
+				TextXAlignment = Enum.TextXAlignment.Left,
+				Parent = head,
+			}, { U.textStroke(C(0, 0, 0), 1.5) })
+			new("TextLabel", {
+				AnchorPoint = Vector2.new(1, 0),
+				Position = UDim2.new(1, -10, 0, 0),
+				Size = UDim2.new(0.4, 0, 1, 0),
+				BackgroundTransparency = 1,
+				Font = Enum.Font.GothamBlack,
+				Text = oddsText(rarityPct),
+				TextSize = 15,
+				TextColor3 = C(255, 255, 255),
+				TextXAlignment = Enum.TextXAlignment.Right,
+				Parent = head,
+			}, { U.textStroke(C(0, 0, 0), 1.5) })
+			if r.rainbow then
+				rainbowify(hl)
+			end
+			-- дроны редкости: сетка по 3 в ряд
+			n += 1
+			local grid = new("Frame", {
+				Size = UDim2.new(1, 0, 0, 0),
+				AutomaticSize = Enum.AutomaticSize.Y,
+				BackgroundTransparency = 1,
+				LayoutOrder = n,
+				Parent = list,
+			}, { new("UIGridLayout", { CellSize = UDim2.new(1 / 3, -4, 0, 24), CellPadding = UDim2.fromOffset(6, 4), SortOrder = Enum.SortOrder.LayoutOrder }) })
+			for j, def in ipairs(drones) do
+				local cell = new("Frame", {
+					BackgroundColor3 = B.panel,
+					LayoutOrder = j,
+					Parent = grid,
+				}, { U.corner(6), U.stroke(r.color, 1, 0.6) })
+				new("TextLabel", {
+					Position = UDim2.fromOffset(8, 0),
+					Size = UDim2.new(1, -86, 1, 0),
+					BackgroundTransparency = 1,
+					Font = Enum.Font.GothamBold,
+					Text = def.name,
+					TextSize = 13,
+					TextTruncate = Enum.TextTruncate.AtEnd,
+					TextColor3 = C(235, 238, 245),
+					TextXAlignment = Enum.TextXAlignment.Left,
+					Parent = cell,
+				})
+				new("TextLabel", {
+					AnchorPoint = Vector2.new(1, 0),
+					Position = UDim2.new(1, -8, 0, 0),
+					Size = UDim2.fromOffset(76, 24),
+					BackgroundTransparency = 1,
+					Font = Enum.Font.GothamBlack,
+					Text = oddsText(rarityPct / #drones),
+					TextSize = 13,
+					TextColor3 = r.rainbow and C(255, 255, 255) or r.color,
+					TextXAlignment = Enum.TextXAlignment.Right,
+					Parent = cell,
+				})
+			end
+		end
+	end
+	-- гарант и округление
+	local notes = {}
+	for _, rule in ipairs(B.pity) do
+		local label = Config.Rarities[rule.rarity].label
+		label = label:sub(1, 1) .. label:sub(2):lower()
+		local top = Config.Rarities[rule.rarity].order == #Config.RarityOrder
+		table.insert(notes, ("%s%s within %d pulls"):format(label, top and "" or " or better", rule.pulls))
+	end
+	new("TextLabel", {
+		Position = UDim2.new(0, 20, 1, -50),
+		Size = UDim2.new(1, -40, 0, 40),
+		BackgroundTransparency = 1,
+		Font = Enum.Font.GothamBold,
+		Text = "Guaranteed: " .. table.concat(notes, " • ") .. ".\nProbabilities are rounded; the total of the displayed probabilities may not equal exactly 100%.",
+		TextSize = 12,
+		TextWrapped = true,
+		TextColor3 = T.Muted,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Parent = o,
+	})
+	return o
 end
 
 -- окно гачи для баннера B (обычная «Лаборатория дронов» или хэллоуинский «Тыквенный котёл»); g — его состояние
@@ -2658,7 +2843,7 @@ local function buildGacha(g, B)
 		BackgroundColor3 = B.dark,
 		Parent = left,
 	}, { U.corner(12), U.pad(10), new("UIListLayout", { Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder }) })
-	new("TextLabel", {
+	local ratesTitle = new("TextLabel", {
 		Size = UDim2.new(1, 0, 0, 18),
 		BackgroundTransparency = 1,
 		Font = Enum.Font.GothamBlack,
@@ -2712,6 +2897,41 @@ local function buildGacha(g, B)
 		if r.rainbow then
 			rainbowify(lbl)
 			rainbowify(dot)
+		end
+	end
+
+	-- все дроны с точными шансами (правила Roblox о платных случайных предметах: каждый исход и его шанс)
+	local oddsBtn = button({
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, 0, 0, -2),
+		Size = UDim2.fromOffset(118, 22),
+		BackgroundColor3 = B.accent,
+		BackgroundTransparency = 0.75,
+		Font = Enum.Font.GothamBlack,
+		Text = "ALL DRONES ›",
+		TextSize = 12,
+		TextColor3 = C(255, 255, 255),
+		Parent = ratesTitle,
+	}, function()
+		g.toggleOdds(true)
+	end)
+	U.corner(6).Parent = oddsBtn
+	U.stroke(B.accent, 1.2, 0.3).Parent = oddsBtn
+	g.odds = buildOdds(win, B, function()
+		g.toggleOdds(false)
+	end)
+	g.toggleOdds = function(show)
+		local o = g.odds
+		o.Visible = true
+		U.tween(o, 0.22, { GroupTransparency = show and 0 or 1 })
+		U.tween(o.Scale, 0.22, { Scale = show and 1 or 0.96 }, show and Enum.EasingStyle.Back or Enum.EasingStyle.Quad)
+		g.oddsShown = show
+		if not show then
+			task.delay(0.23, function()
+				if not g.oddsShown then
+					o.Visible = false
+				end
+			end)
 		end
 	end
 
@@ -3064,6 +3284,11 @@ function UI.OpenGacha(banner)
 		end
 	end
 	local g = BANNERS[banner or "main"].state
+	if g.odds then
+		g.oddsShown = false
+		g.odds.Visible = false
+		g.odds.GroupTransparency = 1
+	end
 	openWindow(g.win, g.scale)
 end
 
